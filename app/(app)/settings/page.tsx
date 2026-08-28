@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getSettings, parseTariffs, tariffsToText } from "@/lib/settings";
 import { updateSettings } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
+import { ClearDataButton } from "./ClearDataButton";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,16 @@ export default async function SettingsPage() {
 
         <SaveButton />
       </form>
+
+      <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720, borderColor: "var(--bad)" }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--bad)", fontWeight: 700, marginBottom: 6 }}>
+          Опасная зона
+        </div>
+        <p className="mut" style={{ fontSize: 13, margin: "0 0 14px" }}>
+          Удалить все демо-данные, чтобы начать работу школы с чистого листа. Логины и настройки останутся.
+        </p>
+        <ClearDataButton />
+      </div>
     </>
   );
 }

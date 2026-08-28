@@ -42,6 +42,23 @@ export async function updateSettings(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// Очистка всех данных (кроме логинов и настроек). Только для администратора.
+export async function clearAllData(confirm: string) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Только для администратора");
+  if (confirm !== "ОЧИСТИТЬ") throw new Error("Подтверждение не совпадает");
+
+  await prisma.student.deleteMany(); // каскадом: оплаты, абонементы, посещаемость, оценки
+  await prisma.lesson.deleteMany();
+  await prisma.lead.deleteMany(); // каскадом: активности лидов
+  await prisma.group.deleteMany();
+  await prisma.teacher.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await logAudit("DELETE", "База данных", `Полная очистка данных (${session.user?.name ?? "админ"})`);
+
+  revalidatePath("/", "layout");
+}
+
 const str = (v: FormDataEntryValue | null) => (v == null ? "" : String(v).trim());
 const int = (v: FormDataEntryValue | null) => {
   const n = parseInt(String(v ?? "").replace(/\s/g, ""), 10);
