@@ -1,0 +1,147 @@
+// МатАкадемия CRM — схема базы данных
+// PostgreSQL — единая СУБД для локальной разработки и облака (Neon/Vercel).
+// DATABASE_URL — рабочее подключение (в облаке — пул PgBouncer).
+// DIRECT_URL — прямое подключение для миграций (в облаке; локально совпадает с DATABASE_URL).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Пользователи системы (вход + роли)
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("MANAGER") // ADMIN | MANAGER | TEACHER
+  teacher      Teacher?
+  createdAt    DateTime @default(now())
+}
+
+// Преподаватели
+model Teacher {
+  id        String   @id @default(cuid())
+  name      String
+  specialty String
+  phone     String?
+  color     String   @default("#3A5AE0")
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  groups    Group[]
+  createdAt DateTime @default(now())
+}
+
+// Учебные группы
+model Group {
+  id        String    @id @default(cuid())
+  name      String
+  level     String    @default("")
+  capacity  Int       @default(12)
+  color     String    @default("#3A5AE0")
+  teacherId String?
+  teacher   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  students  Student[]
+  lessons   Lesson[]
+  createdAt DateTime  @default(now())
+}
+
+// Ученики
+model Student {
+  id            String         @id @default(cuid())
+  name          String
+  phone         String?
+  grade         String?
+  parentName    String?
+  parentPhone   String?
+  status        String         @default("ACTIVE") // ACTIVE | PAUSED | LEFT
+  balance       Int            @default(0) // < 0 — задолженность (в тенге)
+  attendance    Int            @default(90) // % посещаемости
+  groupId       String?
+  group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  payments          Payment[]
+  subscriptions     Subscription[]
+  attendanceRecords Attendance[]
+  createdAt         DateTime       @default(now())
+}
+
+// Абонементы
+model Subscription {
+  id        String    @id @default(cuid())
+  studentId String
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  plan      String
+  months    Int       @default(1)
+  price     Int       @default(0)
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  status    String    @default("ACTIVE")
+}
+
+// Расписание — слот занятия для группы
+model Lesson {
+  id         String       @id @default(cuid())
+  groupId    String
+  group      Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int // 1 = Пн ... 6 = Сб
+  startTime  String // "16:00"
+  room       String       @default("Каб. 1")
+  attendance Attendance[]
+}
+
+// Посещаемость — отметка ученика на конкретную дату занятия
+model Attendance {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime // дата конкретного занятия
+  present   Boolean  @default(true)
+
+  @@unique([lessonId, studentId, date])
+}
+
+// Лиды / воронка продаж
+model Lead {
+  id         String         @id @default(cuid())
+  name       String // контакт (родитель)
+  childName  String?
+  phone      String?
+  grade      String?
+  subject    String?
+  source     String? // Instagram, 2ГИС, Сайт, Рекомендация...
+  stage      String         @default("NEW") // NEW | CONTACTED | TRIAL | INVOICED | WON | LOST
+  note       String?
+  activities LeadActivity[]
+  createdAt  DateTime       @default(now())
+}
+
+// Активности по лиду: звонок, задача, заметка
+model LeadActivity {
+  id        String    @id @default(cuid())
+  leadId    String
+  lead      Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  type      String    @default("NOTE") // CALL | TASK | NOTE
+  text      String
+  dueDate   DateTime?
+  done      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+}
+
+// Оплаты
+model Payment {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  purpose   String
+  method    String?  // Kaspi, Карта, Наличные
+  amount    Int
+  status    String   @default("PAID") // PAID | PENDING | OVERDUE
+  date      DateTime @default(now())
+}
