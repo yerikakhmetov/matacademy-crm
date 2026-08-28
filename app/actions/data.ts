@@ -70,6 +70,12 @@ export async function updateStudent(id: string, formData: FormData) {
   revalidatePath(`/students/${id}`);
 }
 
+export async function unlinkTelegram(id: string) {
+  await assertEditor();
+  await prisma.student.update({ where: { id }, data: { telegramChatId: null } });
+  revalidatePath(`/students/${id}`);
+}
+
 export async function deleteStudent(id: string) {
   await assertEditor();
   const st = await prisma.student.findUnique({ where: { id }, select: { name: true } });

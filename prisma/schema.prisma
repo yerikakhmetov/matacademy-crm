@@ -59,9 +59,10 @@ model Student {
   grade         String?
   parentName    String?
   parentPhone   String?
-  status        String         @default("ACTIVE") // ACTIVE | PAUSED | LEFT
-  balance       Int            @default(0) // < 0 — задолженность (в тенге)
-  attendance    Int            @default(90) // % посещаемости
+  status         String        @default("ACTIVE") // ACTIVE | PAUSED | LEFT
+  balance        Int           @default(0) // < 0 — задолженность (в тенге)
+  attendance     Int           @default(90) // % посещаемости
+  telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   groupId       String?
   group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
   payments          Payment[]

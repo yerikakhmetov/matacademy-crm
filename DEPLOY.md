@@ -93,6 +93,34 @@ git add -A && git commit -m "..." && git push
 
 ---
 
+## Авто-напоминания в Telegram (необязательно)
+
+Система умеет сама отправлять родителям напоминания об оплате и об окончании абонемента
+через Telegram-бота — бесплатно. Настройка (~10 минут):
+
+1. **Создайте бота**: напишите [@BotFather](https://t.me/BotFather) → `/newbot` → задайте имя.
+   Получите **токен** (вида `123456:ABC-...`) и **username** бота (например `matacademy_bot`).
+2. **Добавьте переменные** в Vercel (Settings → Environment Variables):
+   - `TELEGRAM_BOT_TOKEN` — токен от BotFather
+   - `TELEGRAM_BOT_USERNAME` — username бота без `@`
+   - `CRON_SECRET` — случайная строка (`openssl rand -hex 16`)
+   - `TELEGRAM_ADMIN_CHAT_ID` — ваш chat id для ежедневной сводки (узнать у [@userinfobot](https://t.me/userinfobot)); можно оставить пустым
+   - `TELEGRAM_WEBHOOK_SECRET` — случайная строка (для защиты вебхука)
+3. **Подключите вебхук** (один раз, чтобы бот ловил «Старт» родителей). Выполните в терминале,
+   подставив токен, ваш домен и секрет:
+   ```bash
+   curl "https://api.telegram.org/bot<ТОКЕН>/setWebhook?url=https://crm.matacademy.kz/api/telegram/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
+   ```
+4. **Готово.** Теперь в карточке каждого ученика есть кнопка «Открыть в Telegram» / ссылка —
+   отправьте её родителю, он нажмёт «Старт» и подпишется. Рассылка идёт автоматически каждый
+   день в 09:00 (Алматы) через Vercel Cron. Проверить вручную:
+   ```bash
+   curl "https://crm.matacademy.kz/api/cron/reminders?secret=<CRON_SECRET>"
+   ```
+
+Без этих переменных приложение работает как обычно — просто без авто-рассылки
+(напоминания остаются доступны вручную на странице «Напоминания» с кнопкой WhatsApp).
+
 ## Локальная разработка (PostgreSQL)
 
 Проект использует PostgreSQL и локально. Самый простой способ — Docker:

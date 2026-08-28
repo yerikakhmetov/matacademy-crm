@@ -10,6 +10,7 @@ import { StudentForm } from "../StudentForm";
 import { PaymentForm } from "../../payments/PaymentForm";
 import { SubscriptionForm } from "./SubscriptionForm";
 import { DeleteStudentButton } from "./DeleteStudentButton";
+import { TelegramLink } from "./TelegramLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
 
@@ -200,6 +201,25 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               })}
             </div>
           </div>
+
+          {editor && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Telegram-уведомления</h3>
+                <span className={`chip ${student.telegramChatId ? "c-ok" : "c-mut"}`}>
+                  <span className="d" />
+                  {student.telegramChatId ? "Подключён" : "Не подключён"}
+                </span>
+              </div>
+              <div style={{ padding: 18 }}>
+                <TelegramLink
+                  studentId={student.id}
+                  linked={!!student.telegramChatId}
+                  botUsername={process.env.TELEGRAM_BOT_USERNAME ?? null}
+                />
+              </div>
+            </div>
+          )}
 
           {editor && (
             <div className="card" style={{ padding: 18 }}>
