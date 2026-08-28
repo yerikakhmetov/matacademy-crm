@@ -7,6 +7,7 @@ import { Icon } from "./Icon";
 const TITLES: Record<string, string> = {
   "/dashboard": "Дашборд",
   "/reports": "Отчёты и аналитика",
+  "/audit": "История изменений",
   "/students": "Ученики",
   "/groups": "Группы",
   "/schedule": "Расписание",

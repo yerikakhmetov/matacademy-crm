@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { logAudit } from "@/lib/audit";
+import { money } from "@/lib/format";
 
 async function assertEditor() {
   const session = await auth();
@@ -31,7 +33,7 @@ export async function recalcBalance(studentId: string) {
 // ---------- Ученики ----------
 export async function createStudent(formData: FormData) {
   await assertEditor();
-  await prisma.student.create({
+  const created = await prisma.student.create({
     data: {
       name: str(formData.get("name")),
       grade: str(formData.get("grade")) || null,
@@ -43,6 +45,7 @@ export async function createStudent(formData: FormData) {
       attendance: 90,
     },
   });
+  await logAudit("CREATE", "Ученик", created.name);
   revalidatePath("/students");
   revalidatePath("/dashboard");
 }
@@ -62,13 +65,16 @@ export async function updateStudent(id: string, formData: FormData) {
       status: str(formData.get("status")) || "ACTIVE",
     },
   });
+  await logAudit("UPDATE", "Ученик", str(formData.get("name")));
   revalidatePath("/students");
   revalidatePath(`/students/${id}`);
 }
 
 export async function deleteStudent(id: string) {
   await assertEditor();
+  const st = await prisma.student.findUnique({ where: { id }, select: { name: true } });
   await prisma.student.delete({ where: { id } });
+  await logAudit("DELETE", "Ученик", st?.name ?? id);
   revalidatePath("/students");
 }
 
@@ -84,6 +90,7 @@ export async function createGroup(formData: FormData) {
       teacherId: str(formData.get("teacherId")) || null,
     },
   });
+  await logAudit("CREATE", "Группа", str(formData.get("name")));
   revalidatePath("/groups");
 }
 
@@ -98,6 +105,7 @@ export async function createTeacher(formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
     },
   });
+  await logAudit("CREATE", "Преподаватель", str(formData.get("name")));
   revalidatePath("/teachers");
 }
 
@@ -115,6 +123,7 @@ export async function createLead(formData: FormData) {
       stage: "NEW",
     },
   });
+  await logAudit("CREATE", "Лид", str(formData.get("name")));
   revalidatePath("/leads");
   revalidatePath("/dashboard");
 }
@@ -164,7 +173,7 @@ export async function convertLeadToStudent(leadId: string, formData: FormData) {
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) throw new Error("Лид не найден");
 
-  await prisma.student.create({
+  const newStudent = await prisma.student.create({
     data: {
       name: str(formData.get("name")) || lead.childName || lead.name,
       grade: str(formData.get("grade")) || lead.grade || null,
@@ -176,6 +185,7 @@ export async function convertLeadToStudent(leadId: string, formData: FormData) {
       attendance: 100,
     },
   });
+  await logAudit("CREATE", "Ученик", `${newStudent.name} (из лида)`);
   await prisma.lead.update({ where: { id: leadId }, data: { stage: "WON" } });
 
   revalidatePath("/leads");
@@ -206,6 +216,8 @@ export async function createSubscription(studentId: string, formData: FormData) 
     await recalcBalance(studentId);
   }
 
+  const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
+  await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}`);
   revalidatePath(`/students/${studentId}`);
   revalidatePath("/students");
   revalidatePath("/dashboard");
@@ -231,21 +243,24 @@ export async function createLesson(formData: FormData) {
   await assertEditor();
   const groupId = str(formData.get("groupId"));
   if (!groupId) throw new Error("Выберите группу");
-  await prisma.lesson.create({
+  const lesson = await prisma.lesson.create({
     data: {
       groupId,
       dayOfWeek: int(formData.get("dayOfWeek")) || 1,
       startTime: str(formData.get("startTime")) || "16:00",
       room: str(formData.get("room")) || "Каб. 1",
     },
+    include: { group: { select: { name: true } } },
   });
+  await logAudit("CREATE", "Занятие", `${lesson.group.name} · ${lesson.startTime}`);
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
 }
 
 export async function deleteLesson(id: string) {
   await assertEditor();
-  await prisma.lesson.delete({ where: { id } });
+  const lesson = await prisma.lesson.delete({ where: { id }, include: { group: { select: { name: true } } } });
+  await logAudit("DELETE", "Занятие", `${lesson.group.name} · ${lesson.startTime}`);
   revalidatePath("/schedule");
 }
 
@@ -298,15 +313,18 @@ export async function createPayment(formData: FormData) {
   const studentId = str(formData.get("studentId"));
   if (!studentId) throw new Error("Выберите ученика");
   const amount = int(formData.get("amount"));
+  const status = str(formData.get("status")) || "PAID";
   await prisma.payment.create({
     data: {
       studentId,
       purpose: str(formData.get("purpose")) || "Оплата",
       method: str(formData.get("method")) || null,
       amount,
-      status: str(formData.get("status")) || "PAID",
+      status,
     },
   });
+  const st0 = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
+  await logAudit("CREATE", status === "PAID" ? "Оплата" : "Счёт", `${st0?.name ?? ""} · ${money(amount)}`);
   // Задолженность считается автоматически из неоплаченных счетов
   await recalcBalance(studentId);
   revalidatePath("/payments");
@@ -321,7 +339,9 @@ export async function markPaid(paymentId: string, method?: string) {
   const payment = await prisma.payment.update({
     where: { id: paymentId },
     data: { status: "PAID", method: method || undefined, date: new Date() },
+    include: { student: { select: { name: true } } },
   });
+  await logAudit("UPDATE", "Оплата", `${payment.student.name} · ${money(payment.amount)} · оплачен`);
   await recalcBalance(payment.studentId);
   revalidatePath("/payments");
   revalidatePath("/students");
@@ -331,7 +351,8 @@ export async function markPaid(paymentId: string, method?: string) {
 
 export async function deletePayment(paymentId: string) {
   await assertEditor();
-  const payment = await prisma.payment.delete({ where: { id: paymentId } });
+  const payment = await prisma.payment.delete({ where: { id: paymentId }, include: { student: { select: { name: true } } } });
+  await logAudit("DELETE", "Оплата", `${payment.student.name} · ${money(payment.amount)}`);
   await recalcBalance(payment.studentId);
   revalidatePath("/payments");
   revalidatePath("/students");

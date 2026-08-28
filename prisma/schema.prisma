@@ -134,6 +134,19 @@ model LeadActivity {
   createdAt DateTime  @default(now())
 }
 
+// Журнал изменений (аудит)
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  userName  String
+  action    String // CREATE | UPDATE | DELETE
+  entity    String // Ученик, Оплата, Лид, Группа, Абонемент, Занятие, Посещаемость
+  label     String // имя/описание объекта
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // Оплаты
 model Payment {
   id        String   @id @default(cuid())

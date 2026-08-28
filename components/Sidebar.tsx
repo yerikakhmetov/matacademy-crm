@@ -7,12 +7,13 @@ import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials } from "@/lib/format";
 
-type Item = { section: string } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads" };
+type Item = { section: string } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean };
 
 const NAV_FULL: Item[] = [
   { section: "Обзор" },
   { href: "/dashboard", icon: "dashboard", label: "Дашборд" },
   { href: "/reports", icon: "chart", label: "Отчёты" },
+  { href: "/audit", icon: "clock", label: "История", adminOnly: true },
   { section: "Учебный процесс" },
   { href: "/students", icon: "students", label: "Ученики", badgeKey: "students" },
   { href: "/groups", icon: "groups", label: "Группы" },
@@ -42,7 +43,9 @@ export function Sidebar({
   counts: { students: number; leads: number };
 }) {
   const pathname = usePathname();
-  const nav = user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL;
+  const nav = (user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL).filter(
+    (i) => !("adminOnly" in i && i.adminOnly) || user.role === "ADMIN"
+  );
   const closeNav = () => document.documentElement.classList.remove("nav-open");
 
   return (
