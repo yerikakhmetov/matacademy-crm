@@ -1,7 +1,7 @@
 import type { Group } from "@prisma/client";
 import { DAYS } from "@/lib/format";
 
-export function LessonForm({ groups }: { groups: Group[] }) {
+export function LessonForm({ groups, rooms }: { groups: Group[]; rooms: string[] }) {
   return (
     <>
       <div className="field">
@@ -35,7 +35,13 @@ export function LessonForm({ groups }: { groups: Group[] }) {
       </div>
       <div className="field">
         <label>Кабинет</label>
-        <input name="room" defaultValue="Каб. 1" />
+        <select name="room" defaultValue={rooms[0] ?? "Каб. 1"}>
+          {(rooms.length ? rooms : ["Каб. 1"]).map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
       </div>
     </>
   );

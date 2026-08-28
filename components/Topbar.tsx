@@ -17,9 +17,10 @@ const TITLES: Record<string, string> = {
   "/leads": "Лиды и продажи",
   "/payments": "Оплаты и абонементы",
   "/reminders": "Напоминания об оплате",
+  "/settings": "Настройки школы",
 };
 
-export function Topbar() {
+export function Topbar({ branch }: { branch?: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -84,7 +85,7 @@ export function Topbar() {
       <div className="top-actions">
         <div className="filter">
           <Icon name="pin" size={15} />
-          Филиал: Абая
+          Филиал: {branch || "Абая"}
         </div>
         <button className="icon-btn" onClick={toggle} title="Тема">
           <Icon name="moon" />

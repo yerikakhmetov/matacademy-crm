@@ -7,7 +7,7 @@ import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials } from "@/lib/format";
 
-type Item = { section: string } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean };
+type Item = { section: string; adminOnly?: boolean } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean };
 
 const NAV_FULL: Item[] = [
   { section: "Обзор" },
@@ -25,6 +25,8 @@ const NAV_FULL: Item[] = [
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
   { href: "/payments", icon: "payments", label: "Оплаты" },
   { href: "/reminders", icon: "bell", label: "Напоминания" },
+  { section: "Система", adminOnly: true },
+  { href: "/settings", icon: "pin", label: "Настройки", adminOnly: true },
 ];
 
 // Для учителя — только его разделы

@@ -153,6 +153,17 @@ model LeadActivity {
   createdAt DateTime  @default(now())
 }
 
+// Настройки школы (единственная запись с id = "main")
+model Settings {
+  id         String   @id @default("main")
+  schoolName String   @default("МатАкадемия")
+  address    String   @default("г. Алматы, ул. Абая")
+  branches   String   @default("Абая") // через запятую
+  rooms      String   @default("Каб. 1, Каб. 2, Каб. 3") // через запятую
+  tariffs    String   @default("[]") // JSON: [{plan, months, price}]
+  updatedAt  DateTime @updatedAt
+}
+
 // Журнал изменений (аудит)
 model AuditLog {
   id        String   @id @default(cuid())

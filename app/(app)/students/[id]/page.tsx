@@ -13,6 +13,7 @@ import { DeleteStudentButton } from "./DeleteStudentButton";
 import { TelegramLink } from "./TelegramLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
+import { getSettings, parseTariffs } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
     }),
     prisma.group.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const tariffs = parseTariffs((await getSettings()).tariffs);
 
   if (!student) notFound();
 
@@ -62,7 +64,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               <StudentForm groups={groups} values={student} />
             </ModalButton>
             <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-              <SubscriptionForm />
+              <SubscriptionForm tariffs={tariffs} />
             </ModalButton>
             <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
               <PaymentForm students={[student]} fixedStudentId={student.id} />

@@ -6,11 +6,40 @@ import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
+import { tariffsFromText } from "@/lib/settings";
 
 async function assertEditor() {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
   if (!canEdit(session.user.role)) throw new Error("Недостаточно прав");
+}
+
+// ---------- Настройки школы ----------
+export async function updateSettings(formData: FormData) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Только для администратора");
+  const tariffs = tariffsFromText(String(formData.get("tariffs") ?? ""));
+  await prisma.settings.upsert({
+    where: { id: "main" },
+    update: {
+      schoolName: String(formData.get("schoolName") ?? "").trim() || "МатАкадемия",
+      address: String(formData.get("address") ?? "").trim(),
+      branches: String(formData.get("branches") ?? "").trim() || "Абая",
+      rooms: String(formData.get("rooms") ?? "").trim() || "Каб. 1",
+      tariffs: JSON.stringify(tariffs),
+    },
+    create: {
+      id: "main",
+      schoolName: String(formData.get("schoolName") ?? "").trim() || "МатАкадемия",
+      address: String(formData.get("address") ?? "").trim(),
+      branches: String(formData.get("branches") ?? "").trim() || "Абая",
+      rooms: String(formData.get("rooms") ?? "").trim() || "Каб. 1",
+      tariffs: JSON.stringify(tariffs),
+    },
+  });
+  await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
+  revalidatePath("/settings");
+  revalidatePath("/", "layout");
 }
 
 const str = (v: FormDataEntryValue | null) => (v == null ? "" : String(v).trim());

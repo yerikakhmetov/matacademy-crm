@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canSeeMoney } from "@/lib/roles";
 import { money, PAYMENT_STATUS } from "@/lib/format";
+import { getSettings } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { PrintButton } from "./PrintButton";
 
@@ -20,6 +21,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const payment = await prisma.payment.findUnique({ where: { id }, include: { student: { include: { group: true } } } });
   if (!payment) notFound();
+  const settings = await getSettings();
 
   const ps = PAYMENT_STATUS[payment.status] ?? PAYMENT_STATUS.PAID;
   const number = `${payment.date.getFullYear()}-${payment.id.slice(-6).toUpperCase()}`;
@@ -40,8 +42,8 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               <Icon name="book" size={24} style={{ color: "#fff" }} />
             </div>
             <div>
-              <b>МатАкадемия</b>
-              <span>Офлайн-школа математики · г. Алматы, ул. Абая</span>
+              <b>{settings.schoolName}</b>
+              <span>{settings.address || "Офлайн-школа математики"}</span>
             </div>
           </div>
           <div className="receipt-num">

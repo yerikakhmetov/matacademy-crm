@@ -7,6 +7,7 @@ import { DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { LessonForm } from "./LessonForm";
 import { createLesson } from "@/app/actions/data";
+import { getSettings, parseList } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export default async function SchedulePage() {
         </div>
         {editor && (
           <ModalButton label="Добавить занятие" title="Новое занятие" action={createLesson}>
-            <LessonForm groups={groups} />
+            <LessonForm groups={groups} rooms={parseList((await getSettings()).rooms)} />
           </ModalButton>
         )}
       </div>
