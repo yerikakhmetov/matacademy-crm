@@ -42,8 +42,11 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const nav = user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL;
+  const closeNav = () => document.documentElement.classList.remove("nav-open");
 
   return (
+    <>
+    <div className="nav-scrim" onClick={closeNav} />
     <aside className="sidebar">
       <div className="brand">
         <div className="logo">
@@ -64,6 +67,7 @@ export function Sidebar({
           <Link
             key={item.href}
             href={item.href}
+            onClick={closeNav}
             className={`nav-item ${pathname.startsWith(item.href) ? "active" : ""}`}
           >
             <Icon name={item.icon} />
@@ -86,5 +90,6 @@ export function Sidebar({
         </form>
       </div>
     </aside>
+    </>
   );
 }
