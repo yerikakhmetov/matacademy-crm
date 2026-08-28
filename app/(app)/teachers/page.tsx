@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { isTeacher } from "@/lib/teacher";
 import { initials, avatarColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { TeacherForm } from "./TeacherForm";
@@ -10,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function TeachersPage() {
   const session = await auth();
+  if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = canEdit(session?.user?.role);
 
   const teachers = await prisma.teacher.findMany({

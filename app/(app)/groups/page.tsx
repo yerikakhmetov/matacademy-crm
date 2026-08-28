@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
 import { createGroup } from "@/app/actions/data";
@@ -11,9 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function GroupsPage() {
   const session = await auth();
   const editor = canEdit(session?.user?.role);
+  const teacher = isTeacher(session?.user?.role);
+  const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
 
   const [groups, teachers] = await Promise.all([
     prisma.group.findMany({
+      where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
       include: { teacher: true, _count: { select: { students: true } }, lessons: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -27,7 +31,7 @@ export default async function GroupsPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Группы</h1>
+          <h1>{teacher ? "Мои группы" : "Группы"}</h1>
           <p>
             {groups.length} групп · средняя наполняемость {avgFill}%
           </p>

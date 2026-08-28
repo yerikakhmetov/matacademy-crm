@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canSeeMoney } from "@/lib/roles";
+import { isTeacher } from "@/lib/teacher";
 import { money } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
 import { Icon } from "@/components/Icon";
@@ -23,6 +25,7 @@ const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
 
 export default async function ReportsPage() {
   const session = await auth();
+  if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const money$ = canSeeMoney(session?.user?.role);
 
   const months = lastMonths(6);

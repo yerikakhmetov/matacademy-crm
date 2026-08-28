@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { LessonForm } from "./LessonForm";
@@ -12,10 +13,13 @@ export const dynamic = "force-dynamic";
 export default async function SchedulePage() {
   const session = await auth();
   const editor = canEdit(session?.user?.role);
+  const teacher = isTeacher(session?.user?.role);
+  const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const groupWhere = teacher ? { teacherId: myTeacherId ?? "__none__" } : {};
 
   const [lessons, groups] = await Promise.all([
-    prisma.lesson.findMany({ include: { group: { include: { teacher: true } } } }),
-    prisma.group.findMany({ orderBy: { name: "asc" } }),
+    prisma.lesson.findMany({ where: { group: groupWhere }, include: { group: { include: { teacher: true } } } }),
+    prisma.group.findMany({ where: groupWhere, orderBy: { name: "asc" } }),
   ]);
 
   const times = Array.from(new Set(lessons.map((l) => l.startTime))).sort();

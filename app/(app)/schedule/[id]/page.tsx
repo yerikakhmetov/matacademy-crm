@@ -38,6 +38,10 @@ export default async function LessonPage({
   });
   if (!lesson) notFound();
 
+  // Отмечать посещаемость может админ/менеджер или учитель этой группы
+  const ownsLesson = lesson.group.teacher?.userId === session?.user?.id;
+  const canMark = editor || ownsLesson;
+
   const date = dateParam || recentDateForDay(lesson.dayOfWeek);
   const records = await prisma.attendance.findMany({
     where: { lessonId: id, date: new Date(date + "T00:00:00.000Z") },
@@ -77,7 +81,7 @@ export default async function LessonPage({
         lessonId={lesson.id}
         date={date}
         students={students}
-        editor={editor}
+        editor={canMark}
         marked={marked}
         weekday={lesson.dayOfWeek}
       />

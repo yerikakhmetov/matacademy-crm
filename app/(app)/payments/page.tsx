@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor, formatDate, PAYMENT_STATUS } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
@@ -26,6 +28,7 @@ function monthStart() {
 export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status = "all" } = await searchParams;
   const session = await auth();
+  if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = canEdit(session?.user?.role);
 
   await refreshOverdue(); // автопометка просроченных счетов

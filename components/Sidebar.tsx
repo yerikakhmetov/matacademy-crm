@@ -7,7 +7,9 @@ import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials } from "@/lib/format";
 
-const NAV = [
+type Item = { section: string } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads" };
+
+const NAV_FULL: Item[] = [
   { section: "Обзор" },
   { href: "/dashboard", icon: "dashboard", label: "Дашборд" },
   { href: "/reports", icon: "chart", label: "Отчёты" },
@@ -20,7 +22,16 @@ const NAV = [
   { section: "Продажи и деньги" },
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
   { href: "/payments", icon: "payments", label: "Оплаты" },
-] as const;
+];
+
+// Для учителя — только его разделы
+const NAV_TEACHER: Item[] = [
+  { section: "Мой кабинет" },
+  { href: "/dashboard", icon: "dashboard", label: "Мои занятия" },
+  { href: "/groups", icon: "groups", label: "Мои группы" },
+  { href: "/schedule", icon: "schedule", label: "Расписание" },
+  { href: "/journal", icon: "check", label: "Журнал" },
+];
 
 export function Sidebar({
   user,
@@ -30,6 +41,8 @@ export function Sidebar({
   counts: { students: number; leads: number };
 }) {
   const pathname = usePathname();
+  const nav = user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL;
+
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -42,7 +55,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {NAV.map((item, i) =>
+      {nav.map((item, i) =>
         "section" in item ? (
           <div className="nav-label" key={"s" + i}>
             {item.section}
@@ -55,9 +68,7 @@ export function Sidebar({
           >
             <Icon name={item.icon} />
             {item.label}
-            {"badgeKey" in item && item.badgeKey && counts[item.badgeKey as "students" | "leads"] > 0 && (
-              <span className="badge">{counts[item.badgeKey as "students" | "leads"]}</span>
-            )}
+            {item.badgeKey && counts[item.badgeKey] > 0 && <span className="badge">{counts[item.badgeKey]}</span>}
           </Link>
         )
       )}

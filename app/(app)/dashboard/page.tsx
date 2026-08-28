@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { isTeacher } from "@/lib/teacher";
 import { Icon } from "@/components/Icon";
 import { money, initials, avatarColor, LEAD_STAGES } from "@/lib/format";
 import { refreshOverdue } from "@/app/actions/data";
+import { TeacherDashboard } from "./TeacherDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +15,11 @@ function monthStart() {
 }
 
 export default async function DashboardPage() {
+  const session = await auth();
+  if (isTeacher(session?.user?.role) && session?.user?.id) {
+    return <TeacherDashboard userId={session.user.id} name={session.user.name} />;
+  }
+
   await refreshOverdue(); // автопометка просроченных счетов
 
   const jsDay = new Date().getDay(); // 0=Вс..6=Сб

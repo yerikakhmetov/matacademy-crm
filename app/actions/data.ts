@@ -251,14 +251,19 @@ export async function deleteLesson(id: string) {
 
 // ---------- Посещаемость ----------
 export async function saveAttendance(lessonId: string, dateStr: string, formData: FormData) {
-  await assertEditor();
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
   const date = new Date(dateStr + "T00:00:00.000Z");
 
   const lesson = await prisma.lesson.findUnique({
     where: { id: lessonId },
-    include: { group: { include: { students: true } } },
+    include: { group: { include: { students: true, teacher: true } } },
   });
   if (!lesson) throw new Error("Занятие не найдено");
+
+  // Отмечать может админ/менеджер ИЛИ учитель, ведущий эту группу
+  const ownsLesson = lesson.group.teacher?.userId === session.user.id;
+  if (!canEdit(session.user.role) && !ownsLesson) throw new Error("Недостаточно прав");
 
   const students = lesson.group.students;
 

@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { isTeacher } from "@/lib/teacher";
 import { LEAD_STAGES } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { LeadForm } from "./LeadForm";
@@ -11,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
   const session = await auth();
+  if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = canEdit(session?.user?.role);
 
   const leads = await prisma.lead.findMany({

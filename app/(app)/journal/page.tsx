@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
+import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { initials, avatarColor } from "@/lib/format";
 import { JournalFilters } from "./JournalFilters";
 
@@ -21,7 +23,14 @@ function datesInMonth(year: number, month0: number, dayOfWeek: number): Date[] {
 export default async function JournalPage({ searchParams }: { searchParams: Promise<{ group?: string; month?: string }> }) {
   const sp = await searchParams;
 
-  const groups = await prisma.group.findMany({ orderBy: { name: "asc" } });
+  const session = await auth();
+  const teacher = isTeacher(session?.user?.role);
+  const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+
+  const groups = await prisma.group.findMany({
+    where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
+    orderBy: { name: "asc" },
+  });
   if (groups.length === 0) {
     return (
       <>

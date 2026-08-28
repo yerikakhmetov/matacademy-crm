@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isTeacher } from "@/lib/teacher";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, subStatus } from "@/lib/format";
@@ -17,6 +18,7 @@ export const dynamic = "force-dynamic";
 export default async function StudentDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
+  if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = canEdit(session?.user?.role);
 
   const [student, groups] = await Promise.all([
