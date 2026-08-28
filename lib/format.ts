@@ -68,3 +68,25 @@ export const ACTIVITY_TYPE: Record<string, { label: string; icon: string; cls: s
 };
 
 export const LEAD_SOURCES = ["Instagram", "2ГИС", "Сайт", "Реклама", "Рекомендация", "Другое"];
+
+// Типы оценок
+export const GRADE_TYPE: Record<string, string> = {
+  TEST: "Контрольная",
+  HOMEWORK: "Домашняя",
+  QUIZ: "Самостоятельная",
+  EXAM: "Экзамен",
+};
+
+// Цвет по проценту (для оценок и посещаемости)
+export function scoreColor(pct: number): string {
+  if (pct >= 85) return "var(--ok)";
+  if (pct >= 70) return "var(--warn)";
+  if (pct >= 50) return "var(--amber)";
+  return "var(--bad)";
+}
+
+export function gradeChipClass(pct: number): string {
+  if (pct >= 85) return "c-ok";
+  if (pct >= 70) return "c-warn";
+  return "c-bad";
+}

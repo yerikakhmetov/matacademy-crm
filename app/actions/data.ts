@@ -313,6 +313,51 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
   revalidatePath("/students");
 }
 
+// ---------- Оценки ----------
+// Ставить оценку может админ/менеджер или учитель группы ученика.
+async function assertCanGrade(studentId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  if (canEdit(session.user.role)) return session;
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    include: { group: { include: { teacher: true } } },
+  });
+  if (session.user.role === "TEACHER" && student?.group?.teacher?.userId === session.user.id) return session;
+  throw new Error("Недостаточно прав");
+}
+
+export async function addGrade(studentId: string, formData: FormData) {
+  const session = await assertCanGrade(studentId);
+  const score = int(formData.get("score"));
+  const maxScore = int(formData.get("maxScore")) || 100;
+  await prisma.grade.create({
+    data: {
+      studentId,
+      topic: str(formData.get("topic")) || "Оценка",
+      type: str(formData.get("type")) || "TEST",
+      score,
+      maxScore,
+      comment: str(formData.get("comment")) || null,
+      date: parseDate(formData.get("date")) ?? new Date(),
+      createdBy: session.user?.name ?? null,
+    },
+  });
+  await logAudit("CREATE", "Оценка", `${score}/${maxScore} · ${str(formData.get("topic"))}`);
+  revalidatePath("/grades");
+  revalidatePath(`/students/${studentId}`);
+}
+
+export async function deleteGrade(id: string) {
+  const grade = await prisma.grade.findUnique({ where: { id } });
+  if (!grade) return;
+  await assertCanGrade(grade.studentId);
+  await prisma.grade.delete({ where: { id } });
+  await logAudit("DELETE", "Оценка", `${grade.score}/${grade.maxScore} · ${grade.topic}`);
+  revalidatePath("/grades");
+  revalidatePath(`/students/${grade.studentId}`);
+}
+
 // ---------- Оплаты ----------
 export async function createPayment(formData: FormData) {
   await assertEditor();

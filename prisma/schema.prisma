@@ -68,7 +68,25 @@ model Student {
   payments          Payment[]
   subscriptions     Subscription[]
   attendanceRecords Attendance[]
+  grades            Grade[]
   createdAt         DateTime       @default(now())
+}
+
+// Оценки успеваемости
+model Grade {
+  id        String   @id @default(cuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  topic     String // за что (например «Контрольная: дроби»)
+  type      String   @default("TEST") // TEST | HOMEWORK | QUIZ | EXAM
+  score     Int
+  maxScore  Int      @default(100)
+  comment   String?
+  createdBy String? // имя выставившего
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
 }
 
 // Абонементы
