@@ -12,6 +12,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "user:set": "tsx scripts/set-password.ts",
+    "users:remove-demo": "tsx scripts/remove-demo-users.ts",
     "setup": "prisma migrate deploy && tsx prisma/seed.ts"
   },
   "dependencies": {
