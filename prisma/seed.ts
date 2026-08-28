@@ -31,16 +31,16 @@ async function main() {
 
   // --- Преподаватели ---
   const madina = await prisma.teacher.create({
-    data: { name: "Мадина Жумабекова", specialty: "Алгебра · Геометрия", phone: "+7 701 111 22 33", color: "#3A5AE0", userId: teacherUser.id },
+    data: { name: "Мадина Жумабекова", specialty: "Алгебра · Геометрия", phone: "+7 701 111 22 33", color: "#3A5AE0", userId: teacherUser.id, rateType: "PER_LESSON", rate: 3500 },
   });
   const erlan = await prisma.teacher.create({
-    data: { name: "Ерлан Сапаров", specialty: "ЕНТ · Математика", phone: "+7 701 222 33 44", color: "#2F9E44" },
+    data: { name: "Ерлан Сапаров", specialty: "ЕНТ · Математика", phone: "+7 701 222 33 44", color: "#2F9E44", rateType: "PER_LESSON", rate: 4000 },
   });
   const asel = await prisma.teacher.create({
-    data: { name: "Асель Кенжебекова", specialty: "Ментальный счёт", phone: "+7 701 333 44 55", color: "#7048E8" },
+    data: { name: "Асель Кенжебекова", specialty: "Ментальный счёт", phone: "+7 701 333 44 55", color: "#7048E8", rateType: "PER_STUDENT", rate: 5000 },
   });
   const bauyrzhan = await prisma.teacher.create({
-    data: { name: "Бауыржан Оразалы", specialty: "Олимпиадная математика", phone: "+7 701 444 55 66", color: "#C2255C" },
+    data: { name: "Бауыржан Оразалы", specialty: "Олимпиадная математика", phone: "+7 701 444 55 66", color: "#C2255C", rateType: "PERCENT", rate: 40 },
   });
 
   // --- Группы ---

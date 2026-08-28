@@ -27,6 +27,20 @@ export function TeacherForm() {
           </select>
         </div>
       </div>
+      <div className="grid2">
+        <div className="field">
+          <label>Тип оплаты</label>
+          <select name="rateType" defaultValue="PER_LESSON">
+            <option value="PER_LESSON">За урок</option>
+            <option value="PER_STUDENT">За ученика</option>
+            <option value="PERCENT">% от оплат учеников</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Ставка</label>
+          <input name="rate" type="number" defaultValue={0} placeholder="напр. 3000" />
+        </div>
+      </div>
     </>
   );
 }

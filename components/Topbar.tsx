@@ -17,6 +17,7 @@ const TITLES: Record<string, string> = {
   "/leads": "Лиды и продажи",
   "/payments": "Оплаты и абонементы",
   "/reminders": "Напоминания об оплате",
+  "/payroll": "Зарплата преподавателей",
   "/settings": "Настройки школы",
 };
 

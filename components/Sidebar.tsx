@@ -25,6 +25,7 @@ const NAV_FULL: Item[] = [
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
   { href: "/payments", icon: "payments", label: "Оплаты" },
   { href: "/reminders", icon: "bell", label: "Напоминания" },
+  { href: "/payroll", icon: "money", label: "Зарплата" },
   { section: "Система", adminOnly: true },
   { href: "/settings", icon: "pin", label: "Настройки", adminOnly: true },
 ];

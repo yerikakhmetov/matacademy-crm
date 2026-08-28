@@ -31,6 +31,8 @@ model Teacher {
   specialty String
   phone     String?
   color     String   @default("#3A5AE0")
+  rate      Int      @default(0) // ставка (тг за урок/ученика или % — по rateType)
+  rateType  String   @default("PER_LESSON") // PER_LESSON | PER_STUDENT | PERCENT
   userId    String?  @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups    Group[]

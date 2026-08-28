@@ -138,9 +138,23 @@ export async function createTeacher(formData: FormData) {
       specialty: str(formData.get("specialty")),
       phone: str(formData.get("phone")) || null,
       color: str(formData.get("color")) || "#3A5AE0",
+      rate: int(formData.get("rate")),
+      rateType: str(formData.get("rateType")) || "PER_LESSON",
     },
   });
   await logAudit("CREATE", "Преподаватель", str(formData.get("name")));
+  revalidatePath("/teachers");
+}
+
+// Изменить ставку преподавателя
+export async function updateTeacherRate(id: string, formData: FormData) {
+  await assertEditor();
+  await prisma.teacher.update({
+    where: { id },
+    data: { rate: int(formData.get("rate")), rateType: str(formData.get("rateType")) || "PER_LESSON" },
+  });
+  await logAudit("UPDATE", "Ставка преподавателя", `${int(formData.get("rate"))}`);
+  revalidatePath("/payroll");
   revalidatePath("/teachers");
 }
 

@@ -90,3 +90,10 @@ export function gradeChipClass(pct: number): string {
   if (pct >= 70) return "c-warn";
   return "c-bad";
 }
+
+// Типы ставки преподавателя
+export const RATE_TYPE: Record<string, { label: string; unit: string }> = {
+  PER_LESSON: { label: "За урок", unit: "₸/урок" },
+  PER_STUDENT: { label: "За ученика", unit: "₸/ученик" },
+  PERCENT: { label: "% от оплат", unit: "%" },
+};
