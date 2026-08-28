@@ -114,7 +114,17 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                           </span>
                         </td>
                         <td className="right money num">{money(p.amount)}</td>
-                        {editor && <td className="right">{p.status !== "PAID" && <MarkPaidButton paymentId={p.id} />}</td>}
+                        {editor && (
+                          <td className="right">
+                            {p.status === "PAID" ? (
+                              <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
+                                Квитанция
+                              </Link>
+                            ) : (
+                              <MarkPaidButton paymentId={p.id} />
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}

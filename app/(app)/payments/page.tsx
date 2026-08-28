@@ -140,7 +140,16 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                       {money(p.amount)}
                     </td>
                     {editor && (
-                      <td className="right">{p.status !== "PAID" && <MarkPaidButton paymentId={p.id} />}</td>
+                      <td className="right">
+                        {p.status === "PAID" ? (
+                          <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
+                            <Icon name="export" size={14} />
+                            Квитанция
+                          </Link>
+                        ) : (
+                          <MarkPaidButton paymentId={p.id} />
+                        )}
+                      </td>
                     )}
                   </tr>
                 );
