@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { collectReminders } from "@/lib/reminders";
 import { sendTelegram, telegramConfigured } from "@/lib/telegram";
+import { sendWhatsappTemplate, whatsappConfigured, normalizePhone } from "@/lib/whatsapp";
 import { refreshOverdue } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
@@ -20,29 +21,36 @@ export async function GET(req: NextRequest) {
   await refreshOverdue();
   const items = await collectReminders();
 
-  if (!telegramConfigured()) {
-    return Response.json({ ok: false, reason: "TELEGRAM_BOT_TOKEN не задан", reminders: items.length });
+  const tg = telegramConfigured();
+  const wa = whatsappConfigured();
+  if (!tg && !wa) {
+    return Response.json({ ok: false, reason: "Не настроен ни один канал (Telegram/WhatsApp)", reminders: items.length });
   }
 
-  // Персональные напоминания родителям (у кого привязан Telegram)
-  let sent = 0;
-  let unlinked = 0;
+  // Приоритет: Telegram (если привязан), иначе WhatsApp (если есть телефон и настроен)
+  let sentTelegram = 0;
+  let sentWhatsapp = 0;
+  let unreachable = 0;
   for (const it of items) {
-    if (it.chatId) {
-      const ok = await sendTelegram(it.chatId, it.message);
-      if (ok) sent++;
-    } else {
-      unlinked++;
+    if (tg && it.chatId) {
+      if (await sendTelegram(it.chatId, it.message)) sentTelegram++;
+      continue;
     }
+    const digits = normalizePhone(it.phone);
+    if (wa && digits) {
+      if (await sendWhatsappTemplate(digits, it.studentName, it.waDetail)) sentWhatsapp++;
+      continue;
+    }
+    unreachable++;
   }
 
-  // Сводка администратору школы
+  // Сводка администратору школы (в Telegram)
   const adminChat = process.env.TELEGRAM_ADMIN_CHAT_ID;
-  if (adminChat && items.length > 0) {
-    const lines = items.map((i) => `• ${i.short}${i.chatId ? "" : " (Telegram не привязан)"}`);
-    const digest = `📋 <b>Напоминания на сегодня</b> (${items.length})\n\nОтправлено родителям: ${sent}\nБез Telegram: ${unlinked}\n\n${lines.join("\n")}`;
+  if (tg && adminChat && items.length > 0) {
+    const lines = items.map((i) => `• ${i.short}`);
+    const digest = `📋 <b>Напоминания на сегодня</b> (${items.length})\n\nTelegram: ${sentTelegram} · WhatsApp: ${sentWhatsapp} · без канала: ${unreachable}\n\n${lines.join("\n")}`;
     await sendTelegram(adminChat, digest);
   }
 
-  return Response.json({ ok: true, total: items.length, sent, unlinked });
+  return Response.json({ ok: true, total: items.length, sentTelegram, sentWhatsapp, unreachable });
 }
