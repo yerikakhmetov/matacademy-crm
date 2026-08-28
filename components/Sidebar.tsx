@@ -22,6 +22,7 @@ const NAV_FULL: Item[] = [
   { section: "Продажи и деньги" },
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
   { href: "/payments", icon: "payments", label: "Оплаты" },
+  { href: "/reminders", icon: "bell", label: "Напоминания" },
 ];
 
 // Для учителя — только его разделы

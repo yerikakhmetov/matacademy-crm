@@ -14,6 +14,7 @@ const TITLES: Record<string, string> = {
   "/teachers": "Учителя",
   "/leads": "Лиды и продажи",
   "/payments": "Оплаты и абонементы",
+  "/reminders": "Напоминания об оплате",
 };
 
 export function Topbar() {
