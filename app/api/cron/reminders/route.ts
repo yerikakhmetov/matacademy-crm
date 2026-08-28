@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
     return Response.json({ ok: false, reason: "Не настроен ни один канал (Telegram/WhatsApp)", reminders: items.length });
   }
 
+  const debug = req.nextUrl.searchParams.get("debug") === "1";
+  const waErrors: string[] = [];
+
   // Приоритет: Telegram (если привязан), иначе WhatsApp (если есть телефон и настроен)
   let sentTelegram = 0;
   let sentWhatsapp = 0;
@@ -38,7 +41,9 @@ export async function GET(req: NextRequest) {
     }
     const digits = normalizePhone(it.phone);
     if (wa && digits) {
-      if (await sendWhatsappTemplate(digits, it.studentName, it.waDetail)) sentWhatsapp++;
+      const r = await sendWhatsappTemplate(digits, it.studentName, it.waDetail);
+      if (r.ok) sentWhatsapp++;
+      else if (r.error) waErrors.push(r.error);
       continue;
     }
     unreachable++;
@@ -52,5 +57,12 @@ export async function GET(req: NextRequest) {
     await sendTelegram(adminChat, digest);
   }
 
-  return Response.json({ ok: true, total: items.length, sentTelegram, sentWhatsapp, unreachable });
+  return Response.json({
+    ok: true,
+    total: items.length,
+    sentTelegram,
+    sentWhatsapp,
+    unreachable,
+    ...(debug ? { waErrors } : {}),
+  });
 }

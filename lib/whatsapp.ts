@@ -12,10 +12,14 @@ export function normalizePhone(phone: string | null): string | null {
 }
 
 // Отправить шаблон с двумя параметрами {{1}} и {{2}}.
-export async function sendWhatsappTemplate(toDigits: string, param1: string, param2: string): Promise<boolean> {
+export async function sendWhatsappTemplate(
+  toDigits: string,
+  param1: string,
+  param2: string
+): Promise<{ ok: boolean; error?: string }> {
   const token = process.env.WHATSAPP_TOKEN;
   const phoneId = process.env.WHATSAPP_PHONE_ID;
-  if (!token || !phoneId) return false;
+  if (!token || !phoneId) return { ok: false, error: "WHATSAPP_TOKEN/PHONE_ID не заданы" };
   const template = process.env.WHATSAPP_TEMPLATE || "payment_reminder";
   const lang = process.env.WHATSAPP_TEMPLATE_LANG || "ru";
 
@@ -43,8 +47,9 @@ export async function sendWhatsappTemplate(toDigits: string, param1: string, par
       }),
     });
     const data = await res.json();
-    return Array.isArray(data.messages) && data.messages.length > 0;
-  } catch {
-    return false;
+    if (Array.isArray(data.messages) && data.messages.length > 0) return { ok: true };
+    return { ok: false, error: data?.error?.message ?? JSON.stringify(data).slice(0, 300) };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 200) };
   }
 }
