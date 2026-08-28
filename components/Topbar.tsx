@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 
@@ -20,9 +20,16 @@ const TITLES: Record<string, string> = {
 
 export function Topbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const key = Object.keys(TITLES).find((k) => pathname.startsWith(k));
-  const title = key ? TITLES[key] : "МатАкадемия";
+  const title = pathname.startsWith("/search") ? "Поиск" : key ? TITLES[key] : "МатАкадемия";
   const [dark, setDark] = useState(false);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    if (pathname === "/search") setQ(searchParams.get("q") ?? "");
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -56,10 +63,23 @@ export function Topbar() {
       <div className="crumb">
         <b>{title}</b>
       </div>
-      <div className="search">
+      <form
+        className="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const term = (new FormData(e.currentTarget).get("q") as string | null)?.trim() ?? "";
+          if (term) router.push(`/search?q=${encodeURIComponent(term)}`);
+        }}
+      >
         <Icon name="search" size={16} />
-        <input placeholder="Поиск ученика, группы, телефона…" />
-      </div>
+        <input
+          name="q"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Поиск ученика, группы, телефона…"
+          aria-label="Поиск"
+        />
+      </form>
       <div className="top-actions">
         <div className="filter">
           <Icon name="pin" size={15} />
