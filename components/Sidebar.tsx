@@ -10,6 +10,7 @@ import { initials } from "@/lib/format";
 const NAV = [
   { section: "Обзор" },
   { href: "/dashboard", icon: "dashboard", label: "Дашборд" },
+  { href: "/reports", icon: "chart", label: "Отчёты" },
   { section: "Учебный процесс" },
   { href: "/students", icon: "students", label: "Ученики", badgeKey: "students" },
   { href: "/groups", icon: "groups", label: "Группы" },
