@@ -5,6 +5,8 @@ import { isTeacher } from "@/lib/teacher";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, subStatus } from "@/lib/format";
+import { Avatar } from "@/components/Avatar";
+import { PhotoUpload } from "@/components/PhotoUpload";
 import { ModalButton } from "@/components/ModalButton";
 import { StudentForm } from "../StudentForm";
 import { PaymentForm } from "../../payments/PaymentForm";
@@ -56,9 +58,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
           <Link href="/students" className="close-x" style={{ textDecoration: "none" }}>
             ←
           </Link>
-          <div className="av2" style={{ background: avatarColor(student.name), width: 52, height: 52, fontSize: 18, borderRadius: 12 }}>
-            {initials(student.name)}
-          </div>
+          <Avatar name={student.name} photoUrl={student.photoUrl} size={52} radius={12} />
           <div>
             <h1 style={{ fontSize: 22 }}>{student.name}</h1>
             <p>
@@ -211,6 +211,15 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               })}
             </div>
           </div>
+
+          {editor && (
+            <div className="card" style={{ padding: 18 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 12 }}>
+                Фото ученика
+              </div>
+              <PhotoUpload entity="student" id={student.id} name={student.name} photoUrl={student.photoUrl} size={64} />
+            </div>
+          )}
 
           {editor && (
             <div className="card">

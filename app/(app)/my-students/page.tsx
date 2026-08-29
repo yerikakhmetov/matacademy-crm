@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
-import { initials, avatarColor, scoreColor, STUDENT_STATUS } from "@/lib/format";
+import { scoreColor, STUDENT_STATUS } from "@/lib/format";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ export default async function MyStudentsPage() {
     include: {
       students: {
         orderBy: { name: "asc" },
-        select: { id: true, name: true, grade: true, status: true, attendance: true, phone: true, parentName: true, parentPhone: true, grades: { select: { score: true, maxScore: true } } },
+        select: { id: true, name: true, grade: true, status: true, attendance: true, phone: true, parentName: true, parentPhone: true, photoUrl: true, grades: { select: { score: true, maxScore: true } } },
       },
     },
   });
@@ -76,9 +77,7 @@ export default async function MyStudentsPage() {
                       <tr key={s.id}>
                         <td>
                           <div className="person">
-                            <div className="av2" style={{ background: avatarColor(s.name), width: 32, height: 32, fontSize: 12 }}>
-                              {initials(s.name)}
-                            </div>
+                            <Avatar name={s.name} photoUrl={s.photoUrl} size={32} />
                             <div>
                               <div className="nm" style={{ fontSize: 13.5 }}>{s.name}</div>
                               <div className="sub">{s.phone ?? "тел. не указан"}</div>

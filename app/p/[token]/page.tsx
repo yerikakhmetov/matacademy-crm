@@ -14,6 +14,7 @@ import {
   PAYMENT_STATUS,
 } from "@/lib/format";
 import { Icon } from "@/components/Icon";
+import { Avatar } from "@/components/Avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -54,9 +55,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
       <div style={{ maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Шапка */}
         <div className="card" style={{ padding: 22, display: "flex", alignItems: "center", gap: 16 }}>
-          <div className="av2" style={{ background: avatarColor(student.name), width: 56, height: 56, fontSize: 19, borderRadius: 14 }}>
-            {initials(student.name)}
-          </div>
+          <Avatar name={student.name} photoUrl={student.photoUrl} size={56} radius={14} fontSize={19} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: 22 }}>{student.name}</h1>
             <p className="mut" style={{ fontSize: 13.5, margin: "2px 0 0" }}>

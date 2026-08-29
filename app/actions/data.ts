@@ -8,11 +8,49 @@ import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
+import { put } from "@vercel/blob";
 
 async function assertEditor() {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
   if (!canEdit(session.user.role)) throw new Error("Недостаточно прав");
+}
+
+// ---------- Фото профиля (Vercel Blob) ----------
+async function assertCanEditPhoto(entity: "student" | "teacher", id: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  if (canEdit(session.user.role)) return;
+  // учитель может менять только своё фото
+  if (entity === "teacher" && session.user.role === "TEACHER") {
+    const t = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });
+    if (t?.userId === session.user.id) return;
+  }
+  throw new Error("Недостаточно прав");
+}
+
+export async function uploadPhoto(entity: "student" | "teacher", id: string, formData: FormData) {
+  await assertCanEditPhoto(entity, id);
+  const file = formData.get("file") as File | null;
+  if (!file || file.size === 0) throw new Error("Файл не выбран");
+  if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error("Хранилище фото не подключено (Vercel Blob). Включите его в Vercel → Storage.");
+
+  const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+  const blob = await put(`${entity}/${id}-${Date.now()}.${ext}`, file, { access: "public", addRandomSuffix: false });
+
+  if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: blob.url } });
+  else await prisma.teacher.update({ where: { id }, data: { photoUrl: blob.url } });
+
+  revalidatePath(entity === "student" ? `/students/${id}` : "/teachers");
+  revalidatePath("/my-students");
+}
+
+export async function removePhoto(entity: "student" | "teacher", id: string) {
+  await assertCanEditPhoto(entity, id);
+  if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: null } });
+  else await prisma.teacher.update({ where: { id }, data: { photoUrl: null } });
+  revalidatePath(entity === "student" ? `/students/${id}` : "/teachers");
+  revalidatePath("/my-students");
 }
 
 // ---------- Настройки школы ----------

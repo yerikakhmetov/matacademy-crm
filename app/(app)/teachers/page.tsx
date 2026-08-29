@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { isTeacher } from "@/lib/teacher";
-import { initials, avatarColor } from "@/lib/format";
+import { Avatar } from "@/components/Avatar";
+import { PhotoUpload } from "@/components/PhotoUpload";
 import { ModalButton } from "@/components/ModalButton";
 import { TeacherForm } from "./TeacherForm";
 import { DeleteTeacherButton } from "./DeleteTeacherButton";
@@ -43,9 +44,7 @@ export default async function TeachersPage() {
           const load = capacity > 0 ? Math.round((students / capacity) * 100) : 0;
           return (
             <div className="card tcard" key={t.id}>
-              <div className="av2" style={{ background: t.color || avatarColor(t.name), width: 52, height: 52, fontSize: 17, borderRadius: 12 }}>
-                {initials(t.name)}
-              </div>
+              <Avatar name={t.name} photoUrl={t.photoUrl} size={52} radius={12} bg={t.color} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 8 }}>
                   <div>
@@ -86,6 +85,9 @@ export default async function TeachersPage() {
                       buttonClass="btn ghost"
                       action={updateTeacher.bind(null, t.id)}
                     >
+                      <div style={{ paddingBottom: 8, borderBottom: "1px solid var(--line-2)", marginBottom: 4 }}>
+                        <PhotoUpload entity="teacher" id={t.id} name={t.name} photoUrl={t.photoUrl} size={64} />
+                      </div>
                       <TeacherForm values={t} />
                     </ModalButton>
                     <DeleteTeacherButton id={t.id} name={t.name} hasGroups={groupCount > 0} />

@@ -31,6 +31,7 @@ model Teacher {
   specialty String
   phone     String?
   color     String   @default("#3A5AE0")
+  photoUrl  String? // фото профиля (Vercel Blob)
   rate      Int      @default(0) // ставка (тг за урок/ученика или % — по rateType)
   rateType  String   @default("PER_LESSON") // PER_LESSON | PER_STUDENT | PERCENT
   userId    String?  @unique
@@ -67,6 +68,7 @@ model Student {
   attendance     Int           @default(90) // % посещаемости
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
+  photoUrl       String? // фото ученика (Vercel Blob)
   groupId       String?
   group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
   payments          Payment[]
