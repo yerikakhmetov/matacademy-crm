@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor, formatDate, subStatus } from "@/lib/format";
 import { ReminderActions } from "@/components/ReminderActions";
+import { BroadcastForm } from "./BroadcastForm";
 import { refreshOverdue } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
@@ -20,10 +21,12 @@ export default async function RemindersPage() {
 
   await refreshOverdue();
 
-  const [overdue, pending, subs] = await Promise.all([
+  const [overdue, pending, subs, groups, linkedCount] = await Promise.all([
     prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true }, orderBy: { date: "asc" } }),
     prisma.payment.findMany({ where: { status: "PENDING" }, include: { student: true }, orderBy: { date: "asc" } }),
     prisma.subscription.findMany({ where: { endDate: { not: null } }, include: { student: true }, orderBy: { endDate: "desc" } }),
+    prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.student.count({ where: { telegramChatId: { not: null } } }),
   ]);
 
   // Текущий абонемент на ученика (с самой поздней датой), истекающий в ближайшие 14 дней или уже истёкший
@@ -57,6 +60,8 @@ export default async function RemindersPage() {
         </div>
         <span className="proto-note">💬 Кнопка WhatsApp открывает чат с готовым текстом</span>
       </div>
+
+      <BroadcastForm groups={groups} linkedCount={linkedCount} />
 
       {/* Просроченные */}
       <div className="card" style={{ marginBottom: 16 }}>
