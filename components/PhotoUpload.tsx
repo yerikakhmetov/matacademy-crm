@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadPhoto, removePhoto } from "@/app/actions/data";
 import { Avatar } from "./Avatar";
@@ -43,27 +43,37 @@ export function PhotoUpload({
   photoUrl?: string | null;
   size?: number;
 }) {
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   const onFile = async (file: File) => {
     setError(null);
+    setPending(true);
     try {
       const blob = await resizeImage(file);
       const fd = new FormData();
       fd.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }));
-      start(async () => {
-        try {
-          await uploadPhoto(entity, id, fd);
-          router.refresh();
-        } catch (e) {
-          setError(e instanceof Error ? e.message : "Ошибка загрузки");
-        }
-      });
-    } catch {
-      setError("Не удалось обработать изображение");
+      await uploadPhoto(entity, id, fd);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка загрузки");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  const onRemove = async () => {
+    setError(null);
+    setPending(true);
+    try {
+      await removePhoto(entity, id);
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally {
+      setPending(false);
     }
   };
 
@@ -84,7 +94,7 @@ export function PhotoUpload({
             {pending ? "Загрузка…" : photoUrl ? "Заменить фото" : "Загрузить фото"}
           </button>
           {photoUrl && (
-            <button className="btn ghost" type="button" disabled={pending} onClick={() => start(async () => { await removePhoto(entity, id); router.refresh(); })} style={{ padding: "7px 13px", fontSize: 13, color: "var(--bad)" }}>
+            <button className="btn ghost" type="button" disabled={pending} onClick={onRemove} style={{ padding: "7px 13px", fontSize: 13, color: "var(--bad)" }}>
               Удалить
             </button>
           )}
