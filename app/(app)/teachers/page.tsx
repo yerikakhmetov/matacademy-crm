@@ -6,7 +6,8 @@ import { isTeacher } from "@/lib/teacher";
 import { initials, avatarColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { TeacherForm } from "./TeacherForm";
-import { createTeacher } from "@/app/actions/data";
+import { DeleteTeacherButton } from "./DeleteTeacherButton";
+import { createTeacher, updateTeacher } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,20 @@ export default async function TeachersPage() {
                     </div>
                   </div>
                 </div>
+                {editor && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, borderTop: "1px solid var(--line-2)", paddingTop: 12 }}>
+                    <ModalButton
+                      label="Редактировать"
+                      title={`Преподаватель · ${t.name}`}
+                      icon="edit"
+                      buttonClass="btn ghost"
+                      action={updateTeacher.bind(null, t.id)}
+                    >
+                      <TeacherForm values={t} />
+                    </ModalButton>
+                    <DeleteTeacherButton id={t.id} name={t.name} hasGroups={groupCount > 0} />
+                  </div>
+                )}
               </div>
             </div>
           );

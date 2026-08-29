@@ -193,6 +193,33 @@ export async function createTeacher(formData: FormData) {
   revalidatePath("/teachers");
 }
 
+export async function updateTeacher(id: string, formData: FormData) {
+  await assertEditor();
+  await prisma.teacher.update({
+    where: { id },
+    data: {
+      name: str(formData.get("name")),
+      specialty: str(formData.get("specialty")),
+      phone: str(formData.get("phone")) || null,
+      color: str(formData.get("color")) || "#3A5AE0",
+      rate: int(formData.get("rate")),
+      rateType: str(formData.get("rateType")) || "PER_LESSON",
+    },
+  });
+  await logAudit("UPDATE", "Преподаватель", str(formData.get("name")));
+  revalidatePath("/teachers");
+  revalidatePath("/payroll");
+}
+
+export async function deleteTeacher(id: string) {
+  await assertEditor();
+  const t = await prisma.teacher.findUnique({ where: { id }, select: { name: true } });
+  await prisma.teacher.delete({ where: { id } }); // группы открепляются (teacherId -> null)
+  await logAudit("DELETE", "Преподаватель", t?.name ?? id);
+  revalidatePath("/teachers");
+  revalidatePath("/groups");
+}
+
 // Изменить ставку преподавателя
 export async function updateTeacherRate(id: string, formData: FormData) {
   await assertEditor();
@@ -229,6 +256,33 @@ export async function moveLead(id: string, stage: string) {
   await prisma.lead.update({ where: { id }, data: { stage } });
   revalidatePath("/leads");
   revalidatePath(`/leads/${id}`);
+  revalidatePath("/dashboard");
+}
+
+export async function updateLead(id: string, formData: FormData) {
+  await assertEditor();
+  await prisma.lead.update({
+    where: { id },
+    data: {
+      name: str(formData.get("name")),
+      childName: str(formData.get("childName")) || null,
+      phone: str(formData.get("phone")) || null,
+      grade: str(formData.get("grade")) || null,
+      subject: str(formData.get("subject")) || null,
+      source: str(formData.get("source")) || null,
+    },
+  });
+  await logAudit("UPDATE", "Лид", str(formData.get("name")));
+  revalidatePath("/leads");
+  revalidatePath(`/leads/${id}`);
+}
+
+export async function deleteLead(id: string) {
+  await assertEditor();
+  const l = await prisma.lead.findUnique({ where: { id }, select: { name: true } });
+  await prisma.lead.delete({ where: { id } });
+  await logAudit("DELETE", "Лид", l?.name ?? id);
+  revalidatePath("/leads");
   revalidatePath("/dashboard");
 }
 
@@ -352,6 +406,23 @@ export async function createLesson(formData: FormData) {
   await logAudit("CREATE", "Занятие", `${lesson.group.name} · ${lesson.startTime}`);
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
+}
+
+export async function updateLesson(id: string, formData: FormData) {
+  await assertEditor();
+  const lesson = await prisma.lesson.update({
+    where: { id },
+    data: {
+      groupId: str(formData.get("groupId")) || undefined,
+      dayOfWeek: int(formData.get("dayOfWeek")) || 1,
+      startTime: str(formData.get("startTime")) || "16:00",
+      room: str(formData.get("room")) || "Каб. 1",
+    },
+    include: { group: { select: { name: true } } },
+  });
+  await logAudit("UPDATE", "Занятие", `${lesson.group.name} · ${lesson.startTime}`);
+  revalidatePath("/schedule");
+  revalidatePath(`/schedule/${id}`);
 }
 
 export async function deleteLesson(id: string) {

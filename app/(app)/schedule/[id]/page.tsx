@@ -4,8 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { DAYS } from "@/lib/format";
+import { getSettings, parseList } from "@/lib/settings";
+import { ModalButton } from "@/components/ModalButton";
+import { LessonForm } from "../LessonForm";
 import { AttendanceForm } from "./AttendanceForm";
 import { DeleteLessonButton } from "./DeleteLessonButton";
+import { updateLesson } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +61,10 @@ export default async function LessonPage({
 
   const marked = records.length > 0;
 
+  const editData = editor
+    ? { groups: await prisma.group.findMany({ orderBy: { name: "asc" } }), rooms: parseList((await getSettings()).rooms) }
+    : null;
+
   return (
     <>
       <div className="page-head">
@@ -74,7 +82,18 @@ export default async function LessonPage({
             </p>
           </div>
         </div>
-        {editor && <DeleteLessonButton id={lesson.id} />}
+        {editor && editData && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <ModalButton label="Редактировать" title={`Занятие · ${lesson.group.name}`} icon="edit" buttonClass="btn ghost" action={updateLesson.bind(null, lesson.id)}>
+              <LessonForm
+                groups={editData.groups}
+                rooms={editData.rooms}
+                values={{ groupId: lesson.groupId, dayOfWeek: lesson.dayOfWeek, startTime: lesson.startTime, room: lesson.room }}
+              />
+            </ModalButton>
+            <DeleteLessonButton id={lesson.id} />
+          </div>
+        )}
       </div>
 
       <AttendanceForm

@@ -10,7 +10,9 @@ import { LeadStageBar } from "./LeadStageBar";
 import { AddActivity } from "./AddActivity";
 import { LeadTaskToggle } from "./LeadTaskToggle";
 import { ConvertForm } from "./ConvertForm";
-import { convertLeadToStudent } from "@/app/actions/data";
+import { LeadForm } from "../LeadForm";
+import { DeleteLeadButton } from "./DeleteLeadButton";
+import { convertLeadToStudent, updateLead } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
@@ -50,22 +52,24 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
-        {editor && !isWon && (
-          <ModalButton
-            label="Перевести в ученики"
-            title="Перевод лида в ученики"
-            icon="students"
-            submitLabel="Создать ученика"
-            action={convertLeadToStudent.bind(null, lead.id)}
-          >
-            <ConvertForm groups={groups} defaultName={lead.childName ?? lead.name} defaultGrade={lead.grade ?? ""} />
-          </ModalButton>
-        )}
-        {isWon && (
-          <span className="chip c-ok" style={{ padding: "8px 14px" }}>
-            <span className="d" />
-            Оплатили
-          </span>
+        {editor && (
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <ModalButton label="Редактировать" title={`Лид · ${lead.name}`} icon="edit" buttonClass="btn ghost" action={updateLead.bind(null, lead.id)}>
+              <LeadForm values={lead} />
+            </ModalButton>
+            {!isWon && (
+              <ModalButton
+                label="Перевести в ученики"
+                title="Перевод лида в ученики"
+                icon="students"
+                submitLabel="Создать ученика"
+                action={convertLeadToStudent.bind(null, lead.id)}
+              >
+                <ConvertForm groups={groups} defaultName={lead.childName ?? lead.name} defaultGrade={lead.grade ?? ""} />
+              </ModalButton>
+            )}
+            <DeleteLeadButton id={lead.id} name={lead.name} />
+          </div>
         )}
       </div>
 
