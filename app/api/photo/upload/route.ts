@@ -1,40 +1,47 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 30;
 
-// Выдаёт клиенту токен для прямой загрузки фото в Vercel Blob.
+// Приём фото (multipart) → загрузка в Vercel Blob → сохранение URL.
 export async function POST(request: Request): Promise<NextResponse> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return NextResponse.json(
-      { error: "Хранилище фото (Vercel Blob) не подключено к проекту. Подключите Blob-store в Vercel → Storage и сделайте Redeploy." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Хранилище фото (Vercel Blob) не подключено к проекту." }, { status: 400 });
   }
-  const body = (await request.json()) as HandleUploadBody;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: "Требуется вход" }, { status: 401 });
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const entity = String(form.get("entity") ?? "");
+  const id = String(form.get("id") ?? "");
+  if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
+  if (entity !== "student" && entity !== "teacher") return NextResponse.json({ error: "Неверный тип" }, { status: 400 });
+
+  // права: админ/менеджер, либо преподаватель для своего фото
+  if (!canEdit(session.user.role)) {
+    let ok = false;
+    if (entity === "teacher" && session.user.role === "TEACHER") {
+      const t = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });
+      ok = t?.userId === session.user.id;
+    }
+    if (!ok) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+  }
+
   try {
-    const json = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => {
-        const session = await auth();
-        // загружать могут админ/менеджер и преподаватель (для своего фото)
-        if (!session?.user || (!canEdit(session.user.role) && session.user.role !== "TEACHER")) {
-          throw new Error("Недостаточно прав");
-        }
-        return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/webp"],
-          maximumSizeInBytes: 5 * 1024 * 1024,
-        };
-      },
-      onUploadCompleted: async () => {
-        /* URL сохраняем на клиенте после upload() */
-      },
+    const blob = await put(`${entity}/${id}-${Date.now()}.jpg`, file, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: "image/jpeg",
     });
-    return NextResponse.json(json);
+    if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: blob.url } });
+    else await prisma.teacher.update({ where: { id }, data: { photoUrl: blob.url } });
+    return NextResponse.json({ url: blob.url });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Ошибка" }, { status: 400 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Ошибка загрузки" }, { status: 500 });
   }
 }
