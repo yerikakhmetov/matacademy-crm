@@ -188,6 +188,13 @@ model LeadActivity {
   createdAt DateTime  @default(now())
 }
 
+// Одноразовый токен для входа через бота Telegram
+model LoginToken {
+  token     String   @id
+  userId    String? // заполняется вебхуком, когда привязанный преподаватель нажал «Старт»
+  createdAt DateTime @default(now())
+}
+
 // Настройки школы (единственная запись с id = "main")
 model Settings {
   id         String   @id @default("main")

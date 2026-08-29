@@ -34,6 +34,19 @@ export async function POST(req: NextRequest) {
     const payload = text.split(/\s+/)[1] ?? "";
     const fromId = msg?.from?.id ? String(msg.from.id) : chat;
 
+    // Вход преподавателя по одноразовому токену: /start login_<token>
+    if (payload.startsWith("login_")) {
+      const token = payload.slice("login_".length);
+      const user = await prisma.user.findUnique({ where: { telegramUserId: fromId } });
+      if (user) {
+        await prisma.loginToken.upsert({ where: { token }, create: { token, userId: user.id }, update: { userId: user.id } });
+        await sendTelegram(chat, `✅ Вход подтверждён! Вернитесь на страницу входа — вы уже входите.`);
+      } else {
+        await sendTelegram(chat, `⚠️ Ваш Telegram не привязан к учётной записи. Попросите администратора отправить вам ссылку «Вход по Telegram» из карточки преподавателя.`);
+      }
+      return Response.json({ ok: true });
+    }
+
     // Привязка входа преподавателя: /start teacherlogin_<teacherId>
     if (payload.startsWith("teacherlogin_")) {
       const teacherId = payload.slice("teacherlogin_".length);

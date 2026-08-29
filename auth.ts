@@ -3,7 +3,6 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
-import { verifyTelegramAuth, type TelegramAuthData } from "@/lib/telegram-auth";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -32,15 +31,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
-    // Вход через Telegram Login Widget
+    // Вход через бота Telegram (одноразовый токен)
     Credentials({
       id: "telegram",
       name: "Telegram",
-      credentials: {},
+      credentials: { token: {} },
       async authorize(raw) {
-        const data = raw as TelegramAuthData;
-        if (!verifyTelegramAuth(data) || !data.id) return null;
-        const user = await prisma.user.findUnique({ where: { telegramUserId: String(data.id) } });
+        const token = String((raw as { token?: string })?.token ?? "");
+        if (!token) return null;
+        const lt = await prisma.loginToken.findUnique({ where: { token } });
+        // токен действителен 10 минут и должен быть подтверждён вебхуком (userId заполнен)
+        if (!lt?.userId || Date.now() - lt.createdAt.getTime() > 10 * 60 * 1000) return null;
+        const user = await prisma.user.findUnique({ where: { id: lt.userId } });
+        await prisma.loginToken.delete({ where: { token } }).catch(() => {});
         if (!user) return null;
         return { id: user.id, name: user.name, email: user.email, role: user.role };
       },
