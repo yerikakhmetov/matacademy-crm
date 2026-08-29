@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import Link from "next/link";
 import { canSeeMoney } from "@/lib/roles";
 import { isTeacher } from "@/lib/teacher";
-import { money } from "@/lib/format";
+import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
 import { Icon } from "@/components/Icon";
 
@@ -23,6 +24,18 @@ function lastMonths(count: number) {
 }
 const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
 
+// Сколько занятий с данным днём недели в месяце
+function lessonsInMonth(year: number, month0: number, dayOfWeek: number): number {
+  let c = 0;
+  const d = new Date(Date.UTC(year, month0, 1));
+  while (d.getUTCMonth() === month0) {
+    const js = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+    if (js === dayOfWeek) c++;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return c;
+}
+
 export default async function ReportsPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
@@ -31,10 +44,15 @@ export default async function ReportsPage() {
   const months = lastMonths(6);
   const since = new Date(months[0].year, months[0].month0, 1);
 
-  const [paidPayments, leads, students] = await Promise.all([
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true } }),
+  const [paidPayments, leads, students, teachers] = await Promise.all([
+    prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true, student: { select: { groupId: true } } } }),
     prisma.lead.findMany({ select: { source: true, stage: true, createdAt: true } }),
-    prisma.student.findMany({ select: { status: true, balance: true, attendance: true } }),
+    prisma.student.findMany({
+      select: { id: true, name: true, status: true, balance: true, attendance: true, group: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
+    }),
+    money$
+      ? prisma.teacher.findMany({ select: { rate: true, rateType: true, groups: { select: { id: true, lessons: { select: { dayOfWeek: true } }, _count: { select: { students: true } } } } } })
+      : Promise.resolve([]),
   ]);
 
   // Доход по месяцам
@@ -43,6 +61,52 @@ export default async function ReportsPage() {
     value: paidPayments.filter((p) => monthKey(p.date) === m.key).reduce((a, p) => a + p.amount, 0),
   }));
   const totalRev = revByMonth.reduce((a, m) => a + m.value, 0);
+
+  // Прибыль по месяцам: доход − фонд зарплаты
+  const revByGroupMonth = new Map<string, number>(); // `${gid}|${key}` -> сумма
+  for (const p of paidPayments) {
+    const gid = p.student.groupId;
+    if (gid) {
+      const k = `${gid}|${monthKey(p.date)}`;
+      revByGroupMonth.set(k, (revByGroupMonth.get(k) ?? 0) + p.amount);
+    }
+  }
+  function payrollForMonth(m: { key: string; year: number; month0: number }): number {
+    let total = 0;
+    for (const t of teachers) {
+      if (t.rateType === "PER_STUDENT") {
+        total += t.groups.reduce((a, g) => a + g._count.students, 0) * t.rate;
+      } else if (t.rateType === "PERCENT") {
+        const rev = t.groups.reduce((a, g) => a + (revByGroupMonth.get(`${g.id}|${m.key}`) ?? 0), 0);
+        total += Math.round((rev * t.rate) / 100);
+      } else {
+        const lessons = t.groups.reduce((a, g) => a + g.lessons.reduce((la, l) => la + lessonsInMonth(m.year, m.month0, l.dayOfWeek), 0), 0);
+        total += lessons * t.rate;
+      }
+    }
+    return total;
+  }
+  const profitRows = months.map((m) => {
+    const rev = revByMonth.find((r) => r.label === m.label)?.value ?? 0;
+    const payroll = payrollForMonth(m);
+    return { label: m.label, rev, payroll, profit: rev - payroll };
+  });
+  const totalPayroll = profitRows.reduce((a, r) => a + r.payroll, 0);
+  const totalProfit = totalRev - totalPayroll;
+
+  // Ученики на контроле (риск): низкая посещаемость, долг или низкие оценки
+  const riskStudents = students
+    .filter((s) => s.status === "ACTIVE")
+    .map((s) => {
+      const avg = s.grades.length ? Math.round(s.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / s.grades.length) : null;
+      const reasons: string[] = [];
+      if (s.attendance < 70) reasons.push(`посещаемость ${s.attendance}%`);
+      if (s.balance < 0) reasons.push(`долг ${money(s.balance)}`);
+      if (avg != null && avg < 60) reasons.push(`средний балл ${avg}%`);
+      return { s, avg, reasons };
+    })
+    .filter((r) => r.reasons.length > 0)
+    .sort((a, b) => b.reasons.length - a.reasons.length);
 
   // Способы оплаты
   const methodMap = new Map<string, number>();
@@ -181,6 +245,43 @@ export default async function ReportsPage() {
         </div>
       )}
 
+      {money$ && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>Прибыль по месяцам</h3>
+            <span className={`chip ${totalProfit >= 0 ? "c-ok" : "c-bad"}`}>
+              <span className="d" />
+              Итого: {money(totalProfit)}
+            </span>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Месяц</th>
+                  <th className="right">Доход</th>
+                  <th className="right">Зарплата</th>
+                  <th className="right">Прибыль</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profitRows.map((r) => (
+                  <tr key={r.label}>
+                    <td style={{ fontWeight: 600, textTransform: "capitalize" }}>{r.label}</td>
+                    <td className="right money num" style={{ color: "var(--ok)" }}>{money(r.rev)}</td>
+                    <td className="right money num" style={{ color: "var(--ink-2)" }}>−{money(r.payroll)}</td>
+                    <td className="right money num" style={{ color: r.profit >= 0 ? "var(--ok)" : "var(--bad)" }}>{money(r.profit)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mut" style={{ fontSize: 12, padding: "10px 18px 16px", margin: 0 }}>
+            Зарплата считается по ставкам преподавателей (раздел «Зарплата»). Прибыль = доход − фонд зарплаты.
+          </p>
+        </div>
+      )}
+
       <div className="two-col" style={{ marginTop: 16 }}>
         <div className="card">
           <div className="card-h">
@@ -231,6 +332,41 @@ export default async function ReportsPage() {
             </table>
           </div>
         </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-h">
+          <h3>Ученики на контроле</h3>
+          <span className={`chip ${riskStudents.length ? "c-bad" : "c-ok"}`}>
+            <span className="d" />
+            {riskStudents.length}
+          </span>
+        </div>
+        <div style={{ padding: "6px 0" }}>
+          {riskStudents.length === 0 && <div className="empty">Все ученики в норме ✅</div>}
+          {riskStudents.map(({ s, reasons }) => (
+            <Link key={s.id} href={`/students/${s.id}`} className="list-row" style={{ textDecoration: "none" }}>
+              <div className="av2" style={{ background: avatarColor(s.name), width: 32, height: 32, fontSize: 12 }}>
+                {initials(s.name)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>{s.name}</div>
+                <div className="mut" style={{ fontSize: 12 }}>{s.group?.name ?? "без группы"}</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 360 }}>
+                {reasons.map((r, i) => (
+                  <span key={i} className="chip c-bad" style={{ fontSize: 11 }}>
+                    <span className="d" />
+                    {r}
+                  </span>
+                ))}
+              </div>
+            </Link>
+          ))}
+        </div>
+        <p className="mut" style={{ fontSize: 12, padding: "6px 18px 16px", margin: 0 }}>
+          Показаны активные ученики с посещаемостью ниже 70%, долгом или средним баллом ниже 60%. Нажмите, чтобы открыть карточку.
+        </p>
       </div>
     </>
   );
