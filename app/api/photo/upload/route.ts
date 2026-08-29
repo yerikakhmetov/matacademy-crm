@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 
 // Выдаёт клиенту токен для прямой загрузки фото в Vercel Blob.
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      { error: "Хранилище фото (Vercel Blob) не подключено к проекту. Подключите Blob-store в Vercel → Storage и сделайте Redeploy." },
+      { status: 400 }
+    );
+  }
   const body = (await request.json()) as HandleUploadBody;
   try {
     const json = await handleUpload({
