@@ -8,7 +8,6 @@ import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
-import { put } from "@vercel/blob";
 
 async function assertEditor() {
   const session = await auth();
@@ -29,17 +28,14 @@ async function assertCanEditPhoto(entity: "student" | "teacher", id: string) {
   throw new Error("Недостаточно прав");
 }
 
-export async function uploadPhoto(entity: "student" | "teacher", id: string, formData: FormData) {
+// Сохранить URL фото (файл уже загружен напрямую в Vercel Blob с клиента).
+export async function savePhotoUrl(entity: "student" | "teacher", id: string, url: string) {
   await assertCanEditPhoto(entity, id);
-  const file = formData.get("file") as File | null;
-  if (!file || file.size === 0) throw new Error("Файл не выбран");
-  if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error("Хранилище фото не подключено (Vercel Blob). Включите его в Vercel → Storage.");
-
-  const ext = (file.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
-  const blob = await put(`${entity}/${id}-${Date.now()}.${ext}`, file, { access: "public", addRandomSuffix: false });
-
-  if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: blob.url } });
-  else await prisma.teacher.update({ where: { id }, data: { photoUrl: blob.url } });
+  if (!/^https:\/\/[^/]+\.blob\.vercel-storage\.com\//.test(url) && !/^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\//.test(url)) {
+    throw new Error("Недопустимый адрес файла");
+  }
+  if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: url } });
+  else await prisma.teacher.update({ where: { id }, data: { photoUrl: url } });
 
   revalidatePath(entity === "student" ? `/students/${id}` : "/teachers");
   revalidatePath("/my-students");

@@ -2,7 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { uploadPhoto, removePhoto } from "@/app/actions/data";
+import { upload } from "@vercel/blob/client";
+import { savePhotoUrl, removePhoto } from "@/app/actions/data";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
 
@@ -53,9 +54,12 @@ export function PhotoUpload({
     setPending(true);
     try {
       const blob = await resizeImage(file);
-      const fd = new FormData();
-      fd.append("file", new File([blob], "photo.jpg", { type: "image/jpeg" }));
-      await uploadPhoto(entity, id, fd);
+      const result = await upload(`${entity}/${id}-${Date.now()}.jpg`, blob, {
+        access: "public",
+        handleUploadUrl: "/api/photo/upload",
+        contentType: "image/jpeg",
+      });
+      await savePhotoUrl(entity, id, result.url);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки");
