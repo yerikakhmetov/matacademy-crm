@@ -4,7 +4,8 @@ import { canEdit } from "@/lib/roles";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
-import { createGroup } from "@/app/actions/data";
+import { DeleteGroupButton } from "./DeleteGroupButton";
+import { createGroup, updateGroup } from "@/app/actions/data";
 import { DAYS } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +92,20 @@ export default async function GroupsPage() {
                   <span style={{ width: `${pct}%`, background: full ? "var(--bad)" : g.color }} />
                 </div>
               </div>
+              {editor && (
+                <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--line-2)", paddingTop: 12, marginTop: 2 }}>
+                  <ModalButton
+                    label="Редактировать"
+                    title={`Группа · ${g.name}`}
+                    icon="edit"
+                    buttonClass="btn ghost"
+                    action={updateGroup.bind(null, g.id)}
+                  >
+                    <GroupForm teachers={teachers} values={g} />
+                  </ModalButton>
+                  <DeleteGroupButton id={g.id} name={g.name} hasStudents={enrolled > 0} />
+                </div>
+              )}
             </div>
           );
         })}

@@ -149,6 +149,33 @@ export async function createGroup(formData: FormData) {
   revalidatePath("/groups");
 }
 
+export async function updateGroup(id: string, formData: FormData) {
+  await assertEditor();
+  await prisma.group.update({
+    where: { id },
+    data: {
+      name: str(formData.get("name")),
+      level: str(formData.get("level")),
+      capacity: int(formData.get("capacity")) || 12,
+      color: str(formData.get("color")) || "#3A5AE0",
+      teacherId: str(formData.get("teacherId")) || null,
+    },
+  });
+  await logAudit("UPDATE", "Группа", str(formData.get("name")));
+  revalidatePath("/groups");
+  revalidatePath("/schedule");
+}
+
+export async function deleteGroup(id: string) {
+  await assertEditor();
+  const g = await prisma.group.findUnique({ where: { id }, select: { name: true } });
+  // ученики открепляются (groupId -> null), занятия удаляются каскадом
+  await prisma.group.delete({ where: { id } });
+  await logAudit("DELETE", "Группа", g?.name ?? id);
+  revalidatePath("/groups");
+  revalidatePath("/schedule");
+}
+
 // ---------- Учителя ----------
 export async function createTeacher(formData: FormData) {
   await assertEditor();
