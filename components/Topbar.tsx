@@ -10,6 +10,7 @@ const TITLES: Record<string, string> = {
   "/reports": "Отчёты и аналитика",
   "/audit": "История изменений",
   "/students": "Ученики",
+  "/my-students": "Мои ученики",
   "/groups": "Группы",
   "/schedule": "Расписание",
   "/journal": "Журнал посещаемости",

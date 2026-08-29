@@ -35,6 +35,7 @@ const NAV_FULL: Item[] = [
 const NAV_TEACHER: Item[] = [
   { section: "Мой кабинет" },
   { href: "/dashboard", icon: "dashboard", label: "Мои занятия" },
+  { href: "/my-students", icon: "students", label: "Мои ученики" },
   { href: "/groups", icon: "groups", label: "Мои группы" },
   { href: "/schedule", icon: "schedule", label: "Расписание" },
   { href: "/journal", icon: "check", label: "Журнал" },
