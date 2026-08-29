@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
@@ -22,10 +23,13 @@ const TITLES: Record<string, string> = {
   "/settings": "Настройки школы",
 };
 
-export function Topbar({ branch }: { branch?: string }) {
+type Notif = { text: string; href: string; kind?: string };
+
+export function Topbar({ branch, notifications = [] }: { branch?: string; notifications?: Notif[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [notifOpen, setNotifOpen] = useState(false);
   const key = Object.keys(TITLES).find((k) => pathname.startsWith(k));
   const title = pathname.startsWith("/search") ? "Поиск" : key ? TITLES[key] : "МатАкадемия";
   const [dark, setDark] = useState(false);
@@ -92,10 +96,27 @@ export function Topbar({ branch }: { branch?: string }) {
         <button className="icon-btn" onClick={toggle} title="Тема">
           <Icon name="moon" />
         </button>
-        <button className="icon-btn" title="Уведомления">
-          <span className="dot" />
-          <Icon name="bell" />
-        </button>
+        <div style={{ position: "relative" }}>
+          <button className="icon-btn" title="Уведомления" onClick={() => setNotifOpen((v) => !v)}>
+            {notifications.length > 0 && <span className="dot" />}
+            <Icon name="bell" />
+          </button>
+          {notifOpen && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 30 }} onClick={() => setNotifOpen(false)} />
+              <div className="notif-panel">
+                <div className="notif-head">Уведомления</div>
+                {notifications.length === 0 && <div className="notif-empty">Всё под контролем ✅</div>}
+                {notifications.map((n, i) => (
+                  <Link key={i} href={n.href} className="notif-item" onClick={() => setNotifOpen(false)}>
+                    <span className={`notif-dot ${n.kind ?? ""}`} />
+                    {n.text}
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );

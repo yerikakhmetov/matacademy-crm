@@ -271,6 +271,15 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   @page{margin:1.4cm}
 }
 
+/* ---------- Уведомления ---------- */
+.notif-panel{position:absolute;top:44px;right:0;width:320px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);z-index:40;overflow:hidden;padding:6px}
+.notif-head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:700;padding:10px 12px 6px}
+.notif-empty{padding:18px 12px;color:var(--ink-3);font-size:13px;text-align:center}
+.notif-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;font-size:13.5px;color:var(--ink);font-weight:500}
+.notif-item:hover{background:var(--surface-2)}
+.notif-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.notif-dot.bad{background:var(--bad)} .notif-dot.warn{background:var(--warn)} .notif-dot.acc{background:var(--accent)}
+
 .burger{display:none}
 .nav-scrim{display:none}
 @media(max-width:760px){
