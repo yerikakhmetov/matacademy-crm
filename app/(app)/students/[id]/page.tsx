@@ -11,6 +11,7 @@ import { PaymentForm } from "../../payments/PaymentForm";
 import { SubscriptionForm } from "./SubscriptionForm";
 import { DeleteStudentButton } from "./DeleteStudentButton";
 import { TelegramLink } from "./TelegramLink";
+import { ParentPortalLink } from "./ParentPortalLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
 import { getSettings, parseTariffs } from "@/lib/settings";
@@ -34,9 +35,16 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
     }),
     prisma.group.findMany({ orderBy: { name: "asc" } }),
   ]);
+  if (!student) notFound();
+
   const tariffs = parseTariffs((await getSettings()).tariffs);
 
-  if (!student) notFound();
+  // Ленивая генерация постоянного токена родительской страницы
+  let portalToken = student.portalToken;
+  if (!portalToken && editor) {
+    portalToken = crypto.randomUUID().replace(/-/g, "");
+    await prisma.student.update({ where: { id }, data: { portalToken } });
+  }
 
   const st = STUDENT_STATUS[student.status] ?? STUDENT_STATUS.ACTIVE;
   const activeSub = student.subscriptions[0];
@@ -219,6 +227,21 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                   linked={!!student.telegramChatId}
                   botUsername={process.env.TELEGRAM_BOT_USERNAME ?? null}
                 />
+              </div>
+            </div>
+          )}
+
+          {editor && portalToken && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Страница для родителя</h3>
+                <span className="chip c-acc">
+                  <span className="d" />
+                  постоянная ссылка
+                </span>
+              </div>
+              <div style={{ padding: 18 }}>
+                <ParentPortalLink token={portalToken} />
               </div>
             </div>
           )}

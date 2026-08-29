@@ -65,6 +65,7 @@ model Student {
   balance        Int           @default(0) // < 0 — задолженность (в тенге)
   attendance     Int           @default(90) // % посещаемости
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
+  portalToken    String? @unique // постоянный токен родительской страницы
   groupId       String?
   group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
   payments          Payment[]

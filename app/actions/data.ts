@@ -60,6 +60,7 @@ export async function clearAllData(confirm: string) {
 }
 
 const str = (v: FormDataEntryValue | null) => (v == null ? "" : String(v).trim());
+const newToken = () => crypto.randomUUID().replace(/-/g, "");
 const int = (v: FormDataEntryValue | null) => {
   const n = parseInt(String(v ?? "").replace(/\s/g, ""), 10);
   return isNaN(n) ? 0 : n;
@@ -89,6 +90,7 @@ export async function createStudent(formData: FormData) {
       groupId: str(formData.get("groupId")) || null,
       status: str(formData.get("status")) || "ACTIVE",
       attendance: 90,
+      portalToken: newToken(),
     },
   });
   await logAudit("CREATE", "Ученик", created.name);
@@ -249,6 +251,7 @@ export async function convertLeadToStudent(leadId: string, formData: FormData) {
       parentPhone: lead.phone,
       status: "ACTIVE",
       attendance: 100,
+      portalToken: newToken(),
     },
   });
   await logAudit("CREATE", "Ученик", `${newStudent.name} (из лида)`);

@@ -11,7 +11,8 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const { pathname } = request.nextUrl;
-      if (pathname.startsWith("/login")) return true;
+      // Публичные маршруты: вход и родительский портал по токену
+      if (pathname.startsWith("/login") || pathname.startsWith("/p/")) return true;
       return isLoggedIn;
     },
     jwt({ token, user }) {
