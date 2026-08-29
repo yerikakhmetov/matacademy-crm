@@ -376,6 +376,55 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
   revalidatePath("/students");
 }
 
+// ---------- Домашние задания ----------
+async function assertCanManageGroup(groupId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  if (canEdit(session.user.role)) return session;
+  const group = await prisma.group.findUnique({ where: { id: groupId }, include: { teacher: true } });
+  if (session.user.role === "TEACHER" && group?.teacher?.userId === session.user.id) return session;
+  throw new Error("Недостаточно прав");
+}
+
+export async function addHomework(groupId: string, formData: FormData) {
+  const session = await assertCanManageGroup(groupId);
+  await prisma.homework.create({
+    data: {
+      groupId,
+      title: str(formData.get("title")) || "Домашнее задание",
+      description: str(formData.get("description")) || null,
+      dueDate: parseDate(formData.get("dueDate")),
+      createdBy: session.user?.name ?? null,
+    },
+  });
+  await logAudit("CREATE", "Домашнее задание", str(formData.get("title")));
+  revalidatePath("/homework");
+}
+
+export async function deleteHomework(id: string) {
+  const hw = await prisma.homework.findUnique({ where: { id } });
+  if (!hw) return;
+  await assertCanManageGroup(hw.groupId);
+  await prisma.homework.delete({ where: { id } });
+  await logAudit("DELETE", "Домашнее задание", hw.title);
+  revalidatePath("/homework");
+}
+
+export async function toggleHomeworkDone(homeworkId: string, studentId: string) {
+  const hw = await prisma.homework.findUnique({ where: { id: homeworkId } });
+  if (!hw) return;
+  await assertCanManageGroup(hw.groupId);
+  const existing = await prisma.homeworkDone.findUnique({
+    where: { homeworkId_studentId: { homeworkId, studentId } },
+  });
+  if (existing) {
+    await prisma.homeworkDone.update({ where: { id: existing.id }, data: { done: !existing.done } });
+  } else {
+    await prisma.homeworkDone.create({ data: { homeworkId, studentId, done: true } });
+  }
+  revalidatePath("/homework");
+}
+
 // ---------- Оценки ----------
 // Ставить оценку может админ/менеджер или учитель группы ученика.
 async function assertCanGrade(studentId: string) {

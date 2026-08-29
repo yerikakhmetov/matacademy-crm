@@ -50,6 +50,7 @@ model Group {
   teacher   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   students  Student[]
   lessons   Lesson[]
+  homeworks Homework[]
   createdAt DateTime  @default(now())
 }
 
@@ -72,7 +73,35 @@ model Student {
   subscriptions     Subscription[]
   attendanceRecords Attendance[]
   grades            Grade[]
+  homeworkDone      HomeworkDone[]
   createdAt         DateTime       @default(now())
+}
+
+// Домашние задания (на группу)
+model Homework {
+  id          String         @id @default(cuid())
+  groupId     String
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  dueDate     DateTime?
+  createdBy   String?
+  createdAt   DateTime       @default(now())
+  completions HomeworkDone[]
+
+  @@index([groupId])
+}
+
+// Отметка выполнения ДЗ учеником
+model HomeworkDone {
+  id         String   @id @default(cuid())
+  homeworkId String
+  homework   Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  done       Boolean  @default(true)
+
+  @@unique([homeworkId, studentId])
 }
 
 // Оценки успеваемости

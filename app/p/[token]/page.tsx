@@ -32,6 +32,15 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   if (!student) notFound();
   const settings = await getSettings();
 
+  const homeworks = student.group
+    ? await prisma.homework.findMany({
+        where: { groupId: student.group.id },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        include: { completions: { where: { studentId: student.id } } },
+      })
+    : [];
+
   const avg =
     student.grades.length > 0
       ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
@@ -135,6 +144,38 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 <div className="empty">Активного абонемента нет</div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Домашние задания */}
+        <div className="card">
+          <div className="card-h">
+            <h3>Домашние задания</h3>
+            <span className="chip c-mut"><span className="d" />{homeworks.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            {homeworks.length === 0 && <div className="empty">Заданий пока нет</div>}
+            {homeworks.map((hw) => {
+              const done = hw.completions[0]?.done ?? false;
+              const overdue = hw.dueDate && new Date(hw.dueDate) < new Date() && !done;
+              return (
+                <div className="list-row" key={hw.id}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{hw.title}</div>
+                    {hw.description && <div className="mut" style={{ fontSize: 12 }}>{hw.description}</div>}
+                    {hw.dueDate && (
+                      <div className="mut" style={{ fontSize: 11.5, color: overdue ? "var(--bad)" : undefined }}>
+                        срок: {formatDate(hw.dueDate)}
+                      </div>
+                    )}
+                  </div>
+                  <span className={`chip ${done ? "c-ok" : "c-mut"}`}>
+                    <span className="d" />
+                    {done ? "Выполнено" : "Не выполнено"}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

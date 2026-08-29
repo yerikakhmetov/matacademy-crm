@@ -20,6 +20,7 @@ const NAV_FULL: Item[] = [
   { href: "/schedule", icon: "schedule", label: "Расписание" },
   { href: "/journal", icon: "check", label: "Журнал" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
+  { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/teachers", icon: "teachers", label: "Учителя" },
   { section: "Продажи и деньги" },
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
@@ -38,6 +39,7 @@ const NAV_TEACHER: Item[] = [
   { href: "/schedule", icon: "schedule", label: "Расписание" },
   { href: "/journal", icon: "check", label: "Журнал" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
+  { href: "/homework", icon: "book", label: "Домашние задания" },
 ];
 
 export function Sidebar({
