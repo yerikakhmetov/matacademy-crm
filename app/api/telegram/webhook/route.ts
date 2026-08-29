@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendTelegram } from "@/lib/telegram";
 
@@ -13,7 +15,7 @@ export async function POST(req: NextRequest) {
   }
 
   let update: {
-    message?: { chat?: { id?: number | string }; text?: string; from?: { first_name?: string } };
+    message?: { chat?: { id?: number | string }; text?: string; from?: { first_name?: string; id?: number | string } };
   };
   try {
     update = await req.json();
@@ -29,7 +31,41 @@ export async function POST(req: NextRequest) {
   const chat = String(chatId);
 
   if (text.startsWith("/start")) {
-    const studentId = text.split(/\s+/)[1];
+    const payload = text.split(/\s+/)[1] ?? "";
+    const fromId = msg?.from?.id ? String(msg.from.id) : chat;
+
+    // Привязка входа преподавателя: /start teacherlogin_<teacherId>
+    if (payload.startsWith("teacherlogin_")) {
+      const teacherId = payload.slice("teacherlogin_".length);
+      const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { user: true } });
+      if (teacher) {
+        let userId = teacher.userId;
+        // если у преподавателя ещё нет учётной записи — создаём (вход только через Telegram)
+        if (!userId) {
+          const user = await prisma.user.create({
+            data: {
+              name: teacher.name,
+              email: `telegram_${teacher.id}@matacademy.local`,
+              passwordHash: bcrypt.hashSync(randomUUID(), 10),
+              role: "TEACHER",
+              telegramUserId: fromId,
+            },
+          });
+          await prisma.teacher.update({ where: { id: teacher.id }, data: { userId: user.id } });
+        } else {
+          await prisma.user.update({ where: { id: userId }, data: { telegramUserId: fromId } });
+        }
+        await sendTelegram(
+          chat,
+          `✅ Готово, ${teacher.name}! Теперь входите в CRM МатАкадемии кнопкой «Войти через Telegram» на странице входа.`
+        );
+      } else {
+        await sendTelegram(chat, `⚠️ Преподаватель не найден. Обратитесь к администратору.`);
+      }
+      return Response.json({ ok: true });
+    }
+
+    const studentId = payload;
     if (studentId) {
       const student = await prisma.student.findUnique({ where: { id: studentId } });
       if (student) {

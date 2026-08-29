@@ -15,13 +15,14 @@ datasource db {
 
 // Пользователи системы (вход + роли)
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         String   @default("MANAGER") // ADMIN | MANAGER | TEACHER
-  teacher      Teacher?
-  createdAt    DateTime @default(now())
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  role           String   @default("MANAGER") // ADMIN | MANAGER | TEACHER
+  telegramUserId String?  @unique // id пользователя Telegram (для входа через Telegram)
+  teacher        Teacher?
+  createdAt      DateTime @default(now())
 }
 
 // Преподаватели

@@ -8,6 +8,7 @@ import { PhotoUpload } from "@/components/PhotoUpload";
 import { ModalButton } from "@/components/ModalButton";
 import { TeacherForm } from "./TeacherForm";
 import { DeleteTeacherButton } from "./DeleteTeacherButton";
+import { TeacherTelegramLogin } from "./TeacherTelegramLogin";
 import { createTeacher, updateTeacher } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +19,10 @@ export default async function TeachersPage() {
   const editor = canEdit(session?.user?.role);
 
   const teachers = await prisma.teacher.findMany({
-    include: { groups: { include: { _count: { select: { students: true } } } } },
+    include: { groups: { include: { _count: { select: { students: true } } } }, user: { select: { telegramUserId: true } } },
     orderBy: { createdAt: "asc" },
   });
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? null;
 
   return (
     <>
@@ -89,6 +91,13 @@ export default async function TeachersPage() {
                         <PhotoUpload entity="teacher" id={t.id} name={t.name} photoUrl={t.photoUrl} size={64} />
                       </div>
                       <TeacherForm values={t} />
+                      <div style={{ borderTop: "1px solid var(--line-2)", paddingTop: 14, marginTop: 4 }}>
+                        <TeacherTelegramLogin
+                          teacherId={t.id}
+                          linked={!!t.user?.telegramUserId}
+                          botUsername={botUsername}
+                        />
+                      </div>
                     </ModalButton>
                     <DeleteTeacherButton id={t.id} name={t.name} hasGroups={groupCount > 0} />
                   </div>

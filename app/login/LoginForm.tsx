@@ -3,8 +3,9 @@
 import { useActionState } from "react";
 import { authenticate } from "@/app/actions/auth";
 import { Icon } from "@/components/Icon";
+import { TelegramLoginButton } from "./TelegramLoginButton";
 
-export function LoginForm() {
+export function LoginForm({ botUsername }: { botUsername?: string | null }) {
   const [error, formAction, pending] = useActionState(authenticate, undefined);
 
   return (
@@ -30,6 +31,8 @@ export function LoginForm() {
         <button className="btn" type="submit" disabled={pending}>
           {pending ? "Входим…" : "Войти"}
         </button>
+
+        {botUsername && <TelegramLoginButton botUsername={botUsername} />}
       </form>
     </div>
   );
