@@ -103,24 +103,17 @@ export async function updateSettings(formData: FormData) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") throw new Error("Только для администратора");
   const tariffs = tariffsFromText(String(formData.get("tariffs") ?? ""));
-  await prisma.settings.upsert({
-    where: { id: "main" },
-    update: {
-      schoolName: String(formData.get("schoolName") ?? "").trim() || "МатАкадемия",
-      address: String(formData.get("address") ?? "").trim(),
-      branches: String(formData.get("branches") ?? "").trim() || "Абая",
-      rooms: String(formData.get("rooms") ?? "").trim() || "Каб. 1",
-      tariffs: JSON.stringify(tariffs),
-    },
-    create: {
-      id: "main",
-      schoolName: String(formData.get("schoolName") ?? "").trim() || "МатАкадемия",
-      address: String(formData.get("address") ?? "").trim(),
-      branches: String(formData.get("branches") ?? "").trim() || "Абая",
-      rooms: String(formData.get("rooms") ?? "").trim() || "Каб. 1",
-      tariffs: JSON.stringify(tariffs),
-    },
-  });
+  const data = {
+    schoolName: String(formData.get("schoolName") ?? "").trim() || "МатАкадемия",
+    address: String(formData.get("address") ?? "").trim(),
+    branches: String(formData.get("branches") ?? "").trim() || "Абая",
+    rooms: String(formData.get("rooms") ?? "").trim() || "Каб. 1",
+    tariffs: JSON.stringify(tariffs),
+    tplOverdue: String(formData.get("tplOverdue") ?? "").trim(),
+    tplPending: String(formData.get("tplPending") ?? "").trim(),
+    tplExpiring: String(formData.get("tplExpiring") ?? "").trim(),
+  };
+  await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
   revalidatePath("/settings");
   revalidatePath("/", "layout");

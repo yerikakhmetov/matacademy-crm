@@ -47,3 +47,15 @@ export function tariffsFromText(text: string): Tariff[] {
 export function tariffsToText(tariffs: Tariff[]): string {
   return tariffs.map((t) => `${t.plan} | ${t.months} | ${t.price}`).join("\n");
 }
+
+// ── Шаблоны напоминаний ──
+// Плейсхолдеры: {school} {name} {purpose} {amount} {days} {plan} {date}
+export const DEFAULT_TEMPLATES = {
+  overdue: "Здравствуйте! Напоминаем об оплате обучения в {school} (ученик: {name}): {purpose} — {amount}. Просрочено на {days} дн. Пожалуйста, оплатите при возможности. Спасибо!",
+  pending: "Здравствуйте! Напоминаем об оплате в {school} (ученик: {name}): {purpose} — {amount}. Ждём оплату. Спасибо!",
+  expiring: "Здравствуйте! Абонемент «{plan}» ученика {name} истекает {date}. Предлагаем продлить заранее. Спасибо, что вы с {school}!",
+};
+
+export function renderTemplate(tpl: string, vars: Record<string, string | number>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`));
+}

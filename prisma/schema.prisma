@@ -203,6 +203,9 @@ model Settings {
   branches   String   @default("Абая") // через запятую
   rooms      String   @default("Каб. 1, Каб. 2, Каб. 3") // через запятую
   tariffs    String   @default("[]") // JSON: [{plan, months, price}]
+  tplOverdue String   @default("") // шаблон: долг
+  tplPending String   @default("") // шаблон: ожидает оплаты
+  tplExpiring String  @default("") // шаблон: абонемент истекает
   updatedAt  DateTime @updatedAt
 }
 

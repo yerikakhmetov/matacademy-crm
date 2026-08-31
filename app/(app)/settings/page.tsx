@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getSettings, parseTariffs, tariffsToText } from "@/lib/settings";
+import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { updateSettings } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
 import { ClearDataButton } from "./ClearDataButton";
@@ -57,6 +57,27 @@ export default async function SettingsPage() {
           </p>
           <div className="field">
             <textarea name="tariffs" defaultValue={tariffsText} rows={6} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+            Шаблоны напоминаний (Telegram)
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+            Плейсхолдеры подставятся автоматически: <code>{"{school}"}</code> <code>{"{name}"}</code> <code>{"{purpose}"}</code> <code>{"{amount}"}</code> <code>{"{days}"}</code> <code>{"{plan}"}</code> <code>{"{date}"}</code>. Пусто — используется стандартный текст.
+          </p>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>Долг (просрочка)</label>
+            <textarea name="tplOverdue" rows={2} defaultValue={s.tplOverdue} placeholder={DEFAULT_TEMPLATES.overdue} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+          </div>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>Ожидает оплаты</label>
+            <textarea name="tplPending" rows={2} defaultValue={s.tplPending} placeholder={DEFAULT_TEMPLATES.pending} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+          </div>
+          <div className="field">
+            <label>Абонемент истекает</label>
+            <textarea name="tplExpiring" rows={2} defaultValue={s.tplExpiring} placeholder={DEFAULT_TEMPLATES.expiring} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
           </div>
         </div>
 
