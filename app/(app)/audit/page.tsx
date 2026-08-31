@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { initials, avatarColor } from "@/lib/format";
+import { AuditFilters } from "./AuditFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -19,20 +20,43 @@ function when(d: Date) {
   return d.toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export default async function AuditPage() {
+export default async function AuditPage({ searchParams }: { searchParams: Promise<{ action?: string; user?: string; entity?: string }> }) {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") redirect("/dashboard");
 
-  const logs = await prisma.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+  const sp = await searchParams;
+  const action = sp.action ?? "all";
+  const user = sp.user ?? "all";
+  const entity = sp.entity ?? "all";
+
+  const where = {
+    ...(action !== "all" ? { action } : {}),
+    ...(user !== "all" ? { userName: user } : {}),
+    ...(entity !== "all" ? { entity } : {}),
+  };
+
+  const [logs, allUsers, allEntities] = await Promise.all([
+    prisma.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, take: 200 }),
+    prisma.auditLog.findMany({ distinct: ["userName"], select: { userName: true }, orderBy: { userName: "asc" } }),
+    prisma.auditLog.findMany({ distinct: ["entity"], select: { entity: true }, orderBy: { entity: "asc" } }),
+  ]);
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>История изменений</h1>
-          <p>Кто и что менял в системе · последние {logs.length} событий</p>
+          <p>Кто и что менял в системе · показано {logs.length}</p>
         </div>
       </div>
+
+      <AuditFilters
+        users={allUsers.map((u) => u.userName)}
+        entities={allEntities.map((e) => e.entity)}
+        action={action}
+        user={user}
+        entity={entity}
+      />
 
       <div className="card">
         <div className="table-wrap">
