@@ -1,0 +1,16 @@
+CREATE TABLE "Test" (
+  "id" TEXT NOT NULL,
+  "title" TEXT NOT NULL,
+  "groupId" TEXT NOT NULL,
+  "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "maxScore" INTEGER NOT NULL DEFAULT 100,
+  "createdBy" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "Test_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX "Test_groupId_idx" ON "Test"("groupId");
+ALTER TABLE "Test" ADD CONSTRAINT "Test_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "Group"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "Grade" ADD COLUMN "testId" TEXT;
+ALTER TABLE "Grade" ADD CONSTRAINT "Grade_testId_fkey" FOREIGN KEY ("testId") REFERENCES "Test"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX "Grade_testId_studentId_key" ON "Grade"("testId", "studentId");

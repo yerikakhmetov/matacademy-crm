@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS } from "@/lib/access";
@@ -790,6 +791,74 @@ export async function deleteGrade(id: string) {
   await logAudit("DELETE", "Оценка", `${grade.score}/${grade.maxScore} · ${grade.topic}`);
   revalidatePath("/grades");
   revalidatePath(`/students/${grade.studentId}`);
+}
+
+// ---------- Тесты ----------
+export async function createTest(formData: FormData) {
+  const groupId = str(formData.get("groupId"));
+  if (!groupId) throw new Error("Выберите группу");
+  await assertCanManageGroup(groupId);
+  const test = await prisma.test.create({
+    data: {
+      title: str(formData.get("title")) || "Тест",
+      groupId,
+      maxScore: int(formData.get("maxScore")) || 100,
+      date: parseDate(formData.get("date")) ?? new Date(),
+    },
+  });
+  await logAudit("CREATE", "Тест", `${test.title}`);
+  revalidatePath("/tests");
+  redirect(`/tests/${test.id}`);
+}
+
+export async function saveTestResults(testId: string, formData: FormData) {
+  const test = await prisma.test.findUnique({
+    where: { id: testId },
+    include: { group: { include: { students: { select: { id: true } } } } },
+  });
+  if (!test) throw new Error("Тест не найден");
+  const session = await assertCanManageGroup(test.groupId);
+
+  let saved = 0;
+  for (const s of test.group.students) {
+    const raw = formData.get(`score_${s.id}`);
+    const val = raw == null || String(raw).trim() === "" ? null : int(raw);
+    if (val == null) {
+      // очистить, если было
+      await prisma.grade.deleteMany({ where: { testId, studentId: s.id } });
+      continue;
+    }
+    const score = Math.max(0, Math.min(val, test.maxScore));
+    await prisma.grade.upsert({
+      where: { testId_studentId: { testId, studentId: s.id } },
+      create: {
+        studentId: s.id,
+        testId,
+        topic: test.title,
+        type: "TEST",
+        score,
+        maxScore: test.maxScore,
+        date: test.date,
+        createdBy: session.user?.name ?? null,
+      },
+      update: { score, maxScore: test.maxScore, topic: test.title, date: test.date },
+    });
+    saved++;
+  }
+  await logAudit("UPDATE", "Тест", `${test.title} · ${saved} оценок`);
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/tests");
+  revalidatePath("/grades");
+}
+
+export async function deleteTest(id: string) {
+  const test = await prisma.test.findUnique({ where: { id }, select: { groupId: true, title: true } });
+  if (!test) return;
+  await assertCanManageGroup(test.groupId);
+  await prisma.test.delete({ where: { id } }); // каскадом удаляются связанные оценки
+  await logAudit("DELETE", "Тест", test.title);
+  revalidatePath("/tests");
+  revalidatePath("/grades");
 }
 
 // ---------- Оплаты ----------

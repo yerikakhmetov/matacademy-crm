@@ -15,6 +15,7 @@ const TITLES: Record<string, string> = {
   "/schedule": "Расписание",
   "/journal": "Журнал посещаемости",
   "/grades": "Успеваемость",
+  "/tests": "Тесты и контрольные",
   "/homework": "Домашние задания",
   "/materials": "Материалы",
   "/teachers": "Учителя",

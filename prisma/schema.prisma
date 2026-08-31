@@ -72,6 +72,7 @@ model Group {
   lessons   Lesson[]
   homeworks Homework[]
   materials Material[]
+  tests     Test[]
   createdAt DateTime  @default(now())
 }
 
@@ -138,9 +139,27 @@ model Grade {
   maxScore  Int      @default(100)
   comment   String?
   createdBy String? // имя выставившего
+  testId    String? // если оценка получена за тест
+  test      Test?    @relation(fields: [testId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
+  @@unique([testId, studentId])
   @@index([studentId])
+}
+
+// Тест/контрольная — оценки группы вводит преподаватель по одному экрану
+model Test {
+  id        String   @id @default(cuid())
+  title     String
+  groupId   String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  date      DateTime @default(now())
+  maxScore  Int      @default(100)
+  createdBy String?
+  createdAt DateTime @default(now())
+  grades    Grade[]
+
+  @@index([groupId])
 }
 
 // Предметы (математика, физика ...) — базовая цена и доля в комбо-абонементе
