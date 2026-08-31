@@ -236,6 +236,7 @@ export async function createGroup(formData: FormData) {
       capacity: int(formData.get("capacity")) || 12,
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
+      subjectId: str(formData.get("subjectId")) || null,
     },
   });
   await logAudit("CREATE", "Группа", str(formData.get("name")));
@@ -252,6 +253,7 @@ export async function updateGroup(id: string, formData: FormData) {
       capacity: int(formData.get("capacity")) || 12,
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
+      subjectId: str(formData.get("subjectId")) || null,
     },
   });
   await logAudit("UPDATE", "Группа", str(formData.get("name")));

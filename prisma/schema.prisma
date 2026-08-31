@@ -65,6 +65,8 @@ model Group {
   color     String    @default("#3A5AE0")
   teacherId String?
   teacher   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  subjectId String?
+  subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   students  Student[]
   lessons   Lesson[]
   homeworks Homework[]
@@ -149,6 +151,7 @@ model Subject {
   active    Boolean            @default(true)
   createdAt DateTime           @default(now())
   items     SubscriptionItem[]
+  groups    Group[]
 }
 
 // Абонементы

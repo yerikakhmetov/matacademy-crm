@@ -16,13 +16,14 @@ export default async function GroupsPage() {
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
 
-  const [groups, teachers] = await Promise.all([
+  const [groups, teachers, subjects] = await Promise.all([
     prisma.group.findMany({
       where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
-      include: { teacher: true, _count: { select: { students: true } }, lessons: true },
+      include: { teacher: true, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: true },
       orderBy: { createdAt: "asc" },
     }),
     prisma.teacher.findMany({ orderBy: { name: "asc" } }),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const avgFill =
@@ -39,7 +40,7 @@ export default async function GroupsPage() {
         </div>
         {editor && (
           <ModalButton label="Новая группа" title="Новая группа" action={createGroup}>
-            <GroupForm teachers={teachers} />
+            <GroupForm teachers={teachers} subjects={subjects} />
           </ModalButton>
         )}
       </div>
@@ -58,7 +59,14 @@ export default async function GroupsPage() {
             <div className="card gcard" key={g.id}>
               <div className="gtop">
                 <div>
-                  <div className="gname">{g.name}</div>
+                  <div className="gname" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {g.name}
+                    {g.subject && (
+                      <span className="chip" style={{ padding: "1px 8px", fontSize: 10.5, background: `${g.subject.color}22`, color: g.subject.color }}>
+                        {g.subject.name}
+                      </span>
+                    )}
+                  </div>
                   <div className="gsub">
                     {g.level}
                     {scheduleText ? ` · ${scheduleText}` : ""}
@@ -101,7 +109,7 @@ export default async function GroupsPage() {
                     buttonClass="btn ghost"
                     action={updateGroup.bind(null, g.id)}
                   >
-                    <GroupForm teachers={teachers} values={g} />
+                    <GroupForm teachers={teachers} subjects={subjects} values={g} />
                   </ModalButton>
                   <DeleteGroupButton id={g.id} name={g.name} hasStudents={enrolled > 0} />
                 </div>

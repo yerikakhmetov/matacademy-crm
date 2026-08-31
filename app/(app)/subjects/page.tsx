@@ -18,7 +18,13 @@ export default async function SubjectsPage() {
   const editor = await canEditData(session?.user?.role);
 
   const [subjects, settings] = await Promise.all([
-    prisma.subject.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }], include: { _count: { select: { items: true } } } }),
+    prisma.subject.findMany({
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+      include: {
+        _count: { select: { items: true } },
+        groups: { select: { id: true, name: true, teacher: { select: { name: true } } } },
+      },
+    }),
     getSettings(),
   ]);
   const discounts = parseDiscounts(settings.discounts);
@@ -65,6 +71,11 @@ export default async function SubjectsPage() {
                       <span style={{ width: 12, height: 12, borderRadius: 4, background: s.color, flex: "none" }} />
                       {s.name}
                     </span>
+                    {s.groups.length > 0 && (
+                      <div className="mut" style={{ fontSize: 11.5, marginTop: 3, paddingLeft: 22 }}>
+                        {s.groups.length} групп · {[...new Set(s.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ") || "без учителей"}
+                      </div>
+                    )}
                   </td>
                   <td className="right num" style={{ fontWeight: 700 }}>{money(s.price)}</td>
                   <td>
