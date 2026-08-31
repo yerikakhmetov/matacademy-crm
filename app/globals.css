@@ -57,7 +57,10 @@ input,select,textarea{font-family:inherit}
 .nav-item.active{background:linear-gradient(90deg,rgba(58,90,224,.28),rgba(58,90,224,.1));color:#fff}
 .nav-item.active svg{opacity:1;color:#9DB0FF}
 .nav-item .badge{margin-left:auto;background:var(--bad);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px}
-.side-foot{margin-top:auto;border-top:1px solid rgba(255,255,255,.07);padding-top:12px;display:flex;align-items:center;gap:10px}
+.nav-scroll{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;margin:0 -6px;padding:0 6px}
+.nav-scroll::-webkit-scrollbar{width:6px}
+.nav-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border:none;border-radius:20px}
+.side-foot{margin-top:8px;border-top:1px solid rgba(255,255,255,.07);padding-top:12px;display:flex;align-items:center;gap:10px;flex:none}
 .side-foot .av{width:34px;height:34px;border-radius:9px;background:#2A3352;display:grid;place-items:center;font-weight:700;color:#B9C3E6;font-size:13px;flex:none}
 .side-foot .nm{font-size:13px;color:#E6EAF6;font-weight:600}
 .side-foot .rl{font-size:11px;color:#7C86A6}

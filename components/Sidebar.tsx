@@ -72,24 +72,26 @@ export function Sidebar({
         </div>
       </div>
 
-      {nav.map((item, i) =>
-        "section" in item ? (
-          <div className="nav-label" key={"s" + i}>
-            {item.section}
-          </div>
-        ) : (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={closeNav}
-            className={`nav-item ${pathname.startsWith(item.href) ? "active" : ""}`}
-          >
-            <Icon name={item.icon} />
-            {item.label}
-            {item.badgeKey && counts[item.badgeKey] > 0 && <span className="badge">{counts[item.badgeKey]}</span>}
-          </Link>
-        )
-      )}
+      <div className="nav-scroll">
+        {nav.map((item, i) =>
+          "section" in item ? (
+            <div className="nav-label" key={"s" + i}>
+              {item.section}
+            </div>
+          ) : (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={closeNav}
+              className={`nav-item ${pathname.startsWith(item.href) ? "active" : ""}`}
+            >
+              <Icon name={item.icon} />
+              {item.label}
+              {item.badgeKey && counts[item.badgeKey] > 0 && <span className="badge">{counts[item.badgeKey]}</span>}
+            </Link>
+          )
+        )}
+      </div>
 
       <div className="side-foot">
         <div className="av">{initials(user.name ?? "?")}</div>
