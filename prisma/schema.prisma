@@ -38,6 +38,7 @@ model Teacher {
   userId    String?  @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups    Group[]
+  subjects  Subject[] // какие предметы ведёт (many-to-many)
   createdAt DateTime @default(now())
 }
 
@@ -152,6 +153,7 @@ model Subject {
   createdAt DateTime           @default(now())
   items     SubscriptionItem[]
   groups    Group[]
+  teachers  Teacher[] // преподаватели этого предмета (many-to-many)
 }
 
 // Абонементы

@@ -19,10 +19,17 @@ export default async function TeachersPage() {
   await requireAccess("teachers");
   const editor = await canEditData(session?.user?.role);
 
-  const teachers = await prisma.teacher.findMany({
-    include: { groups: { include: { _count: { select: { students: true } } } }, user: { select: { telegramUserId: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const [teachers, subjects] = await Promise.all([
+    prisma.teacher.findMany({
+      include: {
+        groups: { include: { _count: { select: { students: true } } } },
+        subjects: { select: { id: true, name: true, color: true } },
+        user: { select: { telegramUserId: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
+  ]);
   const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? null;
 
   return (
@@ -34,7 +41,7 @@ export default async function TeachersPage() {
         </div>
         {editor && (
           <ModalButton label="Преподаватель" title="Новый преподаватель" action={createTeacher}>
-            <TeacherForm />
+            <TeacherForm subjects={subjects} />
           </ModalButton>
         )}
       </div>
@@ -53,6 +60,15 @@ export default async function TeachersPage() {
                   <div>
                     <div className="tn">{t.name}</div>
                     <div className="ts">{t.specialty}</div>
+                    {t.subjects.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
+                        {t.subjects.map((s) => (
+                          <span key={s.id} className="chip" style={{ padding: "1px 8px", fontSize: 10.5, background: `${s.color}22`, color: s.color }}>
+                            {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <span className="chip c-ok">
                     <span className="d" />★ 4.9
@@ -91,7 +107,7 @@ export default async function TeachersPage() {
                       <div style={{ paddingBottom: 8, borderBottom: "1px solid var(--line-2)", marginBottom: 4 }}>
                         <PhotoUpload entity="teacher" id={t.id} name={t.name} photoUrl={t.photoUrl} size={64} />
                       </div>
-                      <TeacherForm values={t} />
+                      <TeacherForm values={{ ...t, subjectIds: t.subjects.map((s) => s.id) }} subjects={subjects} />
                       <div style={{ borderTop: "1px solid var(--line-2)", paddingTop: 14, marginTop: 4 }}>
                         <TeacherTelegramLogin
                           teacherId={t.id}

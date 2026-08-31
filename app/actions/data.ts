@@ -274,6 +274,7 @@ export async function deleteGroup(id: string) {
 // ---------- Учителя ----------
 export async function createTeacher(formData: FormData) {
   await assertEditor();
+  const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
   await prisma.teacher.create({
     data: {
       name: str(formData.get("name")),
@@ -282,6 +283,7 @@ export async function createTeacher(formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       rate: int(formData.get("rate")),
       rateType: str(formData.get("rateType")) || "PER_LESSON",
+      subjects: subjectIds.length ? { connect: subjectIds.map((id) => ({ id })) } : undefined,
     },
   });
   await logAudit("CREATE", "Преподаватель", str(formData.get("name")));
@@ -290,6 +292,7 @@ export async function createTeacher(formData: FormData) {
 
 export async function updateTeacher(id: string, formData: FormData) {
   await assertEditor();
+  const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
   await prisma.teacher.update({
     where: { id },
     data: {
@@ -299,6 +302,7 @@ export async function updateTeacher(id: string, formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       rate: int(formData.get("rate")),
       rateType: str(formData.get("rateType")) || "PER_LESSON",
+      subjects: { set: subjectIds.map((id) => ({ id })) },
     },
   });
   await logAudit("UPDATE", "Преподаватель", str(formData.get("name")));

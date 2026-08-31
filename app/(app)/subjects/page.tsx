@@ -22,7 +22,8 @@ export default async function SubjectsPage() {
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: {
         _count: { select: { items: true } },
-        groups: { select: { id: true, name: true, teacher: { select: { name: true } } } },
+        groups: { select: { id: true } },
+        teachers: { select: { id: true, name: true } },
       },
     }),
     getSettings(),
@@ -71,9 +72,9 @@ export default async function SubjectsPage() {
                       <span style={{ width: 12, height: 12, borderRadius: 4, background: s.color, flex: "none" }} />
                       {s.name}
                     </span>
-                    {s.groups.length > 0 && (
+                    {(s.groups.length > 0 || s.teachers.length > 0) && (
                       <div className="mut" style={{ fontSize: 11.5, marginTop: 3, paddingLeft: 22 }}>
-                        {s.groups.length} групп · {[...new Set(s.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ") || "без учителей"}
+                        {s.groups.length} групп · {s.teachers.map((t) => t.name).join(", ") || "нет преподавателей"}
                       </div>
                     )}
                   </td>
