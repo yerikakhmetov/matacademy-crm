@@ -48,6 +48,7 @@ const NAV_TEACHER: Item[] = [
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 
 export function Sidebar({
