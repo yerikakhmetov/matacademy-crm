@@ -795,13 +795,15 @@ export async function deleteGrade(id: string) {
 
 // ---------- Тесты ----------
 export async function createTest(formData: FormData) {
-  const groupId = str(formData.get("groupId"));
-  if (!groupId) throw new Error("Выберите группу");
-  await assertCanManageGroup(groupId);
+  const groupId = str(formData.get("groupId")) || null;
+  const subjectId = str(formData.get("subjectId")) || null;
+  if (groupId) await assertCanManageGroup(groupId);
+  else await assertEditor();
   const test = await prisma.test.create({
     data: {
       title: str(formData.get("title")) || "Тест",
       groupId,
+      subjectId,
       maxScore: int(formData.get("maxScore")) || 100,
       date: parseDate(formData.get("date")) ?? new Date(),
     },
@@ -817,6 +819,7 @@ export async function saveTestResults(testId: string, formData: FormData) {
     include: { group: { include: { students: { select: { id: true } } } } },
   });
   if (!test) throw new Error("Тест не найден");
+  if (!test.groupId || !test.group) throw new Error("У теста нет группы для ввода оценок");
   const session = await assertCanManageGroup(test.groupId);
 
   let saved = 0;
@@ -854,7 +857,8 @@ export async function saveTestResults(testId: string, formData: FormData) {
 export async function deleteTest(id: string) {
   const test = await prisma.test.findUnique({ where: { id }, select: { groupId: true, title: true } });
   if (!test) return;
-  await assertCanManageGroup(test.groupId);
+  if (test.groupId) await assertCanManageGroup(test.groupId);
+  else await assertEditor();
   await prisma.test.delete({ where: { id } }); // каскадом удаляются связанные оценки
   await logAudit("DELETE", "Тест", test.title);
   revalidatePath("/tests");

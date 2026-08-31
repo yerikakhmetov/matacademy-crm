@@ -21,7 +21,7 @@ export default async function SubjectsPage() {
     prisma.subject.findMany({
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: {
-        _count: { select: { items: true } },
+        _count: { select: { items: true, tests: true } },
         groups: { select: { id: true } },
         teachers: { select: { id: true, name: true } },
       },
@@ -72,9 +72,10 @@ export default async function SubjectsPage() {
                       <span style={{ width: 12, height: 12, borderRadius: 4, background: s.color, flex: "none" }} />
                       {s.name}
                     </span>
-                    {(s.groups.length > 0 || s.teachers.length > 0) && (
+                    {(s.groups.length > 0 || s.teachers.length > 0 || s._count.tests > 0) && (
                       <div className="mut" style={{ fontSize: 11.5, marginTop: 3, paddingLeft: 22 }}>
                         {s.groups.length} групп · {s.teachers.map((t) => t.name).join(", ") || "нет преподавателей"}
+                        {s._count.tests > 0 ? ` · ${s._count.tests} тестов` : ""}
                       </div>
                     )}
                   </td>

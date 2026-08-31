@@ -147,19 +147,36 @@ model Grade {
   @@index([studentId])
 }
 
-// Тест/контрольная — оценки группы вводит преподаватель по одному экрану
+// Тест/контрольная — содержит вопросы и/или используется для ввода оценок группы
 model Test {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   title     String
-  groupId   String
-  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  date      DateTime @default(now())
-  maxScore  Int      @default(100)
+  groupId   String? // если привязан к группе (для ввода оценок)
+  group     Group?         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  subjectId String? // предмет теста
+  subject   Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  date      DateTime       @default(now())
+  maxScore  Int            @default(100)
   createdBy String?
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
   grades    Grade[]
+  questions TestQuestion[]
 
   @@index([groupId])
+  @@index([subjectId])
+}
+
+// Вопрос теста с вариантами ответов и правильным вариантом
+model TestQuestion {
+  id      String   @id @default(cuid())
+  testId  String
+  test    Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  order   Int      @default(0)
+  text    String
+  options String[] // варианты ответов
+  correct Int      @default(0) // индекс правильного варианта (0-based)
+
+  @@index([testId])
 }
 
 // Предметы (математика, физика ...) — базовая цена и доля в комбо-абонементе
@@ -173,6 +190,7 @@ model Subject {
   items     SubscriptionItem[]
   groups    Group[]
   teachers  Teacher[] // преподаватели этого предмета (many-to-many)
+  tests     Test[]
 }
 
 // Абонементы
