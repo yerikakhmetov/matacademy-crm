@@ -98,6 +98,19 @@ export async function removePhoto(entity: "student" | "teacher", id: string) {
   revalidatePath("/my-students");
 }
 
+// ---------- Учебные материалы ----------
+export async function deleteMaterial(id: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  const m = await prisma.material.findUnique({ where: { id }, include: { group: { include: { teacher: true } } } });
+  if (!m) return;
+  const owns = m.group?.teacher?.userId === session.user.id;
+  if (!canEdit(session.user.role) && !(session.user.role === "TEACHER" && owns)) throw new Error("Недостаточно прав");
+  await prisma.material.delete({ where: { id } });
+  await logAudit("DELETE", "Материал", m.title);
+  revalidatePath("/materials");
+}
+
 // ---------- Настройки школы ----------
 export async function updateSettings(formData: FormData) {
   const session = await auth();

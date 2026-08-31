@@ -42,6 +42,12 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
       })
     : [];
 
+  const materials = await prisma.material.findMany({
+    where: { OR: [{ groupId: null }, ...(student.group ? [{ groupId: student.group.id }] : [])] },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
   const avg =
     student.grades.length > 0
       ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
@@ -215,6 +221,30 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             </table>
           </div>
         </div>
+
+        {/* Материалы */}
+        {materials.length > 0 && (
+          <div className="card">
+            <div className="card-h">
+              <h3>Материалы</h3>
+              <span className="chip c-mut"><span className="d" />{materials.length}</span>
+            </div>
+            <div style={{ padding: "6px 0" }}>
+              {materials.map((m) => (
+                <a key={m.id} href={m.fileUrl} target="_blank" rel="noopener noreferrer" className="list-row" style={{ textDecoration: "none" }}>
+                  <div className="pay-ico" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
+                    <Icon name="export" size={16} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{m.title}</div>
+                    <div className="mut" style={{ fontSize: 12 }}>{m.fileName}</div>
+                  </div>
+                  <span className="mut" style={{ fontSize: 12 }}>{formatDate(m.createdAt)}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Оплаты */}
         <div className="card">

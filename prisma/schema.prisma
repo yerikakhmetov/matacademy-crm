@@ -41,6 +41,21 @@ model Teacher {
   createdAt DateTime @default(now())
 }
 
+// Учебные материалы (файлы)
+model Material {
+  id        String   @id @default(cuid())
+  groupId   String? // null = для всех групп
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  title     String
+  fileUrl   String
+  fileName  String
+  fileType  String   @default("")
+  uploadedBy String?
+  createdAt DateTime @default(now())
+
+  @@index([groupId])
+}
+
 // Учебные группы
 model Group {
   id        String    @id @default(cuid())
@@ -53,6 +68,7 @@ model Group {
   students  Student[]
   lessons   Lesson[]
   homeworks Homework[]
+  materials Material[]
   createdAt DateTime  @default(now())
 }
 
