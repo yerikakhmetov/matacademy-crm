@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { canSeeMoney } from "@/lib/roles";
+import { requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
@@ -39,6 +40,7 @@ function lessonsInMonth(year: number, month0: number, dayOfWeek: number): number
 export default async function ReportsPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
+  await requireAccess("reports");
   const money$ = canSeeMoney(session?.user?.role);
 
   const months = lastMonths(6);

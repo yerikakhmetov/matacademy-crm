@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { initials, avatarColor, scoreColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
@@ -15,7 +15,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
   const sp = await searchParams;
   const session = await auth();
   const teacher = isTeacher(session?.user?.role);
-  const canManage = canEdit(session?.user?.role) || teacher;
+  const canManage = await canEditData(session?.user?.role) || teacher;
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
 
   const groups = await prisma.group.findMany({

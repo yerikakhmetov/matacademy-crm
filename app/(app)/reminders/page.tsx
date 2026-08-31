@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isTeacher } from "@/lib/teacher";
+import { requireAccess } from "@/lib/access";
 import { money, initials, avatarColor, formatDate, subStatus } from "@/lib/format";
 import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
@@ -18,6 +19,7 @@ function daysAgo(d: Date) {
 export default async function RemindersPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
+  await requireAccess("finance");
 
   await refreshOverdue();
 

@@ -224,6 +224,7 @@ model Settings {
   tplOverdue String   @default("") // шаблон: долг
   tplPending String   @default("") // шаблон: ожидает оплаты
   tplExpiring String  @default("") // шаблон: абонемент истекает
+  managerDenied String @default("") // запрещённые менеджеру модули (ключи через запятую)
   updatedAt  DateTime @updatedAt
 }
 

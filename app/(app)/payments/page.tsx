@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor, formatDate, PAYMENT_STATUS } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -29,7 +29,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const { status = "all" } = await searchParams;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
-  const editor = canEdit(session?.user?.role);
+  await requireAccess("finance");
+  const editor = await canEditData(session?.user?.role);
 
   await refreshOverdue(); // автопометка просроченных счетов
 

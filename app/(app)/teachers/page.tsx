@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { Avatar } from "@/components/Avatar";
 import { PhotoUpload } from "@/components/PhotoUpload";
@@ -16,7 +16,8 @@ export const dynamic = "force-dynamic";
 export default async function TeachersPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
-  const editor = canEdit(session?.user?.role);
+  await requireAccess("teachers");
+  const editor = await canEditData(session?.user?.role);
 
   const teachers = await prisma.teacher.findMany({
     include: { groups: { include: { _count: { select: { students: true } } } }, user: { select: { telegramUserId: true } } },

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { DAYS } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
 import { ModalButton } from "@/components/ModalButton";
@@ -34,7 +34,7 @@ export default async function LessonPage({
   const { id } = await params;
   const { date: dateParam } = await searchParams;
   const session = await auth();
-  const editor = canEdit(session?.user?.role);
+  const editor = await canEditData(session?.user?.role);
 
   const lesson = await prisma.lesson.findUnique({
     where: { id },

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isTeacher } from "@/lib/teacher";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, subStatus } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PhotoUpload } from "@/components/PhotoUpload";
@@ -24,7 +24,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
-  const editor = canEdit(session?.user?.role);
+  const editor = await canEditData(session?.user?.role);
 
   const [student, groups] = await Promise.all([
     prisma.student.findUnique({

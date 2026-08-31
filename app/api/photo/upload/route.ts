@@ -1,7 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (entity !== "student" && entity !== "teacher") return NextResponse.json({ error: "Неверный тип" }, { status: 400 });
 
   // права: админ/менеджер, либо преподаватель для своего фото
-  if (!canEdit(session.user.role)) {
+  if (!(await canEditData(session.user.role))) {
     let ok = false;
     if (entity === "teacher" && session.user.role === "TEACHER") {
       const t = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });

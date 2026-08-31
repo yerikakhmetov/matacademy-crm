@@ -1,0 +1,1 @@
+ALTER TABLE "Settings" ADD COLUMN "managerDenied" TEXT NOT NULL DEFAULT '';

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES } from "@/lib/settings";
+import { MANAGER_PERMS, parseDenied } from "@/lib/access";
 import { updateSettings } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
 import { ClearDataButton } from "./ClearDataButton";
@@ -13,6 +14,7 @@ export default async function SettingsPage() {
 
   const s = await getSettings();
   const tariffsText = tariffsToText(parseTariffs(s.tariffs));
+  const denied = parseDenied(s.managerDenied);
 
   return (
     <>
@@ -78,6 +80,26 @@ export default async function SettingsPage() {
           <div className="field">
             <label>Абонемент истекает</label>
             <textarea name="tplExpiring" rows={2} defaultValue={s.tplExpiring} placeholder={DEFAULT_TEMPLATES.expiring} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+            Права менеджера
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+            Отметьте, какие разделы и действия доступны роли «Менеджер». Администратор всегда имеет полный доступ, преподаватель — только свой кабинет.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {MANAGER_PERMS.map((p) => (
+              <label key={p.key} className="perm-row" style={{ display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer" }}>
+                <input type="checkbox" name={`perm_${p.key}`} defaultChecked={!denied.has(p.key)} style={{ marginTop: 3, width: 18, height: 18, flex: "none" }} />
+                <span>
+                  <span style={{ fontWeight: 600 }}>{p.label}</span>
+                  <span className="mut" style={{ display: "block", fontSize: 12.5 }}>{p.desc}</span>
+                </span>
+              </label>
+            ))}
           </div>
         </div>
 

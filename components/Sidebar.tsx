@@ -7,12 +7,14 @@ import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials } from "@/lib/format";
 
-type Item = { section: string; adminOnly?: boolean } | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean };
+type Item =
+  | { section: string; adminOnly?: boolean; perm?: string }
+  | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean; perm?: string };
 
 const NAV_FULL: Item[] = [
   { section: "Обзор" },
   { href: "/dashboard", icon: "dashboard", label: "Дашборд" },
-  { href: "/reports", icon: "chart", label: "Отчёты" },
+  { href: "/reports", icon: "chart", label: "Отчёты", perm: "reports" },
   { href: "/audit", icon: "clock", label: "История", adminOnly: true },
   { section: "Учебный процесс" },
   { href: "/students", icon: "students", label: "Ученики", badgeKey: "students" },
@@ -22,12 +24,12 @@ const NAV_FULL: Item[] = [
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
-  { href: "/teachers", icon: "teachers", label: "Учителя" },
+  { href: "/teachers", icon: "teachers", label: "Учителя", perm: "teachers" },
   { section: "Продажи и деньги" },
-  { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads" },
-  { href: "/payments", icon: "payments", label: "Оплаты" },
-  { href: "/reminders", icon: "bell", label: "Напоминания" },
-  { href: "/payroll", icon: "money", label: "Зарплата" },
+  { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads", perm: "leads" },
+  { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
+  { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
+  { href: "/payroll", icon: "money", label: "Зарплата", perm: "payroll" },
   { section: "Система", adminOnly: true },
   { href: "/stats", icon: "chart", label: "Статистика", adminOnly: true },
   { href: "/users", icon: "students", label: "Пользователи", adminOnly: true },
@@ -50,14 +52,25 @@ const NAV_TEACHER: Item[] = [
 export function Sidebar({
   user,
   counts,
+  denied = [],
 }: {
   user: { name?: string | null; role?: string };
   counts: { students: number; leads: number };
+  denied?: string[];
 }) {
   const pathname = usePathname();
   const nav = (user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL).filter(
-    (i) => !("adminOnly" in i && i.adminOnly) || user.role === "ADMIN"
+    (i) =>
+      (!("adminOnly" in i && i.adminOnly) || user.role === "ADMIN") &&
+      // скрыть модули, запрещённые менеджеру
+      !(i.perm && user.role === "MANAGER" && denied.includes(i.perm))
   );
+  // убрать заголовки секций, оставшиеся без пунктов
+  const visible = nav.filter((item, i) => {
+    if (!("section" in item)) return true;
+    const next = nav[i + 1];
+    return next != null && !("section" in next);
+  });
   const closeNav = () => document.documentElement.classList.remove("nav-open");
 
   return (
@@ -75,7 +88,7 @@ export function Sidebar({
       </div>
 
       <div className="nav-scroll">
-        {nav.map((item, i) =>
+        {visible.map((item, i) =>
           "section" in item ? (
             <div className="nav-label" key={"s" + i}>
               {item.section}

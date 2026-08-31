@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData, requireAccess } from "@/lib/access";
 import { avatarColor, initials, formatDate, ACTIVITY_TYPE } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
@@ -19,7 +19,8 @@ export const dynamic = "force-dynamic";
 export default async function LeadDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const editor = canEdit(session?.user?.role);
+  await requireAccess("leads");
+  const editor = await canEditData(session?.user?.role);
 
   const [lead, groups] = await Promise.all([
     prisma.lead.findUnique({

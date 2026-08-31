@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SchedulePage() {
   const session = await auth();
-  const editor = canEdit(session?.user?.role);
+  const editor = await canEditData(session?.user?.role);
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
   const groupWhere = teacher ? { teacherId: myTeacherId ?? "__none__" } : {};

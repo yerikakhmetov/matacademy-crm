@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData, MANAGER_PERMS } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText } from "@/lib/settings";
@@ -61,14 +61,14 @@ export async function deleteUser(id: string) {
 async function assertEditor() {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
-  if (!canEdit(session.user.role)) throw new Error("Недостаточно прав");
+  if (!(await canEditData(session.user.role))) throw new Error("Недостаточно прав");
 }
 
 // ---------- Фото профиля (Vercel Blob) ----------
 async function assertCanEditPhoto(entity: "student" | "teacher", id: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
-  if (canEdit(session.user.role)) return;
+  if (await canEditData(session.user.role)) return;
   // учитель может менять только своё фото
   if (entity === "teacher" && session.user.role === "TEACHER") {
     const t = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });
@@ -105,7 +105,7 @@ export async function deleteMaterial(id: string) {
   const m = await prisma.material.findUnique({ where: { id }, include: { group: { include: { teacher: true } } } });
   if (!m) return;
   const owns = m.group?.teacher?.userId === session.user.id;
-  if (!canEdit(session.user.role) && !(session.user.role === "TEACHER" && owns)) throw new Error("Недостаточно прав");
+  if (!await canEditData(session.user.role) && !(session.user.role === "TEACHER" && owns)) throw new Error("Недостаточно прав");
   await prisma.material.delete({ where: { id } });
   await logAudit("DELETE", "Материал", m.title);
   revalidatePath("/materials");
@@ -125,6 +125,8 @@ export async function updateSettings(formData: FormData) {
     tplOverdue: String(formData.get("tplOverdue") ?? "").trim(),
     tplPending: String(formData.get("tplPending") ?? "").trim(),
     tplExpiring: String(formData.get("tplExpiring") ?? "").trim(),
+    // чекбокс "perm_<key>" присутствует = разрешено; отсутствует = запрещено
+    managerDenied: MANAGER_PERMS.filter((p) => !formData.get(`perm_${p.key}`)).map((p) => p.key).join(","),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -539,7 +541,7 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
 
   // Отмечать может админ/менеджер ИЛИ учитель, ведущий эту группу
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
-  if (!canEdit(session.user.role) && !ownsLesson) throw new Error("Недостаточно прав");
+  if (!await canEditData(session.user.role) && !ownsLesson) throw new Error("Недостаточно прав");
 
   const students = lesson.group.students;
 
@@ -598,7 +600,7 @@ export async function broadcastTelegram(formData: FormData): Promise<{ sent: num
 async function assertCanManageGroup(groupId: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
-  if (canEdit(session.user.role)) return session;
+  if (await canEditData(session.user.role)) return session;
   const group = await prisma.group.findUnique({ where: { id: groupId }, include: { teacher: true } });
   if (session.user.role === "TEACHER" && group?.teacher?.userId === session.user.id) return session;
   throw new Error("Недостаточно прав");
@@ -648,7 +650,7 @@ export async function toggleHomeworkDone(homeworkId: string, studentId: string) 
 async function assertCanGrade(studentId: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
-  if (canEdit(session.user.role)) return session;
+  if (await canEditData(session.user.role)) return session;
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     include: { group: { include: { teacher: true } } },

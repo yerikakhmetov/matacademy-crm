@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { LEAD_STAGES, formatDate } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
@@ -15,7 +15,8 @@ export const dynamic = "force-dynamic";
 export default async function LeadsPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
-  const editor = canEdit(session?.user?.role);
+  await requireAccess("leads");
+  const editor = await canEditData(session?.user?.role);
 
   const leads = await prisma.lead.findMany({
     include: { _count: { select: { activities: { where: { done: false, type: "TASK" } } } } },

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor, STUDENT_STATUS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
@@ -23,7 +23,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const { status = "all" } = await searchParams;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
-  const editor = canEdit(session?.user?.role);
+  const editor = await canEditData(session?.user?.role);
 
   const where =
     status === "debt" ? { balance: { lt: 0 } } : status === "all" ? {} : { status };

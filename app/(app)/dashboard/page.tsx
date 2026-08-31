@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isTeacher } from "@/lib/teacher";
+import { getAccess } from "@/lib/access";
 import { Icon } from "@/components/Icon";
 import { money, initials, avatarColor, LEAD_STAGES } from "@/lib/format";
 import { refreshOverdue } from "@/app/actions/data";
@@ -19,6 +20,9 @@ export default async function DashboardPage() {
   if (isTeacher(session?.user?.role) && session?.user?.id) {
     return <TeacherDashboard userId={session.user.id} name={session.user.name} />;
   }
+
+  const { can } = await getAccess();
+  const showMoney = can("finance"); // менеджер без права «finance» не видит суммы
 
   await refreshOverdue(); // автопометка просроченных счетов
 
@@ -50,9 +54,9 @@ export default async function DashboardPage() {
 
   const kpis = [
     { l: "Активных учеников", v: String(activeStudents), t: "учатся сейчас", icon: "students", col: "var(--accent)", bg: "var(--accent-soft)" },
-    { l: "Доход за месяц", v: money(revenue), t: "оплачено", icon: "money", col: "var(--ok)", bg: "var(--ok-soft)" },
+    ...(showMoney ? [{ l: "Доход за месяц", v: money(revenue), t: "оплачено", icon: "money", col: "var(--ok)", bg: "var(--ok-soft)" }] : []),
     { l: "Новых лидов", v: String(newLeads), t: `конверсия ${conv}%`, icon: "leads", col: "var(--violet)", bg: "var(--violet-soft)" },
-    { l: "Задолженность", v: money(totalDebt), t: `${debtStudents.length} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" },
+    ...(showMoney ? [{ l: "Задолженность", v: money(totalDebt), t: `${debtStudents.length} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" }] : []),
   ];
 
   const now = new Date();
@@ -139,6 +143,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="two-col" style={{ marginTop: 16 }}>
+        {showMoney && (
         <div className="card">
           <div className="card-h">
             <h3>Последние оплаты</h3>
@@ -166,17 +171,18 @@ export default async function DashboardPage() {
             ))}
           </div>
         </div>
+        )}
 
         <div className="card">
           <div className="card-h">
             <h3>Требуют внимания</h3>
             <span className="chip c-bad">
               <span className="d" />
-              {overdue.length + pausedStudents.length} задач
+              {(showMoney ? overdue.length : 0) + pausedStudents.length} задач
             </span>
           </div>
           <div style={{ padding: "6px 0" }}>
-            {overdue.map((p) => (
+            {showMoney && overdue.map((p) => (
               <div className="list-row" key={p.id}>
                 <div className="pay-ico" style={{ background: "var(--bad-soft)", color: "var(--bad)" }}>
                   <Icon name="alert" size={16} />
@@ -202,7 +208,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
-            {overdue.length + pausedStudents.length === 0 && <div className="empty">Всё под контролем ✅</div>}
+            {(showMoney ? overdue.length : 0) + pausedStudents.length === 0 && <div className="empty">Всё под контролем ✅</div>}
           </div>
         </div>
       </div>

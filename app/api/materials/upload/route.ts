@@ -1,7 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { canEdit } from "@/lib/roles";
+import { canEditData } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: "Файл больше 20 МБ" }, { status: 400 });
 
   // права: админ/менеджер, либо преподаватель для своей группы
-  if (!canEdit(session.user.role)) {
+  if (!(await canEditData(session.user.role))) {
     let ok = false;
     if (session.user.role === "TEACHER" && groupId) {
       const g = await prisma.group.findUnique({ where: { id: groupId }, select: { teacher: { select: { userId: true } } } });
