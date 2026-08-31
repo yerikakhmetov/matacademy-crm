@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEdit } from "@/lib/roles";
 import { isTeacher } from "@/lib/teacher";
-import { LEAD_STAGES } from "@/lib/format";
+import { LEAD_STAGES, formatDate } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
+import Link from "next/link";
 import { LeadForm } from "./LeadForm";
 import { LeadCard } from "./LeadCard";
 import { createLead } from "@/app/actions/data";
@@ -36,6 +37,20 @@ export default async function LeadsPage() {
   }
   const sourceRows = [...sources.entries()].sort((a, b) => b[1].total - a[1].total);
 
+  // Ближайшие пробные уроки и запланированные действия (для открытых лидов)
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
+  const openLeads = leads.filter((l) => l.stage !== "WON" && l.stage !== "LOST");
+  type Agenda = { id: string; name: string; kind: "trial" | "action"; date: Date; overdue: boolean; label: string };
+  const agenda: Agenda[] = [];
+  for (const l of openLeads) {
+    if (l.trialDate)
+      agenda.push({ id: l.id, name: l.name, kind: "trial", date: l.trialDate, overdue: l.trialDate < dayStart, label: "Пробный урок" });
+    if (l.nextActionAt)
+      agenda.push({ id: l.id, name: l.name, kind: "action", date: l.nextActionAt, overdue: l.nextActionAt < dayStart, label: "Следующее действие" });
+  }
+  agenda.sort((a, b) => a.date.getTime() - b.date.getTime());
+
   return (
     <>
       <div className="page-head">
@@ -51,6 +66,28 @@ export default async function LeadsPage() {
           </ModalButton>
         )}
       </div>
+
+      {agenda.length > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-h">
+            <h3>Пробные уроки и задачи</h3>
+            <span className="chip c-mut"><span className="d" />{agenda.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            {agenda.slice(0, 12).map((a, i) => (
+              <Link key={`${a.id}-${a.kind}-${i}`} href={`/leads/${a.id}`} className="list-row" style={{ textDecoration: "none" }}>
+                <span className={`chip ${a.kind === "trial" ? "c-vio" : a.overdue ? "c-bad" : "c-mut"}`} style={{ minWidth: 118, justifyContent: "center" }}>
+                  <span className="d" />{a.label}
+                </span>
+                <div style={{ flex: 1, fontWeight: 600 }}>{a.name}</div>
+                <span className="mut" style={{ fontSize: 12.5, color: a.overdue ? "var(--bad)" : undefined, fontWeight: a.overdue ? 700 : undefined }}>
+                  {a.overdue ? "просрочено · " : ""}{formatDate(a.date)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-h">

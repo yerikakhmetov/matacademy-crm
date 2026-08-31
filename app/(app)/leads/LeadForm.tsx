@@ -1,4 +1,15 @@
-type Values = { name?: string; childName?: string | null; grade?: string | null; subject?: string | null; phone?: string | null; source?: string | null };
+type Values = {
+  name?: string;
+  childName?: string | null;
+  grade?: string | null;
+  subject?: string | null;
+  phone?: string | null;
+  source?: string | null;
+  trialDate?: Date | null;
+  nextActionAt?: Date | null;
+};
+
+const dateVal = (d?: Date | null) => (d ? new Date(d).toISOString().slice(0, 10) : "");
 
 export function LeadForm({ values }: { values?: Values }) {
   return (
@@ -37,6 +48,16 @@ export function LeadForm({ values }: { values?: Values }) {
           <option>Рекомендация</option>
           <option>Другое</option>
         </select>
+      </div>
+      <div className="grid2">
+        <div className="field">
+          <label>Пробный урок</label>
+          <input name="trialDate" type="date" defaultValue={dateVal(values?.trialDate)} />
+        </div>
+        <div className="field">
+          <label>Следующее действие</label>
+          <input name="nextActionAt" type="date" defaultValue={dateVal(values?.nextActionAt)} />
+        </div>
       </div>
     </>
   );

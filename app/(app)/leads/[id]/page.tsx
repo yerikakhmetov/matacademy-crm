@@ -120,6 +120,24 @@ export default async function LeadDetail({ params }: { params: Promise<{ id: str
             </div>
           </div>
 
+          {(lead.trialDate || lead.nextActionAt) && (() => {
+            const ds = new Date(); ds.setHours(0, 0, 0, 0);
+            const naOverdue = lead.nextActionAt ? lead.nextActionAt < ds : false;
+            return (
+              <div className="card">
+                <div className="card-h">
+                  <h3>Планы</h3>
+                </div>
+                <div style={{ padding: 18 }}>
+                  <dl className="dl">
+                    {lead.trialDate && (<><dt>Пробный урок</dt><dd style={{ color: "var(--violet)", fontWeight: 600 }}>{formatDate(lead.trialDate)}</dd></>)}
+                    {lead.nextActionAt && (<><dt>Следующее действие</dt><dd style={{ color: naOverdue ? "var(--bad)" : undefined, fontWeight: naOverdue ? 700 : undefined }}>{naOverdue ? "просрочено · " : ""}{formatDate(lead.nextActionAt)}</dd></>)}
+                  </dl>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="card">
             <div className="card-h">
               <h3>Контакты</h3>

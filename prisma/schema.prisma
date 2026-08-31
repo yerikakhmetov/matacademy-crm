@@ -188,6 +188,8 @@ model Lead {
   source     String? // Instagram, 2ГИС, Сайт, Рекомендация...
   stage      String         @default("NEW") // NEW | CONTACTED | TRIAL | INVOICED | WON | LOST
   note       String?
+  trialDate    DateTime? // запланированный пробный урок
+  nextActionAt DateTime? // дата следующего действия (перезвонить и т.п.)
   activities LeadActivity[]
   createdAt  DateTime       @default(now())
 }

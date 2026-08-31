@@ -332,6 +332,8 @@ export async function createLead(formData: FormData) {
       grade: str(formData.get("grade")) || null,
       subject: str(formData.get("subject")) || null,
       source: str(formData.get("source")) || null,
+      trialDate: parseDate(formData.get("trialDate")),
+      nextActionAt: parseDate(formData.get("nextActionAt")),
       stage: "NEW",
     },
   });
@@ -359,6 +361,8 @@ export async function updateLead(id: string, formData: FormData) {
       grade: str(formData.get("grade")) || null,
       subject: str(formData.get("subject")) || null,
       source: str(formData.get("source")) || null,
+      trialDate: parseDate(formData.get("trialDate")),
+      nextActionAt: parseDate(formData.get("nextActionAt")),
     },
   });
   await logAudit("UPDATE", "Лид", str(formData.get("name")));
