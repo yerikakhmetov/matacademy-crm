@@ -16,7 +16,7 @@ import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
-import { getSettings, parseTariffs } from "@/lib/settings";
+import { getSettings, parseDiscounts, parseMultiTiers } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -39,7 +39,12 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   ]);
   if (!student) notFound();
 
-  const tariffs = parseTariffs((await getSettings()).tariffs);
+  const [settings, activeSubjects] = await Promise.all([
+    getSettings(),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, color: true } }),
+  ]);
+  const discounts = parseDiscounts(settings.discounts);
+  const tiers = parseMultiTiers(settings.multiDiscount);
 
   // Ленивая генерация постоянного токена родительской страницы
   let portalToken = student.portalToken;
@@ -72,7 +77,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               <StudentForm groups={groups} values={student} />
             </ModalButton>
             <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-              <SubscriptionForm tariffs={tariffs} />
+              <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} />
             </ModalButton>
             <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
               <PaymentForm students={[student]} fixedStudentId={student.id} />
@@ -197,9 +202,17 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                       <span style={{ fontWeight: 800, fontSize: 13 }}>{sub.months}</span>
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{sub.plan}</div>
+                      <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        {sub.plan}
+                        {sub.discountPct + sub.multiPct > 0 && (
+                          <span className="chip c-ok" style={{ padding: "1px 7px", fontSize: 10.5 }}>
+                            <span className="d" />−{sub.discountPct + sub.multiPct}%
+                          </span>
+                        )}
+                      </div>
                       <div className="mut" style={{ fontSize: 12 }}>
                         {formatDate(sub.startDate)}{sub.endDate ? ` — ${formatDate(sub.endDate)}` : ""} · {money(sub.price)}
+                        {sub.basePrice > sub.price ? <span style={{ textDecoration: "line-through", marginLeft: 6, opacity: 0.6 }}>{money(sub.basePrice)}</span> : null}
                       </div>
                     </div>
                     <span className={`chip ${ss.cls}`}>

@@ -64,6 +64,24 @@ export default async function SettingsPage() {
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+            Скидки
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+            Спец-скидки (для отдельных групп людей) — по одной в строке: <b>Название | процент</b>. Например: <code>Брат/сестра | 10</code>
+          </p>
+          <div className="field" style={{ marginBottom: 16 }}>
+            <textarea name="discounts" defaultValue={s.discounts} rows={4} placeholder={"Брат/сестра | 10\nМногодетная семья | 15\nРекомендация | 5"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+            Скидка за несколько предметов — <b>кол-во предметов | процент</b> (от указанного количества). Например: <code>2 | 10</code>, <code>3 | 15</code>
+          </p>
+          <div className="field">
+            <textarea name="multiDiscount" defaultValue={s.multiDiscount} rows={3} placeholder={"2 | 10\n3 | 15"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
             Шаблоны напоминаний (Telegram)
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>

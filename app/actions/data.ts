@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import bcrypt from "bcryptjs";
 
@@ -127,6 +127,8 @@ export async function updateSettings(formData: FormData) {
     tplExpiring: String(formData.get("tplExpiring") ?? "").trim(),
     // чекбокс "perm_<key>" присутствует = разрешено; отсутствует = запрещено
     managerDenied: MANAGER_PERMS.filter((p) => !formData.get(`perm_${p.key}`)).map((p) => p.key).join(","),
+    discounts: String(formData.get("discounts") ?? "").trim(),
+    multiDiscount: String(formData.get("multiDiscount") ?? "").trim(),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -439,22 +441,114 @@ export async function convertLeadToStudent(leadId: string, formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+// ---------- Предметы ----------
+export async function createSubject(formData: FormData) {
+  await assertEditor();
+  const name = str(formData.get("name"));
+  if (!name) throw new Error("Укажите название предмета");
+  await prisma.subject.create({
+    data: {
+      name,
+      price: int(formData.get("price")),
+      color: str(formData.get("color")) || "#3A5AE0",
+      active: formData.get("active") != null,
+    },
+  });
+  await logAudit("CREATE", "Предмет", name);
+  revalidatePath("/subjects");
+}
+
+export async function updateSubject(id: string, formData: FormData) {
+  await assertEditor();
+  const name = str(formData.get("name"));
+  await prisma.subject.update({
+    where: { id },
+    data: {
+      name,
+      price: int(formData.get("price")),
+      color: str(formData.get("color")) || "#3A5AE0",
+      active: formData.get("active") != null,
+    },
+  });
+  await logAudit("UPDATE", "Предмет", name);
+  revalidatePath("/subjects");
+}
+
+export async function deleteSubject(id: string) {
+  await assertEditor();
+  const s = await prisma.subject.findUnique({ where: { id }, select: { name: true } });
+  await prisma.subject.delete({ where: { id } });
+  await logAudit("DELETE", "Предмет", s?.name ?? id);
+  revalidatePath("/subjects");
+}
+
 // ---------- Абонементы ----------
 export async function createSubscription(studentId: string, formData: FormData) {
   await assertEditor();
-  const plan = str(formData.get("plan")) || "Абонемент";
   const months = int(formData.get("months")) || 1;
-  const price = int(formData.get("price"));
   const start = parseDate(formData.get("startDate")) ?? new Date();
   const end = new Date(start);
   end.setUTCMonth(end.getUTCMonth() + months);
+  const withInvoice = str(formData.get("invoice")) === "on";
 
-  await prisma.subscription.create({
-    data: { studentId, plan, months, price, startDate: start, endDate: end, status: "ACTIVE" },
+  const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
+
+  let plan: string;
+  let price: number;
+  let basePrice = 0;
+  let discountName: string | null = null;
+  let discountPct = 0;
+  let multiPct = 0;
+  let items: { subjectId: string; subjectName: string; base: number; amount: number }[] = [];
+
+  if (subjectIds.length > 0) {
+    // Новый режим: комбо-абонемент по предметам со скидками
+    const settings = await getSettings();
+    const subs = await prisma.subject.findMany({ where: { id: { in: subjectIds } } });
+    // сохранить порядок выбора
+    const chosen = subjectIds.map((id) => subs.find((s) => s.id === id)).filter(Boolean) as typeof subs;
+    if (chosen.length === 0) throw new Error("Предметы не найдены");
+
+    const discName = str(formData.get("discount"));
+    const disc = parseDiscounts(settings.discounts).find((d) => d.name === discName);
+    discountName = disc ? disc.name : null;
+    discountPct = disc ? disc.percent : 0;
+    multiPct = multiPercentFor(chosen.length, parseMultiTiers(settings.multiDiscount));
+
+    const pricing = computePricing({
+      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
+      months,
+      discountPct,
+      multiPct,
+    });
+    basePrice = pricing.base;
+    price = pricing.total;
+    plan = chosen.map((s) => s.name).join(" + ");
+    items = pricing.items.map((it) => ({ subjectId: it.id, subjectName: it.name, base: it.base, amount: it.amount }));
+  } else {
+    // Старый режим: ручная цена
+    plan = str(formData.get("plan")) || "Абонемент";
+    price = int(formData.get("price"));
+    basePrice = price;
+  }
+
+  const subscription = await prisma.subscription.create({
+    data: {
+      studentId,
+      plan,
+      months,
+      price,
+      basePrice,
+      discountName,
+      discountPct,
+      multiPct,
+      startDate: start,
+      endDate: end,
+      status: "ACTIVE",
+      items: items.length > 0 ? { create: items } : undefined,
+    },
   });
 
-  // Автоматически выставляем счёт на оплату абонемента
-  const withInvoice = str(formData.get("invoice")) === "on";
   if (withInvoice && price > 0) {
     await prisma.payment.create({
       data: { studentId, purpose: `Абонемент · ${plan}`, amount: price, status: "PENDING", date: start },
@@ -463,7 +557,9 @@ export async function createSubscription(studentId: string, formData: FormData) 
   }
 
   const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
-  await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}`);
+  const savedLabel = discountPct + multiPct > 0 ? ` (−${discountPct + multiPct}%)` : "";
+  await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}${savedLabel}`);
+  void subscription;
   revalidatePath(`/students/${studentId}`);
   revalidatePath("/students");
   revalidatePath("/dashboard");

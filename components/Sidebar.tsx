@@ -27,6 +27,7 @@ const NAV_FULL: Item[] = [
   { href: "/teachers", icon: "teachers", label: "Учителя", perm: "teachers" },
   { section: "Продажи и деньги" },
   { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads", perm: "leads" },
+  { href: "/subjects", icon: "book", label: "Предметы и цены" },
   { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
   { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
   { href: "/payroll", icon: "money", label: "Зарплата", perm: "payroll" },

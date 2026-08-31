@@ -119,6 +119,19 @@ export default async function ReportsPage() {
   const methods = [...methodMap.entries()].sort((a, b) => b[1] - a[1]);
   const methodMax = Math.max(1, ...methods.map((m) => m[1]));
 
+  // Доход по предметам (доли проданных абонементов за период)
+  const subjectItems = money$
+    ? await prisma.subscriptionItem.findMany({
+        where: { subscription: { startDate: { gte: since } } },
+        select: { subjectName: true, amount: true },
+      })
+    : [];
+  const subjRevMap = new Map<string, number>();
+  for (const it of subjectItems) subjRevMap.set(it.subjectName, (subjRevMap.get(it.subjectName) ?? 0) + it.amount);
+  const subjectRev = [...subjRevMap.entries()].sort((a, b) => b[1] - a[1]);
+  const subjectRevTotal = subjectRev.reduce((a, [, v]) => a + v, 0);
+  const subjectMax = Math.max(1, ...subjectRev.map(([, v]) => v));
+
   // Новые лиды по месяцам
   const leadsByMonth = months.map((m) => ({
     label: m.label,
@@ -243,6 +256,32 @@ export default async function ReportsPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {money$ && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>Доход по предметам</h3>
+            <span className="chip c-mut"><span className="d" />Итого: {money(subjectRevTotal)}</span>
+          </div>
+          <div className="funnel">
+            {subjectRev.length === 0 && <div className="empty">Нет абонементов с предметами за период</div>}
+            {subjectRev.map(([name, sum]) => (
+              <div className="frow" key={name}>
+                <div className="fl">{name}</div>
+                <div className="ftrack">
+                  <div className="ffill" style={{ width: `${Math.round((sum / subjectMax) * 100)}%`, background: "var(--violet)" }} />
+                </div>
+                <div className="fv num" style={{ width: 120 }}>
+                  {money(sum)}
+                  <span className="mut" style={{ fontSize: 11, marginLeft: 6 }}>
+                    {subjectRevTotal > 0 ? Math.round((sum / subjectRevTotal) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

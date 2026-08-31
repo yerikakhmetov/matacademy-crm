@@ -140,17 +140,48 @@ model Grade {
   @@index([studentId])
 }
 
+// Предметы (математика, физика ...) — базовая цена и доля в комбо-абонементе
+model Subject {
+  id        String             @id @default(cuid())
+  name      String
+  price     Int                @default(0) // базовая цена за месяц
+  color     String             @default("#3A5AE0")
+  active    Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  items     SubscriptionItem[]
+}
+
 // Абонементы
 model Subscription {
-  id        String    @id @default(cuid())
-  studentId String
-  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  plan      String
-  months    Int       @default(1)
-  price     Int       @default(0)
-  startDate DateTime  @default(now())
-  endDate   DateTime?
-  status    String    @default("ACTIVE")
+  id           String             @id @default(cuid())
+  studentId    String
+  student      Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  plan         String
+  months       Int                @default(1)
+  price        Int                @default(0) // итоговая цена после скидок (за весь срок)
+  basePrice    Int                @default(0) // сумма базовых цен предметов до скидок
+  discountName String? // название применённой спец-скидки
+  discountPct  Int                @default(0) // спец-скидка, %
+  multiPct     Int                @default(0) // скидка за несколько предметов, %
+  startDate    DateTime           @default(now())
+  endDate      DateTime?
+  status       String             @default("ACTIVE")
+  items        SubscriptionItem[]
+}
+
+// Позиция абонемента по предмету (доля предмета)
+model SubscriptionItem {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subjectId      String?
+  subject        Subject?     @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  subjectName    String // снимок названия на момент продажи
+  base           Int          @default(0) // базовая доля до скидок (за весь срок)
+  amount         Int          @default(0) // итог после скидок — доля предмета
+
+  @@index([subscriptionId])
+  @@index([subjectId])
 }
 
 // Расписание — слот занятия для группы
@@ -225,6 +256,8 @@ model Settings {
   tplPending String   @default("") // шаблон: ожидает оплаты
   tplExpiring String  @default("") // шаблон: абонемент истекает
   managerDenied String @default("") // запрещённые менеджеру модули (ключи через запятую)
+  discounts     String @default("") // спец-скидки: "название | процент" построчно
+  multiDiscount String @default("") // скидки за несколько предметов: "кол-во | процент" построчно
   updatedAt  DateTime @updatedAt
 }
 
