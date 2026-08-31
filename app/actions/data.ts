@@ -8,6 +8,55 @@ import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
+import bcrypt from "bcryptjs";
+
+async function assertAdmin() {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") throw new Error("Только для администратора");
+  return session;
+}
+
+// ---------- Пользователи (только админ) ----------
+export async function createUser(formData: FormData) {
+  await assertAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const role = String(formData.get("role") ?? "MANAGER");
+  if (!email || !password || !name) throw new Error("Заполните имя, email и пароль");
+  if (password.length < 6) throw new Error("Пароль минимум 6 символов");
+  const exists = await prisma.user.findUnique({ where: { email } });
+  if (exists) throw new Error("Пользователь с таким email уже есть");
+  await prisma.user.create({ data: { email, name, role, passwordHash: bcrypt.hashSync(password, 10) } });
+  await logAudit("CREATE", "Пользователь", `${name} (${role})`);
+  revalidatePath("/users");
+}
+
+export async function updateUser(id: string, formData: FormData) {
+  await assertAdmin();
+  const name = String(formData.get("name") ?? "").trim();
+  const role = String(formData.get("role") ?? "MANAGER");
+  const password = String(formData.get("password") ?? "");
+  const data: { name: string; role: string; passwordHash?: string } = { name, role };
+  if (password) {
+    if (password.length < 6) throw new Error("Пароль минимум 6 символов");
+    data.passwordHash = bcrypt.hashSync(password, 10);
+  }
+  await prisma.user.update({ where: { id }, data });
+  await logAudit("UPDATE", "Пользователь", `${name}${password ? " (пароль изменён)" : ""}`);
+  revalidatePath("/users");
+}
+
+export async function deleteUser(id: string) {
+  const session = await assertAdmin();
+  if (session.user?.id === id) throw new Error("Нельзя удалить свою учётную запись");
+  const admins = await prisma.user.count({ where: { role: "ADMIN" } });
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true, role: true } });
+  if (target?.role === "ADMIN" && admins <= 1) throw new Error("Нельзя удалить единственного администратора");
+  await prisma.user.delete({ where: { id } });
+  await logAudit("DELETE", "Пользователь", target?.name ?? id);
+  revalidatePath("/users");
+}
 
 async function assertEditor() {
   const session = await auth();

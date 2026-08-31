@@ -28,6 +28,7 @@ const NAV_FULL: Item[] = [
   { href: "/reminders", icon: "bell", label: "Напоминания" },
   { href: "/payroll", icon: "money", label: "Зарплата" },
   { section: "Система", adminOnly: true },
+  { href: "/users", icon: "students", label: "Пользователи", adminOnly: true },
   { href: "/settings", icon: "pin", label: "Настройки", adminOnly: true },
 ];
 

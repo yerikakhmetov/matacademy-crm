@@ -22,6 +22,7 @@ const TITLES: Record<string, string> = {
   "/reminders": "Напоминания об оплате",
   "/payroll": "Зарплата преподавателей",
   "/settings": "Настройки школы",
+  "/users": "Пользователи",
 };
 
 type Notif = { text: string; href: string; kind?: string };
