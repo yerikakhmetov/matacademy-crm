@@ -96,4 +96,5 @@ export const RATE_TYPE: Record<string, { label: string; unit: string }> = {
   PER_LESSON: { label: "За урок", unit: "₸/урок" },
   PER_STUDENT: { label: "За ученика", unit: "₸/ученик" },
   PERCENT: { label: "% от оплат", unit: "%" },
+  PERCENT_SUBJECT: { label: "% от дохода по предметам", unit: "%" },
 };

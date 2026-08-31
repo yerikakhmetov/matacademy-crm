@@ -65,6 +65,7 @@ export function TeacherForm({ values, subjects = [] }: { values?: Values; subjec
             <option value="PER_LESSON">За урок</option>
             <option value="PER_STUDENT">За ученика</option>
             <option value="PERCENT">% от оплат учеников</option>
+            <option value="PERCENT_SUBJECT">% от дохода по предметам</option>
           </select>
         </div>
         <div className="field">

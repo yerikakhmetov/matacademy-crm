@@ -7,6 +7,7 @@ export function RateForm({ rate, rateType }: { rate: number; rateType: string })
           <option value="PER_LESSON">За урок (₸ за каждый проведённый урок)</option>
           <option value="PER_STUDENT">За ученика (₸ за каждого ученика в месяц)</option>
           <option value="PERCENT">% от оплат его учеников</option>
+          <option value="PERCENT_SUBJECT">% от дохода по его предметам</option>
         </select>
       </div>
       <div className="field">

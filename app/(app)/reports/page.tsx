@@ -53,9 +53,24 @@ export default async function ReportsPage() {
       select: { id: true, name: true, status: true, balance: true, attendance: true, group: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
     }),
     money$
-      ? prisma.teacher.findMany({ select: { rate: true, rateType: true, groups: { select: { id: true, lessons: { select: { dayOfWeek: true } }, _count: { select: { students: true } } } } } })
+      ? prisma.teacher.findMany({ select: { rate: true, rateType: true, subjects: { select: { id: true } }, groups: { select: { id: true, lessons: { select: { dayOfWeek: true } }, _count: { select: { students: true } } } } } })
       : Promise.resolve([]),
   ]);
+
+  // Доли предметов по абонементам за период (для PERCENT_SUBJECT в расчёте зарплаты)
+  const subjItemsPeriod = money$
+    ? await prisma.subscriptionItem.findMany({
+        where: { subscription: { startDate: { gte: since } } },
+        select: { subjectId: true, amount: true, subscription: { select: { startDate: true } } },
+      })
+    : [];
+  const revBySubjectMonth = new Map<string, number>(); // `${subjectId}|${key}` -> сумма
+  for (const it of subjItemsPeriod) {
+    if (it.subjectId) {
+      const k = `${it.subjectId}|${monthKey(it.subscription.startDate)}`;
+      revBySubjectMonth.set(k, (revBySubjectMonth.get(k) ?? 0) + it.amount);
+    }
+  }
 
   // Доход по месяцам
   const revByMonth = months.map((m) => ({
@@ -80,6 +95,9 @@ export default async function ReportsPage() {
         total += t.groups.reduce((a, g) => a + g._count.students, 0) * t.rate;
       } else if (t.rateType === "PERCENT") {
         const rev = t.groups.reduce((a, g) => a + (revByGroupMonth.get(`${g.id}|${m.key}`) ?? 0), 0);
+        total += Math.round((rev * t.rate) / 100);
+      } else if (t.rateType === "PERCENT_SUBJECT") {
+        const rev = t.subjects.reduce((a, s) => a + (revBySubjectMonth.get(`${s.id}|${m.key}`) ?? 0), 0);
         total += Math.round((rev * t.rate) / 100);
       } else {
         const lessons = t.groups.reduce((a, g) => a + g.lessons.reduce((la, l) => la + lessonsInMonth(m.year, m.month0, l.dayOfWeek), 0), 0);

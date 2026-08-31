@@ -41,16 +41,22 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const monthStart = new Date(sel.year, sel.month0, 1);
   const monthEnd = new Date(sel.year, sel.month0 + 1, 1);
 
-  const [teachers, paidPayments] = await Promise.all([
+  const [teachers, paidPayments, subjItems] = await Promise.all([
     prisma.teacher.findMany({
       include: {
         groups: { include: { _count: { select: { students: true } }, lessons: true } },
+        subjects: { select: { id: true } },
       },
       orderBy: { name: "asc" },
     }),
     prisma.payment.findMany({
       where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } },
       include: { student: { select: { groupId: true } } },
+    }),
+    // доли предметов по абонементам, начатым в этом месяце (для PERCENT_SUBJECT)
+    prisma.subscriptionItem.findMany({
+      where: { subscription: { startDate: { gte: monthStart, lt: monthEnd } } },
+      select: { subjectId: true, amount: true },
     }),
   ]);
 
@@ -59,6 +65,12 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   for (const p of paidPayments) {
     const gid = p.student.groupId;
     if (gid) revenueByGroup.set(gid, (revenueByGroup.get(gid) ?? 0) + p.amount);
+  }
+
+  // Доход по предметам за месяц (для типа PERCENT_SUBJECT)
+  const revenueBySubject = new Map<string, number>();
+  for (const it of subjItems) {
+    if (it.subjectId) revenueBySubject.set(it.subjectId, (revenueBySubject.get(it.subjectId) ?? 0) + it.amount);
   }
 
   const rows = teachers.map((t) => {
@@ -72,6 +84,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
     } else if (t.rateType === "PERCENT") {
       base = t.groups.reduce((a, g) => a + (revenueByGroup.get(g.id) ?? 0), 0);
       baseLabel = money(base);
+      salary = Math.round((base * t.rate) / 100);
+    } else if (t.rateType === "PERCENT_SUBJECT") {
+      base = t.subjects.reduce((a, s) => a + (revenueBySubject.get(s.id) ?? 0), 0);
+      baseLabel = t.subjects.length ? money(base) : "нет предметов";
       salary = Math.round((base * t.rate) / 100);
     } else {
       // PER_LESSON — количество проведённых по расписанию уроков в месяце
@@ -136,7 +152,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     </td>
                     <td className="mut">{rt.label}</td>
                     <td className="right num">
-                      {t.rate ? (t.rateType === "PERCENT" ? `${t.rate}%` : money(t.rate)) : <span className="mut">не задана</span>}
+                      {t.rate ? (t.rateType === "PERCENT" || t.rateType === "PERCENT_SUBJECT" ? `${t.rate}%` : money(t.rate)) : <span className="mut">не задана</span>}
                     </td>
                     <td className="right mut num">{baseLabel}</td>
                     <td className="right money num" style={{ color: salary > 0 ? "var(--ok)" : "var(--ink-3)" }}>
@@ -165,7 +181,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        «За урок» — по числу занятий в расписании за месяц · «За ученика» — по числу учеников в группах · «% от оплат» — процент от оплаченного его учениками за месяц.
+        «За урок» — по числу занятий в расписании за месяц · «За ученика» — по числу учеников в группах · «% от оплат» — процент от оплаченного его учениками за месяц · «% от дохода по предметам» — процент от доли его предметов в абонементах, оформленных за месяц.
       </p>
     </>
   );
