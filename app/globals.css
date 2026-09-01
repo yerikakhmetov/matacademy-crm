@@ -221,8 +221,9 @@ tbody tr.clk:hover{background:var(--surface-2)}
 .modal-f{padding:16px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
 .field{display:flex;flex-direction:column;gap:6px}
 .field label{font-size:12px;font-weight:600;color:var(--ink-2)}
-.field input,.field select,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px;color:var(--ink);width:100%}
-.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field input:not([type=checkbox]):not([type=radio]),.field select,.field textarea{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 12px;font-size:13.5px;color:var(--ink);width:100%}
+.field input:not([type=checkbox]):not([type=radio]):focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field input[type=checkbox]{width:16px;height:16px;flex:none;accent-color:var(--accent);cursor:pointer}
 .field.row{flex-direction:row;gap:12px}
 .field.row>*{flex:1}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
