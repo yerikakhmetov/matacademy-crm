@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
+import { subjectTeacherCounts } from "@/lib/payroll";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
@@ -70,6 +71,17 @@ export default async function ReportsPage() {
       revBySubjectMonth.set(k, (revBySubjectMonth.get(k) ?? 0) + it.amount);
     }
   }
+  const subjTeacherCount = subjectTeacherCounts(teachers as { rateType: string; subjects: { id: string }[] }[]);
+
+  // Зафиксированные зарплаты (для закрытых месяцев берём их вместо живого расчёта)
+  const payrollRecords = money$
+    ? await prisma.payrollRecord.findMany({ where: { year: { gte: since.getFullYear() } }, select: { year: true, month: true, salary: true } })
+    : [];
+  const lockedPayroll = new Map<string, number>(); // `${year}-${month0}` -> сумма
+  for (const r of payrollRecords) {
+    const k = `${r.year}-${r.month}`;
+    lockedPayroll.set(k, (lockedPayroll.get(k) ?? 0) + r.salary);
+  }
 
   // Доход по месяцам
   const revByMonth = months.map((m) => ({
@@ -96,7 +108,7 @@ export default async function ReportsPage() {
         const rev = t.groups.reduce((a, g) => a + (revByGroupMonth.get(`${g.id}|${m.key}`) ?? 0), 0);
         total += Math.round((rev * t.rate) / 100);
       } else if (t.rateType === "PERCENT_SUBJECT") {
-        const rev = t.subjects.reduce((a, s) => a + (revBySubjectMonth.get(`${s.id}|${m.key}`) ?? 0), 0);
+        const rev = t.subjects.reduce((a, s) => a + (revBySubjectMonth.get(`${s.id}|${m.key}`) ?? 0) / Math.max(1, subjTeacherCount.get(s.id) ?? 1), 0);
         total += Math.round((rev * t.rate) / 100);
       } else {
         const lessons = t.groups.reduce((a, g) => a + g.lessons.reduce((la, l) => la + lessonsInMonth(m.year, m.month0, l.dayOfWeek), 0), 0);
@@ -107,7 +119,8 @@ export default async function ReportsPage() {
   }
   const profitRows = months.map((m) => {
     const rev = revByMonth.find((r) => r.label === m.label)?.value ?? 0;
-    const payroll = payrollForMonth(m);
+    const mk = `${m.year}-${m.month0}`;
+    const payroll = lockedPayroll.has(mk) ? (lockedPayroll.get(mk) ?? 0) : payrollForMonth(m);
     return { label: m.label, rev, payroll, profit: rev - payroll };
   });
   const totalPayroll = profitRows.reduce((a, r) => a + r.payroll, 0);

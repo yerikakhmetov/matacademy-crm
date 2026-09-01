@@ -11,10 +11,16 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (secret) {
-    const auth = req.headers.get("authorization");
+    const authz = req.headers.get("authorization");
     const q = req.nextUrl.searchParams.get("secret");
-    if (auth !== `Bearer ${secret}` && q !== secret) {
+    if (authz !== `Bearer ${secret}` && q !== secret) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } else {
+    // Секрет не задан — пропускаем только запросы Vercel Cron, публичный доступ закрыт.
+    const ua = req.headers.get("user-agent") ?? "";
+    if (!ua.includes("vercel-cron")) {
+      return Response.json({ error: "Unauthorized (задайте CRON_SECRET)" }, { status: 401 });
     }
   }
 

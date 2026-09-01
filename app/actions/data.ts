@@ -10,6 +10,7 @@ import { money } from "@/lib/format";
 import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
+import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
 import bcrypt from "bcryptjs";
 
 async function assertAdmin() {
@@ -848,6 +849,51 @@ export async function deleteTest(id: string) {
   await logAudit("DELETE", "Тест", test.title);
   revalidatePath("/tests");
   revalidatePath("/grades");
+}
+
+// ---------- Зарплата: фиксация месяца ----------
+// Снимок расчёта за месяц, чтобы прошлые месяцы не пересчитывались при изменении ставок/состава.
+export async function lockPayrollMonth(year: number, month0: number) {
+  await assertEditor("payroll");
+  const monthStart = new Date(year, month0, 1);
+  const monthEnd = new Date(year, month0 + 1, 1);
+
+  const [teachers, paidPayments, subjItems] = await Promise.all([
+    prisma.teacher.findMany({
+      include: {
+        groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
+        subjects: { select: { id: true } },
+      },
+    }),
+    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groupId: true } } } }),
+    prisma.subscriptionItem.findMany({ where: { subscription: { startDate: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
+  ]);
+
+  const revByGroup = new Map<string, number>();
+  for (const p of paidPayments) if (p.student.groupId) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
+  const revBySubject = new Map<string, number>();
+  for (const it of subjItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
+  const subjTeacherCount = subjectTeacherCounts(teachers);
+  const ctx = { year, month0, revByGroup, revBySubject, subjTeacherCount };
+
+  const session = await auth();
+  for (const t of teachers) {
+    const { base, salary } = computeSalary(t, ctx);
+    await prisma.payrollRecord.upsert({
+      where: { teacherId_year_month: { teacherId: t.id, year, month: month0 } },
+      create: { teacherId: t.id, year, month: month0, rate: t.rate, rateType: t.rateType, base, salary, createdBy: session?.user?.name ?? null },
+      update: { rate: t.rate, rateType: t.rateType, base, salary, createdBy: session?.user?.name ?? null },
+    });
+  }
+  await logAudit("UPDATE", "Зарплата", `Зафиксирован месяц ${month0 + 1}.${year}`);
+  revalidatePath("/payroll");
+}
+
+export async function unlockPayrollMonth(year: number, month0: number) {
+  await assertEditor("payroll");
+  await prisma.payrollRecord.deleteMany({ where: { year, month: month0 } });
+  await logAudit("UPDATE", "Зарплата", `Снята фиксация месяца ${month0 + 1}.${year}`);
+  revalidatePath("/payroll");
 }
 
 // ---------- Оплаты ----------

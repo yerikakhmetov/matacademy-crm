@@ -39,7 +39,26 @@ model Teacher {
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups    Group[]
   subjects  Subject[] // какие предметы ведёт (many-to-many)
+  payrollRecords PayrollRecord[]
   createdAt DateTime @default(now())
+}
+
+// Зафиксированная зарплата за месяц (снимок расчёта, чтобы прошлые месяцы не «плыли»)
+model PayrollRecord {
+  id        String   @id @default(cuid())
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  year      Int
+  month     Int // 0-based
+  rate      Int
+  rateType  String
+  base      Int
+  salary    Int
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([teacherId, year, month])
+  @@index([year, month])
 }
 
 // Учебные материалы (файлы)
