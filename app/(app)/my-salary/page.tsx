@@ -59,8 +59,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
       ? prisma.payment.findMany({ where: { status: "PAID", date: { gte: since }, student: { groupId: { in: groupIds } } }, select: { amount: true, date: true, student: { select: { groupId: true } } } })
       : Promise.resolve([] as { amount: number; date: Date; student: { groupId: string | null } }[]),
     teacher.rateType === "PERCENT_SUBJECT" && subjectIds.length
-      ? prisma.subscriptionItem.findMany({ where: { subjectId: { in: subjectIds }, subscription: { startDate: { gte: since } } }, select: { subjectId: true, amount: true, subscription: { select: { startDate: true } } } })
-      : Promise.resolve([] as { subjectId: string | null; amount: number; subscription: { startDate: Date } }[]),
+      ? prisma.paymentItem.findMany({ where: { subjectId: { in: subjectIds }, payment: { status: "PAID", date: { gte: since } } }, select: { subjectId: true, amount: true, payment: { select: { date: true } } } })
+      : Promise.resolve([] as { subjectId: string | null; amount: number; payment: { date: Date } }[]),
     prisma.payrollRecord.findMany({ where: { teacherId, year: { gte: since.getFullYear() } } }),
     teacher.rateType === "PERCENT_SUBJECT"
       ? prisma.teacher.findMany({ where: { rateType: "PERCENT_SUBJECT" }, select: { rateType: true, subjects: { select: { id: true } } } })
@@ -80,7 +80,7 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
     const revByGroup = new Map<string, number>();
     for (const p of paidPayments) if (p.student.groupId && mKey(p.date) === `${m.year}-${m.month0}`) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
     const revBySubject = new Map<string, number>();
-    for (const it of subjItems) if (it.subjectId && mKey(it.subscription.startDate) === `${m.year}-${m.month0}`) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
+    for (const it of subjItems) if (it.subjectId && mKey(it.payment.date) === `${m.year}-${m.month0}`) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
     const c = computeSalary(teacher!, { year: m.year, month0: m.month0, revByGroup, revBySubject, subjTeacherCount });
     return { ...c, locked: false };
   }

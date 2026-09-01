@@ -207,6 +207,7 @@ model Subject {
   active    Boolean            @default(true)
   createdAt DateTime           @default(now())
   items     SubscriptionItem[]
+  payItems  PaymentItem[]
   groups    Group[]
   teachers  Teacher[] // преподаватели этого предмета (many-to-many)
   tests     Test[]
@@ -341,8 +342,23 @@ model Payment {
   studentId String
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   purpose   String
-  method    String?  // Kaspi, Карта, Наличные
+  method    String?  // Kaspi, Халық банк, Карта, Наличные
   amount    Int
   status    String   @default("PAID") // PAID | PENDING | OVERDUE
   date      DateTime @default(now())
+  items     PaymentItem[]
+}
+
+// Разбивка платежа по предметам (пропорционально) — фактически собранный доход по предметам
+model PaymentItem {
+  id          String   @id @default(cuid())
+  paymentId   String
+  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  subjectName String // снимок названия
+  amount      Int      @default(0)
+
+  @@index([paymentId])
+  @@index([subjectId])
 }

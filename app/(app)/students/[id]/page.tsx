@@ -83,7 +83,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                   <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} />
                 </ModalButton>
                 <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
-                  <PaymentForm students={[student]} fixedStudentId={student.id} />
+                  <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} />
                 </ModalButton>
               </>
             )}

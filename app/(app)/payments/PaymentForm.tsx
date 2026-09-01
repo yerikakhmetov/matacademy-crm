@@ -1,6 +1,7 @@
 type StudentLite = { id: string; name: string };
+type Subject = { id: string; name: string; color: string };
 
-export function PaymentForm({ students, fixedStudentId }: { students: StudentLite[]; fixedStudentId?: string }) {
+export function PaymentForm({ students, fixedStudentId, subjects = [] }: { students: StudentLite[]; fixedStudentId?: string; subjects?: Subject[] }) {
   return (
     <>
       {fixedStudentId ? (
@@ -40,6 +41,26 @@ export function PaymentForm({ students, fixedStudentId }: { students: StudentLit
           </select>
         </div>
       </div>
+      {subjects.length > 0 && (
+        <div className="field">
+          <label>За какие предметы (сумма делится пропорционально цене)</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {subjects.map((s) => (
+              <label
+                key={s.id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 11px", borderRadius: 20, border: "1.5px solid var(--line-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+              >
+                <input type="checkbox" name="subjects" value={s.id} />
+                <span style={{ width: 9, height: 9, borderRadius: 3, background: s.color }} />
+                {s.name}
+              </label>
+            ))}
+          </div>
+          <p className="mut" style={{ fontSize: 11.5, margin: "6px 0 0" }}>
+            Не обязательно. Если отметить — платёж попадёт в «Доход по предметам» и в зарплату «% от дохода по предметам».
+          </p>
+        </div>
+      )}
       <div className="field">
         <label>Статус</label>
         <select name="status" defaultValue="PAID">

@@ -107,6 +107,30 @@ export function multiPercentFor(count: number, tiers: MultiTier[]): number {
   return pct;
 }
 
+// Пропорциональное деление суммы платежа между выбранными предметами по их базовой цене.
+// Если у всех цена 0 — поровну. Последнему предмету достаётся остаток (сумма всегда сходится).
+export function splitByPrice(
+  amount: number,
+  subjects: { id: string; name: string; price: number }[]
+): { id: string; name: string; amount: number }[] {
+  const n = subjects.length;
+  if (n === 0) return [];
+  const weights = subjects.map((s) => Math.max(0, s.price));
+  const totalW = weights.reduce((a, b) => a + b, 0);
+  const out: { id: string; name: string; amount: number }[] = [];
+  let acc = 0;
+  subjects.forEach((s, i) => {
+    let amt: number;
+    if (i === n - 1) amt = amount - acc;
+    else {
+      amt = totalW > 0 ? Math.round((amount * weights[i]) / totalW) : Math.round(amount / n);
+      acc += amt;
+    }
+    out.push({ id: s.id, name: s.name, amount: amt });
+  });
+  return out;
+}
+
 // Расчёт цены комбо-абонемента за весь срок с разбивкой по предметам (доля предмета)
 export function computePricing(opts: {
   subjects: { id: string; name: string; price: number }[]; // выбранные предметы (цена за месяц)

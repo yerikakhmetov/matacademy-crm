@@ -32,7 +32,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const monthStart = new Date(sel.year, sel.month0, 1);
   const monthEnd = new Date(sel.year, sel.month0 + 1, 1);
 
-  const [teachers, paidPayments, subjItems, records] = await Promise.all([
+  const [teachers, paidPayments, payItems, records] = await Promise.all([
     prisma.teacher.findMany({
       include: {
         groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
@@ -41,14 +41,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       orderBy: { name: "asc" },
     }),
     prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groupId: true } } } }),
-    prisma.subscriptionItem.findMany({ where: { subscription: { startDate: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
+    prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
     prisma.payrollRecord.findMany({ where: { year: sel.year, month: sel.month0 } }),
   ]);
 
   const revByGroup = new Map<string, number>();
   for (const p of paidPayments) if (p.student.groupId) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
   const revBySubject = new Map<string, number>();
-  for (const it of subjItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
+  for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
   const subjTeacherCount = subjectTeacherCounts(teachers);
   const ctx = { year: sel.year, month0: sel.month0, revByGroup, revBySubject, subjTeacherCount };
 
@@ -138,7 +138,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        «За урок» — по числу занятий в расписании · «За ученика» — по числу учеников · «% от оплат» — процент от оплат его учеников · «% от дохода по предметам» — процент от доли его предметов в оформленных абонементах (доход предмета делится между его преподавателями). «Зафиксировать месяц» сохраняет расчёт как есть — прошлые месяцы не меняются при смене ставок или состава.
+        «За урок» — по числу занятий в расписании · «За ученика» — по числу учеников · «% от оплат» — процент от оплат его учеников · «% от дохода по предметам» — процент от собранных по его предметам оплат за месяц (доход предмета делится между его преподавателями; предметы отмечаются при приёме оплаты). «Зафиксировать месяц» сохраняет расчёт как есть — прошлые месяцы не меняются при смене ставок или состава.
       </p>
     </>
   );

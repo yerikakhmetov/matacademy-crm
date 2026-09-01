@@ -36,9 +36,10 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
   const where = status === "all" ? {} : { status };
 
-  const [payments, students, paidAgg, pendingAgg, overdueAgg, paidCount] = await Promise.all([
+  const [payments, students, subjects, paidAgg, pendingAgg, overdueAgg, paidCount] = await Promise.all([
     prisma.payment.findMany({ where, include: { student: true }, orderBy: { date: "desc" } }),
     prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "PAID", date: { gte: monthStart() } } }),
     prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: "PENDING" } }),
     prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: "OVERDUE" } }),
@@ -64,7 +65,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         </div>
         {editor && (
           <ModalButton label="Принять оплату" title="Приём оплаты" icon="money" action={createPayment}>
-            <PaymentForm students={students} />
+            <PaymentForm students={students} subjects={subjects} />
           </ModalButton>
         )}
       </div>

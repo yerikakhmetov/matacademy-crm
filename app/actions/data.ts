@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
@@ -552,8 +552,17 @@ export async function createSubscription(studentId: string, formData: FormData) 
   });
 
   if (withInvoice && price > 0) {
+    // счёт наследует разбивку по предметам из абонемента (для дохода по предметам)
+    const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
     await prisma.payment.create({
-      data: { studentId, purpose: `Абонемент · ${plan}`, amount: price, status: "PENDING", date: start },
+      data: {
+        studentId,
+        purpose: `Абонемент · ${plan}`,
+        amount: price,
+        status: "PENDING",
+        date: start,
+        items: payItems.length > 0 ? { create: payItems } : undefined,
+      },
     });
     await recalc(studentId);
   }
@@ -858,7 +867,7 @@ export async function lockPayrollMonth(year: number, month0: number) {
   const monthStart = new Date(year, month0, 1);
   const monthEnd = new Date(year, month0 + 1, 1);
 
-  const [teachers, paidPayments, subjItems] = await Promise.all([
+  const [teachers, paidPayments, payItems] = await Promise.all([
     prisma.teacher.findMany({
       include: {
         groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
@@ -866,13 +875,13 @@ export async function lockPayrollMonth(year: number, month0: number) {
       },
     }),
     prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groupId: true } } } }),
-    prisma.subscriptionItem.findMany({ where: { subscription: { startDate: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
+    prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
   ]);
 
   const revByGroup = new Map<string, number>();
   for (const p of paidPayments) if (p.student.groupId) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
   const revBySubject = new Map<string, number>();
-  for (const it of subjItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
+  for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
   const subjTeacherCount = subjectTeacherCounts(teachers);
   const ctx = { year, month0, revByGroup, revBySubject, subjTeacherCount };
 
@@ -903,6 +912,16 @@ export async function createPayment(formData: FormData) {
   if (!studentId) throw new Error("Выберите ученика");
   const amount = int(formData.get("amount"));
   const status = str(formData.get("status")) || "PAID";
+
+  // Разбивка платежа по выбранным предметам (пропорционально базовой цене предмета)
+  const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
+  let payItems: { subjectId: string; subjectName: string; amount: number }[] = [];
+  if (subjectIds.length > 0) {
+    const subs = await prisma.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, name: true, price: true } });
+    const chosen = subjectIds.map((id) => subs.find((s) => s.id === id)).filter(Boolean) as typeof subs;
+    payItems = splitByPrice(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
+  }
+
   await prisma.payment.create({
     data: {
       studentId,
@@ -910,6 +929,7 @@ export async function createPayment(formData: FormData) {
       method: str(formData.get("method")) || null,
       amount,
       status,
+      items: payItems.length > 0 ? { create: payItems } : undefined,
     },
   });
   const st0 = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });

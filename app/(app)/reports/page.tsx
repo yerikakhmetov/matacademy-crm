@@ -57,17 +57,17 @@ export default async function ReportsPage() {
       : Promise.resolve([]),
   ]);
 
-  // Доли предметов по абонементам за период (для PERCENT_SUBJECT в расчёте зарплаты)
-  const subjItemsPeriod = money$
-    ? await prisma.subscriptionItem.findMany({
-        where: { subscription: { startDate: { gte: since } } },
-        select: { subjectId: true, amount: true, subscription: { select: { startDate: true } } },
+  // Фактически собранный доход по предметам (по оплаченным платежам за период)
+  const payItemsPeriod = money$
+    ? await prisma.paymentItem.findMany({
+        where: { payment: { status: "PAID", date: { gte: since } } },
+        select: { subjectId: true, subjectName: true, amount: true, payment: { select: { date: true } } },
       })
     : [];
   const revBySubjectMonth = new Map<string, number>(); // `${subjectId}|${key}` -> сумма
-  for (const it of subjItemsPeriod) {
+  for (const it of payItemsPeriod) {
     if (it.subjectId) {
-      const k = `${it.subjectId}|${monthKey(it.subscription.startDate)}`;
+      const k = `${it.subjectId}|${monthKey(it.payment.date)}`;
       revBySubjectMonth.set(k, (revBySubjectMonth.get(k) ?? 0) + it.amount);
     }
   }
@@ -149,15 +149,9 @@ export default async function ReportsPage() {
   const methods = [...methodMap.entries()].sort((a, b) => b[1] - a[1]);
   const methodMax = Math.max(1, ...methods.map((m) => m[1]));
 
-  // Доход по предметам (доли проданных абонементов за период)
-  const subjectItems = money$
-    ? await prisma.subscriptionItem.findMany({
-        where: { subscription: { startDate: { gte: since } } },
-        select: { subjectName: true, amount: true },
-      })
-    : [];
+  // Доход по предметам (фактически собранный — из оплаченных платежей за период)
   const subjRevMap = new Map<string, number>();
-  for (const it of subjectItems) subjRevMap.set(it.subjectName, (subjRevMap.get(it.subjectName) ?? 0) + it.amount);
+  for (const it of payItemsPeriod) subjRevMap.set(it.subjectName, (subjRevMap.get(it.subjectName) ?? 0) + it.amount);
   const subjectRev = [...subjRevMap.entries()].sort((a, b) => b[1] - a[1]);
   const subjectRevTotal = subjectRev.reduce((a, [, v]) => a + v, 0);
   const subjectMax = Math.max(1, ...subjectRev.map(([, v]) => v));
@@ -297,7 +291,7 @@ export default async function ReportsPage() {
             <span className="chip c-mut"><span className="d" />Итого: {money(subjectRevTotal)}</span>
           </div>
           <div className="funnel">
-            {subjectRev.length === 0 && <div className="empty">Нет абонементов с предметами за период</div>}
+            {subjectRev.length === 0 && <div className="empty">Нет оплат с отмеченными предметами за период</div>}
             {subjectRev.map(([name, sum]) => (
               <div className="frow" key={name}>
                 <div className="fl">{name}</div>
