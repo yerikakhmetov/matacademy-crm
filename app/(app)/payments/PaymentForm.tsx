@@ -33,6 +33,7 @@ export function PaymentForm({ students, fixedStudentId }: { students: StudentLit
           <label>Способ оплаты</label>
           <select name="method" defaultValue="Kaspi">
             <option>Kaspi</option>
+            <option>Халық банк</option>
             <option>Карта</option>
             <option>Наличные</option>
             <option>Перевод</option>
