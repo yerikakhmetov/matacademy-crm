@@ -19,7 +19,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   if (!session?.user) redirect("/login");
   if (!canSeeMoney(session.user.role)) redirect("/dashboard");
 
-  const payment = await prisma.payment.findUnique({ where: { id }, include: { student: { include: { group: true } } } });
+  const payment = await prisma.payment.findUnique({ where: { id }, include: { student: { include: { groups: { select: { name: true } } } } } });
   if (!payment) notFound();
   const settings = await getSettings();
 
@@ -63,7 +63,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             </tr>
             <tr>
               <td>Группа</td>
-              <td>{payment.student.group?.name ?? "—"}</td>
+              <td>{payment.student.groups.length ? payment.student.groups.map((g) => g.name).join(", ") : "—"}</td>
             </tr>
             <tr>
               <td>Плательщик</td>

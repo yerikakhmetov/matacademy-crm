@@ -24,7 +24,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   const student = await prisma.student.findUnique({
     where: { portalToken: token },
     include: {
-      group: { include: { teacher: true, lessons: true } },
+      groups: { include: { teacher: true, lessons: true } },
       grades: { orderBy: { date: "desc" }, take: 12 },
       payments: { orderBy: { date: "desc" }, take: 8 },
       subscriptions: { orderBy: { startDate: "desc" }, take: 1 },
@@ -33,9 +33,11 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   if (!student) notFound();
   const settings = await getSettings();
 
-  const homeworks = student.group
+  const groupIds = student.groups.map((g) => g.id);
+
+  const homeworks = groupIds.length
     ? await prisma.homework.findMany({
-        where: { groupId: student.group.id },
+        where: { groupId: { in: groupIds } },
         orderBy: { createdAt: "desc" },
         take: 8,
         include: { completions: { where: { studentId: student.id } } },
@@ -43,7 +45,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
     : [];
 
   const materials = await prisma.material.findMany({
-    where: { OR: [{ groupId: null }, ...(student.group ? [{ groupId: student.group.id }] : [])] },
+    where: { OR: [{ groupId: null }, ...(groupIds.length ? [{ groupId: { in: groupIds } }] : [])] },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
@@ -54,7 +56,11 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
       : null;
   const sub = student.subscriptions[0];
   const ss = sub ? subStatus(sub.endDate) : null;
-  const lessons = [...(student.group?.lessons ?? [])].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+  const groupsLabel = student.groups.map((g) => g.name).join(", ") || "без группы";
+  const teachersLabel = [...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ");
+  const lessons = student.groups
+    .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name })))
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--ground)", padding: "24px 16px" }}>
@@ -65,8 +71,8 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: 22 }}>{student.name}</h1>
             <p className="mut" style={{ fontSize: 13.5, margin: "2px 0 0" }}>
-              {student.grade ?? ""} · {student.group?.name ?? "без группы"}
-              {student.group?.teacher ? ` · ${student.group.teacher.name}` : ""}
+              {student.grade ?? ""} · {groupsLabel}
+              {teachersLabel ? ` · ${teachersLabel}` : ""}
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -120,7 +126,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 <div className="list-row" key={l.id}>
                   <div style={{ width: 40, fontWeight: 700 }}>{DAYS[l.dayOfWeek]}</div>
                   <div className="num" style={{ width: 54, fontWeight: 600 }}>{l.startTime}</div>
-                  <div style={{ flex: 1 }} className="mut">{l.room}</div>
+                  <div style={{ flex: 1 }} className="mut">{l.groupName} · {l.room}</div>
                 </div>
               ))}
             </div>

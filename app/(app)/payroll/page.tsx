@@ -40,13 +40,18 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       },
       orderBy: { name: "asc" },
     }),
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groupId: true } } } }),
+    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groups: { select: { id: true } } } } } }),
     prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
     prisma.payrollRecord.findMany({ where: { year: sel.year, month: sel.month0 } }),
   ]);
 
   const revByGroup = new Map<string, number>();
-  for (const p of paidPayments) if (p.student.groupId) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
+  for (const p of paidPayments) {
+    const gids = p.student.groups.map((g) => g.id);
+    if (gids.length === 0) continue;
+    const per = p.amount / gids.length;
+    for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
+  }
   const revBySubject = new Map<string, number>();
   for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
   const subjTeacherCount = subjectTeacherCounts(teachers);

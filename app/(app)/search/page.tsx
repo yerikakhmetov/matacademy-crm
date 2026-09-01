@@ -37,11 +37,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     prisma.student.findMany({
       where: {
         AND: [
-          groupScope.teacherId ? { group: groupScope } : {},
+          groupScope.teacherId ? { groups: { some: groupScope } } : {},
           { OR: [{ name: ci(term) }, { phone: ci(term) }, { parentName: ci(term) }, { parentPhone: ci(term) }, { grade: ci(term) }] },
         ],
       },
-      include: { group: true },
+      include: { groups: { select: { name: true } } },
       take: 20,
       orderBy: { name: "asc" },
     }),
@@ -106,7 +106,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 600 }}>{s.name}</div>
                     <div className="mut" style={{ fontSize: 12 }}>
-                      {s.grade ?? "—"} · {s.group?.name ?? "без группы"}
+                      {s.grade ?? "—"} · {s.groups.length ? s.groups.map((g) => g.name).join(", ") : "без группы"}
                     </div>
                   </div>
                   <span className={`chip ${st.cls}`}>

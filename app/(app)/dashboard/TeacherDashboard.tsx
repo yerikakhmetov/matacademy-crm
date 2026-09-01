@@ -21,7 +21,7 @@ export async function TeacherDashboard({ userId, name }: { userId: string; name?
       include: { group: { include: { students: true } } },
       orderBy: { startTime: "asc" },
     }),
-    prisma.student.findMany({ where: { group: { teacherId } }, select: { attendance: true } }),
+    prisma.student.findMany({ where: { groups: { some: { teacherId } } }, select: { attendance: true } }),
   ]);
 
   const totalStudents = students.length;

@@ -6,12 +6,13 @@ type Values = {
   phone?: string | null;
   parentName?: string | null;
   parentPhone?: string | null;
-  groupId?: string | null;
+  groupIds?: string[];
   status?: string;
   balance?: number;
 };
 
 export function StudentForm({ groups, values }: { groups: Group[]; values?: Values }) {
+  const selected = new Set(values?.groupIds ?? []);
   return (
     <>
       <div className="field">
@@ -38,26 +39,32 @@ export function StudentForm({ groups, values }: { groups: Group[]; values?: Valu
           <input name="parentPhone" defaultValue={values?.parentPhone ?? ""} placeholder="+7 701 …" />
         </div>
       </div>
-      <div className="grid2">
-        <div className="field">
-          <label>Группа</label>
-          <select name="groupId" defaultValue={values?.groupId ?? ""}>
-            <option value="">Без группы</option>
+      <div className="field">
+        <label>Группы (можно несколько — по предметам)</label>
+        {groups.length === 0 ? (
+          <p className="mut" style={{ fontSize: 12.5, margin: 0 }}>Групп пока нет</p>
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {groups.map((g) => (
-              <option key={g.id} value={g.id}>
+              <label
+                key={g.id}
+                style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 11px", borderRadius: 20, border: "1.5px solid var(--line-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}
+              >
+                <input type="checkbox" name="groups" value={g.id} defaultChecked={selected.has(g.id)} />
+                <span style={{ width: 9, height: 9, borderRadius: 3, background: g.color }} />
                 {g.name}
-              </option>
+              </label>
             ))}
-          </select>
-        </div>
-        <div className="field">
-          <label>Статус</label>
-          <select name="status" defaultValue={values?.status ?? "ACTIVE"}>
-            <option value="ACTIVE">Активен</option>
-            <option value="PAUSED">На паузе</option>
-            <option value="LEFT">Ушёл</option>
-          </select>
-        </div>
+          </div>
+        )}
+      </div>
+      <div className="field">
+        <label>Статус</label>
+        <select name="status" defaultValue={values?.status ?? "ACTIVE"}>
+          <option value="ACTIVE">Активен</option>
+          <option value="PAUSED">На паузе</option>
+          <option value="LEFT">Ушёл</option>
+        </select>
       </div>
       <p className="mut" style={{ fontSize: 12, margin: 0 }}>
         Задолженность рассчитывается автоматически из неоплаченных счетов — отдельно вводить не нужно.

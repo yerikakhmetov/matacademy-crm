@@ -93,7 +93,7 @@ async function main() {
   for (const s of students) {
     const st = await prisma.student.create({
       data: {
-        name: s.name, grade: s.grade, groupId: s.group, status: s.status,
+        name: s.name, grade: s.grade, groups: { connect: [{ id: s.group }] }, status: s.status,
         balance: s.balance, attendance: s.attendance,
         parentName: s.parent, parentPhone: "+7 (7__) ___-__-__", phone: "+7 (7__) ___-__-__",
       },

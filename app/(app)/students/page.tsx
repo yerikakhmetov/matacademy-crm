@@ -31,7 +31,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
     status === "debt" ? { balance: { lt: 0 } } : status === "all" ? {} : { status };
 
   const [students, groups, counts] = await Promise.all([
-    prisma.student.findMany({ where, include: { group: true }, orderBy: { createdAt: "asc" } }),
+    prisma.student.findMany({ where, include: { groups: { select: { name: true } } }, orderBy: { createdAt: "asc" } }),
     prisma.group.findMany({ orderBy: { name: "asc" } }),
     prisma.student.count(),
   ]);
@@ -105,7 +105,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                       </Link>
                     </td>
                     <td className="mut">{s.grade ?? "—"}</td>
-                    <td>{s.group?.name ?? <span className="mut">Без группы</span>}</td>
+                    <td>{s.groups.length ? s.groups.map((g) => g.name).join(", ") : <span className="mut">Без группы</span>}</td>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div className="bar" style={{ width: 60 }}>

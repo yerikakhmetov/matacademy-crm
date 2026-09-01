@@ -109,8 +109,7 @@ model Student {
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
   photoUrl       String? // фото ученика (Vercel Blob)
-  groupId       String?
-  group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  groups        Group[] // ученик может заниматься в нескольких группах (по предметам)
   payments          Payment[]
   subscriptions     Subscription[]
   attendanceRecords Attendance[]

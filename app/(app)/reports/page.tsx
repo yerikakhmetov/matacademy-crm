@@ -47,10 +47,10 @@ export default async function ReportsPage() {
   const since = new Date(months[0].year, months[0].month0, 1);
 
   const [paidPayments, leads, students, teachers] = await Promise.all([
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true, student: { select: { groupId: true } } } }),
+    prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true, student: { select: { groups: { select: { id: true } } } } } }),
     prisma.lead.findMany({ select: { source: true, stage: true, createdAt: true } }),
     prisma.student.findMany({
-      select: { id: true, name: true, status: true, balance: true, attendance: true, group: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
+      select: { id: true, name: true, status: true, balance: true, attendance: true, groups: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
     }),
     money$
       ? prisma.teacher.findMany({ select: { rate: true, rateType: true, subjects: { select: { id: true } }, groups: { select: { id: true, lessons: { select: { dayOfWeek: true } }, _count: { select: { students: true } } } } } })
@@ -93,10 +93,12 @@ export default async function ReportsPage() {
   // Прибыль по месяцам: доход − фонд зарплаты
   const revByGroupMonth = new Map<string, number>(); // `${gid}|${key}` -> сумма
   for (const p of paidPayments) {
-    const gid = p.student.groupId;
-    if (gid) {
+    const gids = p.student.groups.map((g) => g.id);
+    if (gids.length === 0) continue;
+    const per = p.amount / gids.length; // платёж делится между группами ученика
+    for (const gid of gids) {
       const k = `${gid}|${monthKey(p.date)}`;
-      revByGroupMonth.set(k, (revByGroupMonth.get(k) ?? 0) + p.amount);
+      revByGroupMonth.set(k, (revByGroupMonth.get(k) ?? 0) + per);
     }
   }
   function payrollForMonth(m: { key: string; year: number; month0: number }): number {
@@ -416,7 +418,7 @@ export default async function ReportsPage() {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{s.name}</div>
-                <div className="mut" style={{ fontSize: 12 }}>{s.group?.name ?? "без группы"}</div>
+                <div className="mut" style={{ fontSize: 12 }}>{s.groups.length ? s.groups.map((g) => g.name).join(", ") : "без группы"}</div>
               </div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 360 }}>
                 {reasons.map((r, i) => (

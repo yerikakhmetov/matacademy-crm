@@ -56,8 +56,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
 
   const [paidPayments, subjItems, records, subjTeachers] = await Promise.all([
     teacher.rateType === "PERCENT" && groupIds.length
-      ? prisma.payment.findMany({ where: { status: "PAID", date: { gte: since }, student: { groupId: { in: groupIds } } }, select: { amount: true, date: true, student: { select: { groupId: true } } } })
-      : Promise.resolve([] as { amount: number; date: Date; student: { groupId: string | null } }[]),
+      ? prisma.payment.findMany({ where: { status: "PAID", date: { gte: since }, student: { groups: { some: { id: { in: groupIds } } } } }, select: { amount: true, date: true, student: { select: { groups: { select: { id: true } } } } } })
+      : Promise.resolve([] as { amount: number; date: Date; student: { groups: { id: string }[] } }[]),
     teacher.rateType === "PERCENT_SUBJECT" && subjectIds.length
       ? prisma.paymentItem.findMany({ where: { subjectId: { in: subjectIds }, payment: { status: "PAID", date: { gte: since } } }, select: { subjectId: true, amount: true, payment: { select: { date: true } } } })
       : Promise.resolve([] as { subjectId: string | null; amount: number; payment: { date: Date } }[]),
@@ -78,7 +78,13 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
       return { base: rec.base, baseLabel, salary: rec.salary, locked: true };
     }
     const revByGroup = new Map<string, number>();
-    for (const p of paidPayments) if (p.student.groupId && mKey(p.date) === `${m.year}-${m.month0}`) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
+    for (const p of paidPayments) {
+      if (mKey(p.date) !== `${m.year}-${m.month0}`) continue;
+      const gids = p.student.groups.map((g) => g.id);
+      if (gids.length === 0) continue;
+      const per = p.amount / gids.length;
+      for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
+    }
     const revBySubject = new Map<string, number>();
     for (const it of subjItems) if (it.subjectId && mKey(it.payment.date) === `${m.year}-${m.month0}`) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
     const c = computeSalary(teacher!, { year: m.year, month0: m.month0, revByGroup, revBySubject, subjTeacherCount });

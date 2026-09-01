@@ -31,7 +31,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
     prisma.student.findUnique({
       where: { id },
       include: {
-        group: { include: { teacher: true } },
+        groups: { include: { teacher: true } },
         payments: { orderBy: { date: "desc" } },
         subscriptions: { orderBy: { startDate: "desc" } },
       },
@@ -68,14 +68,14 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
           <div>
             <h1 style={{ fontSize: 22 }}>{student.name}</h1>
             <p>
-              {student.grade ?? "—"} · {student.group?.name ?? "Без группы"}
+              {student.grade ?? "—"} · {student.groups.length ? student.groups.map((g) => g.name).join(", ") : "Без группы"}
             </p>
           </div>
         </div>
         {editor && (
           <div style={{ display: "flex", gap: 10 }}>
             <ModalButton label="Редактировать" title="Редактировать ученика" icon="edit" buttonClass="btn ghost" action={updateStudent.bind(null, student.id)}>
-              <StudentForm groups={groups} values={student} />
+              <StudentForm groups={groups} values={{ ...student, groupIds: student.groups.map((g) => g.id) }} />
             </ModalButton>
             {showMoney && (
               <>
@@ -175,7 +175,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                 <dt>Тел. родителя</dt>
                 <dd>{student.parentPhone ?? "—"}</dd>
                 <dt>Преподаватель</dt>
-                <dd>{student.group?.teacher?.name ?? "—"}</dd>
+                <dd>{[...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ") || "—"}</dd>
                 <dt>Посещаемость</dt>
                 <dd style={{ color: student.attendance >= 85 ? "var(--ok)" : "var(--warn)" }}>{student.attendance}%</dd>
                 {showMoney && (

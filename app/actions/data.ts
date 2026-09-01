@@ -177,7 +177,7 @@ export async function createStudent(formData: FormData) {
       phone: str(formData.get("phone")) || null,
       parentName: str(formData.get("parentName")) || null,
       parentPhone: str(formData.get("parentPhone")) || null,
-      groupId: str(formData.get("groupId")) || null,
+      groups: { connect: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
       attendance: 90,
       portalToken: newToken(),
@@ -199,7 +199,7 @@ export async function updateStudent(id: string, formData: FormData) {
       phone: str(formData.get("phone")) || null,
       parentName: str(formData.get("parentName")) || null,
       parentPhone: str(formData.get("parentPhone")) || null,
-      groupId: str(formData.get("groupId")) || null,
+      groups: { set: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
     },
   });
@@ -426,7 +426,7 @@ export async function convertLeadToStudent(leadId: string, formData: FormData) {
     data: {
       name: str(formData.get("name")) || lead.childName || lead.name,
       grade: str(formData.get("grade")) || lead.grade || null,
-      groupId: str(formData.get("groupId")) || null,
+      groups: { connect: formData.getAll("groupId").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       phone: lead.phone,
       parentName: lead.name,
       parentPhone: lead.phone,
@@ -678,7 +678,7 @@ export async function broadcastTelegram(formData: FormData): Promise<{ sent: num
   const students = await prisma.student.findMany({
     where: {
       telegramChatId: { not: null },
-      ...(group && group !== "all" ? { groupId: group } : {}),
+      ...(group && group !== "all" ? { groups: { some: { id: group } } } : {}),
     },
     select: { telegramChatId: true },
   });
@@ -751,9 +751,9 @@ async function assertCanGrade(studentId: string) {
   if (await canEditData(session.user.role)) return session;
   const student = await prisma.student.findUnique({
     where: { id: studentId },
-    include: { group: { include: { teacher: true } } },
+    include: { groups: { include: { teacher: true } } },
   });
-  if (session.user.role === "TEACHER" && student?.group?.teacher?.userId === session.user.id) return session;
+  if (session.user.role === "TEACHER" && student?.groups.some((g) => g.teacher?.userId === session.user.id)) return session;
   throw new Error("Недостаточно прав");
 }
 
@@ -874,12 +874,17 @@ export async function lockPayrollMonth(year: number, month0: number) {
         subjects: { select: { id: true } },
       },
     }),
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groupId: true } } } }),
+    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groups: { select: { id: true } } } } } }),
     prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
   ]);
 
   const revByGroup = new Map<string, number>();
-  for (const p of paidPayments) if (p.student.groupId) revByGroup.set(p.student.groupId, (revByGroup.get(p.student.groupId) ?? 0) + p.amount);
+  for (const p of paidPayments) {
+    const gids = p.student.groups.map((g) => g.id);
+    if (gids.length === 0) continue;
+    const per = p.amount / gids.length;
+    for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
+  }
   const revBySubject = new Map<string, number>();
   for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
   const subjTeacherCount = subjectTeacherCounts(teachers);

@@ -10,7 +10,7 @@ export async function GET() {
   if (!(await getAccess()).can("finance")) return new Response("Forbidden", { status: 403 });
 
   const students = await prisma.student.findMany({
-    include: { group: true },
+    include: { groups: { select: { name: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -19,7 +19,7 @@ export async function GET() {
     students.map((s) => [
       s.name,
       s.grade ?? "",
-      s.group?.name ?? "",
+      s.groups.map((g) => g.name).join(", "),
       STUDENT_STATUS[s.status]?.label ?? s.status,
       s.phone ?? "",
       s.parentName ?? "",
