@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { canSeeMoney } from "@/lib/roles";
+import { getAccess } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { toCsv, csvResponse } from "@/lib/csv";
 import { PAYMENT_STATUS } from "@/lib/format";
@@ -7,7 +7,7 @@ import { PAYMENT_STATUS } from "@/lib/format";
 export async function GET() {
   const session = await auth();
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
-  if (!canSeeMoney(session.user.role)) return new Response("Forbidden", { status: 403 });
+  if (!(await getAccess()).can("finance")) return new Response("Forbidden", { status: 403 });
 
   const payments = await prisma.payment.findMany({
     include: { student: true },

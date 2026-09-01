@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isTeacher } from "@/lib/teacher";
 import { auth } from "@/auth";
-import { canEditData } from "@/lib/access";
+import { canEditData, getAccess } from "@/lib/access";
 import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, subStatus } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PhotoUpload } from "@/components/PhotoUpload";
@@ -25,6 +25,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = await canEditData(session?.user?.role);
+  const showMoney = (await getAccess()).can("finance"); // finance-модуль запрещён менеджеру → скрываем деньги
 
   const [student, groups] = await Promise.all([
     prisma.student.findUnique({
@@ -76,18 +77,23 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
             <ModalButton label="Редактировать" title="Редактировать ученика" icon="edit" buttonClass="btn ghost" action={updateStudent.bind(null, student.id)}>
               <StudentForm groups={groups} values={student} />
             </ModalButton>
-            <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-              <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} />
-            </ModalButton>
-            <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
-              <PaymentForm students={[student]} fixedStudentId={student.id} />
-            </ModalButton>
+            {showMoney && (
+              <>
+                <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
+                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} />
+                </ModalButton>
+                <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
+                  <PaymentForm students={[student]} fixedStudentId={student.id} />
+                </ModalButton>
+              </>
+            )}
           </div>
         )}
       </div>
 
       <div className="two-col">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {showMoney && (
           <div className="card">
             <div className="card-h">
               <h3>История оплат</h3>
@@ -148,6 +154,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               </table>
             </div>
           </div>
+          )}
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -171,10 +178,14 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                 <dd>{student.group?.teacher?.name ?? "—"}</dd>
                 <dt>Посещаемость</dt>
                 <dd style={{ color: student.attendance >= 85 ? "var(--ok)" : "var(--warn)" }}>{student.attendance}%</dd>
-                <dt>Баланс</dt>
-                <dd style={{ color: student.balance < 0 ? "var(--bad)" : "var(--ok)" }}>
-                  {student.balance < 0 ? money(student.balance) : "Нет долга"}
-                </dd>
+                {showMoney && (
+                  <>
+                    <dt>Баланс</dt>
+                    <dd style={{ color: student.balance < 0 ? "var(--bad)" : "var(--ok)" }}>
+                      {student.balance < 0 ? money(student.balance) : "Нет долга"}
+                    </dd>
+                  </>
+                )}
               </dl>
             </div>
           </div>

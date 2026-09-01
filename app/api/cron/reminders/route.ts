@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { collectReminders } from "@/lib/reminders";
 import { sendTelegram, telegramConfigured } from "@/lib/telegram";
 import { sendWhatsappTemplate, whatsappConfigured, normalizePhone } from "@/lib/whatsapp";
-import { refreshOverdue } from "@/app/actions/data";
+import { markOverdue } from "@/lib/overdue";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  await refreshOverdue();
+  await markOverdue();
   const items = await collectReminders();
 
   const tg = telegramConfigured();

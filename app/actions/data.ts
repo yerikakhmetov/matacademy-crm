@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEditData, MANAGER_PERMS } from "@/lib/access";
+import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
+import { recalc, markOverdue } from "@/lib/overdue";
 import bcrypt from "bcryptjs";
 
 async function assertAdmin() {
@@ -59,10 +60,11 @@ export async function deleteUser(id: string) {
   revalidatePath("/users");
 }
 
-async function assertEditor() {
-  const session = await auth();
+async function assertEditor(module?: PermKey) {
+  const { session, can } = await getAccess();
   if (!session?.user) throw new Error("Требуется вход");
-  if (!(await canEditData(session.user.role))) throw new Error("Недостаточно прав");
+  if (!can("edit")) throw new Error("Недостаточно прав");
+  if (module && !can(module)) throw new Error("Недостаточно прав для этого раздела");
 }
 
 // ---------- Фото профиля (Vercel Blob) ----------
@@ -162,15 +164,7 @@ const int = (v: FormDataEntryValue | null) => {
 };
 
 // Пересчёт задолженности ученика: долг = сумма неоплаченных счетов (PENDING + OVERDUE).
-// Баланс отрицательный = долг. Экспортируется для переиспользования.
-export async function recalcBalance(studentId: string) {
-  const unpaid = await prisma.payment.aggregate({
-    _sum: { amount: true },
-    where: { studentId, status: { in: ["PENDING", "OVERDUE"] } },
-  });
-  const debt = unpaid._sum.amount ?? 0;
-  await prisma.student.update({ where: { id: studentId }, data: { balance: -debt } });
-}
+// Баланс считается из оплат — логика в lib/overdue (recalc). Здесь только внутренние вызовы.
 
 // ---------- Ученики ----------
 export async function createStudent(formData: FormData) {
@@ -274,7 +268,7 @@ export async function deleteGroup(id: string) {
 
 // ---------- Учителя ----------
 export async function createTeacher(formData: FormData) {
-  await assertEditor();
+  await assertEditor("teachers");
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
   await prisma.teacher.create({
     data: {
@@ -292,7 +286,7 @@ export async function createTeacher(formData: FormData) {
 }
 
 export async function updateTeacher(id: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("teachers");
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
   await prisma.teacher.update({
     where: { id },
@@ -312,7 +306,7 @@ export async function updateTeacher(id: string, formData: FormData) {
 }
 
 export async function deleteTeacher(id: string) {
-  await assertEditor();
+  await assertEditor("teachers");
   const t = await prisma.teacher.findUnique({ where: { id }, select: { name: true } });
   await prisma.teacher.delete({ where: { id } }); // группы открепляются (teacherId -> null)
   await logAudit("DELETE", "Преподаватель", t?.name ?? id);
@@ -322,7 +316,7 @@ export async function deleteTeacher(id: string) {
 
 // Изменить ставку преподавателя
 export async function updateTeacherRate(id: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("payroll");
   await prisma.teacher.update({
     where: { id },
     data: { rate: int(formData.get("rate")), rateType: str(formData.get("rateType")) || "PER_LESSON" },
@@ -334,7 +328,7 @@ export async function updateTeacherRate(id: string, formData: FormData) {
 
 // ---------- Лиды ----------
 export async function createLead(formData: FormData) {
-  await assertEditor();
+  await assertEditor("leads");
   await prisma.lead.create({
     data: {
       name: str(formData.get("name")),
@@ -354,7 +348,7 @@ export async function createLead(formData: FormData) {
 }
 
 export async function moveLead(id: string, stage: string) {
-  await assertEditor();
+  await assertEditor("leads");
   await prisma.lead.update({ where: { id }, data: { stage } });
   revalidatePath("/leads");
   revalidatePath(`/leads/${id}`);
@@ -362,7 +356,7 @@ export async function moveLead(id: string, stage: string) {
 }
 
 export async function updateLead(id: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("leads");
   await prisma.lead.update({
     where: { id },
     data: {
@@ -382,7 +376,7 @@ export async function updateLead(id: string, formData: FormData) {
 }
 
 export async function deleteLead(id: string) {
-  await assertEditor();
+  await assertEditor("leads");
   const l = await prisma.lead.findUnique({ where: { id }, select: { name: true } });
   await prisma.lead.delete({ where: { id } });
   await logAudit("DELETE", "Лид", l?.name ?? id);
@@ -397,7 +391,7 @@ const parseDate = (v: FormDataEntryValue | null) => {
 
 // Активности по лиду (звонок / задача / заметка)
 export async function addLeadActivity(leadId: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("leads");
   const text = str(formData.get("text"));
   if (!text) throw new Error("Введите текст");
   await prisma.leadActivity.create({
@@ -413,7 +407,7 @@ export async function addLeadActivity(leadId: string, formData: FormData) {
 }
 
 export async function toggleLeadTask(activityId: string) {
-  await assertEditor();
+  await assertEditor("leads");
   const a = await prisma.leadActivity.findUnique({ where: { id: activityId } });
   if (!a) return;
   await prisma.leadActivity.update({ where: { id: activityId }, data: { done: !a.done } });
@@ -423,7 +417,7 @@ export async function toggleLeadTask(activityId: string) {
 
 // Перевод лида в ученики (создаёт ученика, помечает лид как «Оплатили»)
 export async function convertLeadToStudent(leadId: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("leads");
   const lead = await prisma.lead.findUnique({ where: { id: leadId } });
   if (!lead) throw new Error("Лид не найден");
 
@@ -491,7 +485,7 @@ export async function deleteSubject(id: string) {
 
 // ---------- Абонементы ----------
 export async function createSubscription(studentId: string, formData: FormData) {
-  await assertEditor();
+  await assertEditor("finance");
   const months = int(formData.get("months")) || 1;
   const start = parseDate(formData.get("startDate")) ?? new Date();
   const end = new Date(start);
@@ -560,11 +554,11 @@ export async function createSubscription(studentId: string, formData: FormData) 
     await prisma.payment.create({
       data: { studentId, purpose: `Абонемент · ${plan}`, amount: price, status: "PENDING", date: start },
     });
-    await recalcBalance(studentId);
+    await recalc(studentId);
   }
 
   const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
-  const savedLabel = discountPct + multiPct > 0 ? ` (−${discountPct + multiPct}%)` : "";
+  const savedLabel = discountPct + multiPct > 0 ? ` (−${Math.min(100, discountPct + multiPct)}%)` : "";
   await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}${savedLabel}`);
   void subscription;
   revalidatePath(`/students/${studentId}`);
@@ -572,19 +566,10 @@ export async function createSubscription(studentId: string, formData: FormData) 
   revalidatePath("/dashboard");
 }
 
-// Автопометка просроченных счетов: PENDING со сроком раньше сегодняшнего → OVERDUE
+// Автопометка просроченных счетов (server action). Cron вызывает markOverdue() напрямую.
 export async function refreshOverdue() {
-  const today = new Date();
-  const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  const res = await prisma.payment.updateMany({
-    where: { status: "PENDING", date: { lt: start } },
-    data: { status: "OVERDUE" },
-  });
-  if (res.count > 0) {
-    const affected = await prisma.payment.findMany({ where: { status: "OVERDUE" }, select: { studentId: true }, distinct: ["studentId"] });
-    for (const a of affected) await recalcBalance(a.studentId);
-  }
-  return res.count;
+  if (!(await auth())?.user) throw new Error("Требуется вход");
+  return markOverdue();
 }
 
 // ---------- Расписание ----------
@@ -765,7 +750,7 @@ async function assertCanGrade(studentId: string) {
 export async function addGrade(studentId: string, formData: FormData) {
   const session = await assertCanGrade(studentId);
   const score = int(formData.get("score"));
-  const maxScore = int(formData.get("maxScore")) || 100;
+  const maxScore = Math.max(1, int(formData.get("maxScore")) || 100);
   await prisma.grade.create({
     data: {
       studentId,
@@ -804,7 +789,7 @@ export async function createTest(formData: FormData) {
       title: str(formData.get("title")) || "Тест",
       groupId,
       subjectId,
-      maxScore: int(formData.get("maxScore")) || 100,
+      maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
       date: parseDate(formData.get("date")) ?? new Date(),
     },
   });
@@ -867,7 +852,7 @@ export async function deleteTest(id: string) {
 
 // ---------- Оплаты ----------
 export async function createPayment(formData: FormData) {
-  await assertEditor();
+  await assertEditor("finance");
   const studentId = str(formData.get("studentId"));
   if (!studentId) throw new Error("Выберите ученика");
   const amount = int(formData.get("amount"));
@@ -884,7 +869,7 @@ export async function createPayment(formData: FormData) {
   const st0 = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
   await logAudit("CREATE", status === "PAID" ? "Оплата" : "Счёт", `${st0?.name ?? ""} · ${money(amount)}`);
   // Задолженность считается автоматически из неоплаченных счетов
-  await recalcBalance(studentId);
+  await recalc(studentId);
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${studentId}`);
@@ -893,14 +878,14 @@ export async function createPayment(formData: FormData) {
 
 // Отметить счёт оплаченным (гасит долг)
 export async function markPaid(paymentId: string, method?: string) {
-  await assertEditor();
+  await assertEditor("finance");
   const payment = await prisma.payment.update({
     where: { id: paymentId },
     data: { status: "PAID", method: method || undefined, date: new Date() },
     include: { student: { select: { name: true } } },
   });
   await logAudit("UPDATE", "Оплата", `${payment.student.name} · ${money(payment.amount)} · оплачен`);
-  await recalcBalance(payment.studentId);
+  await recalc(payment.studentId);
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
@@ -908,10 +893,10 @@ export async function markPaid(paymentId: string, method?: string) {
 }
 
 export async function deletePayment(paymentId: string) {
-  await assertEditor();
+  await assertEditor("finance");
   const payment = await prisma.payment.delete({ where: { id: paymentId }, include: { student: { select: { name: true } } } });
   await logAudit("DELETE", "Оплата", `${payment.student.name} · ${money(payment.amount)}`);
-  await recalcBalance(payment.studentId);
+  await recalc(payment.studentId);
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { canEditData } from "@/lib/access";
+import { canEditData, getAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor, STUDENT_STATUS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
@@ -24,6 +24,8 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   const editor = await canEditData(session?.user?.role);
+  const showMoney = (await getAccess()).can("finance");
+  const filters = showMoney ? FILTERS : FILTERS.filter((f) => f.key !== "debt");
 
   const where =
     status === "debt" ? { balance: { lt: 0 } } : status === "all" ? {} : { status };
@@ -50,7 +52,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
 
       <div className="toolbar">
         <div className="seg">
-          {FILTERS.map((f) => (
+          {filters.map((f) => (
             <Link key={f.key} href={`/students?status=${f.key}`} className={status === f.key ? "on" : ""}>
               {f.label}
             </Link>
@@ -73,13 +75,13 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                 <th>Группа</th>
                 <th>Посещаемость</th>
                 <th>Статус</th>
-                <th className="right">Баланс</th>
+                {showMoney && <th className="right">Баланс</th>}
               </tr>
             </thead>
             <tbody>
               {students.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={showMoney ? 6 : 5}>
                     <div className="empty">Нет учеников по этому фильтру</div>
                   </td>
                 </tr>
@@ -120,9 +122,11 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                         {st.label}
                       </span>
                     </td>
-                    <td className="right money num" style={{ color: s.balance < 0 ? "var(--bad)" : "var(--ink-3)" }}>
-                      {s.balance < 0 ? money(s.balance) : "0 ₸"}
-                    </td>
+                    {showMoney && (
+                      <td className="right money num" style={{ color: s.balance < 0 ? "var(--bad)" : "var(--ink-3)" }}>
+                        {s.balance < 0 ? money(s.balance) : "0 ₸"}
+                      </td>
+                    )}
                   </tr>
                 );
               })}

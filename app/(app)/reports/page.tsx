@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
-import { canSeeMoney } from "@/lib/roles";
-import { requireAccess } from "@/lib/access";
+import { requireAccess, getAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
@@ -41,7 +40,7 @@ export default async function ReportsPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   await requireAccess("reports");
-  const money$ = canSeeMoney(session?.user?.role);
+  const money$ = (await getAccess()).can("finance"); // деньги в отчётах — только при доступе к финансам
 
   const months = lastMonths(6);
   const since = new Date(months[0].year, months[0].month0, 1);
