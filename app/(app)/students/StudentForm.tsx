@@ -9,6 +9,7 @@ type Values = {
   groupIds?: string[];
   status?: string;
   balance?: number;
+  personalDiscount?: number;
 };
 
 export function StudentForm({ groups, values }: { groups: Group[]; values?: Values }) {
@@ -58,13 +59,19 @@ export function StudentForm({ groups, values }: { groups: Group[]; values?: Valu
           </div>
         )}
       </div>
-      <div className="field">
-        <label>Статус</label>
-        <select name="status" defaultValue={values?.status ?? "ACTIVE"}>
-          <option value="ACTIVE">Активен</option>
-          <option value="PAUSED">На паузе</option>
-          <option value="LEFT">Ушёл</option>
-        </select>
+      <div className="grid2">
+        <div className="field">
+          <label>Статус</label>
+          <select name="status" defaultValue={values?.status ?? "ACTIVE"}>
+            <option value="ACTIVE">Активен</option>
+            <option value="PAUSED">На паузе</option>
+            <option value="LEFT">Ушёл</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Персональная скидка, %</label>
+          <input name="personalDiscount" type="number" min={0} max={100} defaultValue={values?.personalDiscount ?? 0} />
+        </div>
       </div>
       <p className="mut" style={{ fontSize: 12, margin: 0 }}>
         Задолженность рассчитывается автоматически из неоплаченных счетов — отдельно вводить не нужно.

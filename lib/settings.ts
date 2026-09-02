@@ -1,4 +1,10 @@
 import { prisma } from "./prisma";
+import type { Discount, MultiTier } from "./pricing";
+
+// Чистая математика прайсинга живёт в lib/pricing.ts (без prisma, доступна и на клиенте).
+// Реэкспорт для обратной совместимости со старыми импортами из "@/lib/settings".
+export { multiPercentFor, splitByPrice, computePricing, combineDiscounts, isDiscountMode, DISCOUNT_MODE_LABEL } from "./pricing";
+export type { Discount, MultiTier, DiscountMode } from "./pricing";
 
 export type Tariff = { plan: string; months: number; price: number };
 
@@ -60,9 +66,7 @@ export function renderTemplate(tpl: string, vars: Record<string, string | number
   return tpl.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : `{${k}}`));
 }
 
-// ── Скидки ──
-export type Discount = { name: string; percent: number };
-export type MultiTier = { count: number; percent: number };
+// ── Скидки (парсинг текстовых настроек; математика — в lib/pricing.ts) ──
 
 // "Название | процент" построчно
 export function parseDiscounts(text: string): Discount[] {
@@ -98,62 +102,4 @@ export function parseMultiTiers(text: string): MultiTier[] {
 
 export function multiTiersToText(list: MultiTier[]): string {
   return list.map((t) => `${t.count} | ${t.percent}`).join("\n");
-}
-
-// Процент скидки за N предметов: берём наибольший подходящий порог
-export function multiPercentFor(count: number, tiers: MultiTier[]): number {
-  let pct = 0;
-  for (const t of tiers) if (count >= t.count) pct = t.percent;
-  return pct;
-}
-
-// Пропорциональное деление суммы платежа между выбранными предметами по их базовой цене.
-// Если у всех цена 0 — поровну. Последнему предмету достаётся остаток (сумма всегда сходится).
-export function splitByPrice(
-  amount: number,
-  subjects: { id: string; name: string; price: number }[]
-): { id: string; name: string; amount: number }[] {
-  const n = subjects.length;
-  if (n === 0) return [];
-  const weights = subjects.map((s) => Math.max(0, s.price));
-  const totalW = weights.reduce((a, b) => a + b, 0);
-  const out: { id: string; name: string; amount: number }[] = [];
-  let acc = 0;
-  subjects.forEach((s, i) => {
-    let amt: number;
-    if (i === n - 1) amt = amount - acc;
-    else {
-      amt = totalW > 0 ? Math.round((amount * weights[i]) / totalW) : Math.round(amount / n);
-      acc += amt;
-    }
-    out.push({ id: s.id, name: s.name, amount: amt });
-  });
-  return out;
-}
-
-// Расчёт цены комбо-абонемента за весь срок с разбивкой по предметам (доля предмета)
-export function computePricing(opts: {
-  subjects: { id: string; name: string; price: number }[]; // выбранные предметы (цена за месяц)
-  months: number;
-  discountPct: number; // спец-скидка
-  multiPct: number; // скидка за несколько предметов
-}) {
-  const months = Math.max(1, opts.months);
-  const items = opts.subjects.map((s) => ({ id: s.id, name: s.name, base: Math.max(0, s.price) * months }));
-  const base = items.reduce((a, i) => a + i.base, 0);
-  const totalPct = Math.min(100, Math.max(0, opts.discountPct) + Math.max(0, opts.multiPct));
-  const total = Math.round((base * (100 - totalPct)) / 100);
-  // разложить итог пропорционально базовым долям (последнему предмету — остаток, чтобы сумма сошлась)
-  const withAmounts: { id: string; name: string; base: number; amount: number }[] = [];
-  let acc = 0;
-  items.forEach((it, i) => {
-    let amount: number;
-    if (i === items.length - 1) amount = total - acc;
-    else {
-      amount = base > 0 ? Math.round((total * it.base) / base) : 0;
-      acc += amount;
-    }
-    withAmounts.push({ ...it, amount });
-  });
-  return { base, total, totalPct, items: withAmounts };
 }

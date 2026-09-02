@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES } from "@/lib/settings";
+import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES, DISCOUNT_MODE_LABEL } from "@/lib/settings";
 import { MANAGER_PERMS, parseDenied } from "@/lib/access";
 import { updateSettings } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
@@ -75,9 +75,26 @@ export default async function SettingsPage() {
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
             Скидка за несколько предметов — <b>кол-во предметов | процент</b> (от указанного количества). Например: <code>2 | 10</code>, <code>3 | 15</code>
           </p>
-          <div className="field">
+          <div className="field" style={{ marginBottom: 16 }}>
             <textarea name="multiDiscount" defaultValue={s.multiDiscount} rows={3} placeholder={"2 | 10\n3 | 15"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
           </div>
+          <div className="grid2">
+            <div className="field">
+              <label>Как объединять скидки</label>
+              <select name="discountMode" defaultValue={s.discountMode}>
+                {(Object.keys(DISCOUNT_MODE_LABEL) as (keyof typeof DISCOUNT_MODE_LABEL)[]).map((m) => (
+                  <option key={m} value={m}>{DISCOUNT_MODE_LABEL[m]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Скидка «брат/сестра», %</label>
+              <input name="siblingDiscount" type="number" min={0} max={100} defaultValue={s.siblingDiscount} />
+            </div>
+          </div>
+          <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>
+            «Брат/сестра» применяется автоматически, если у ученика есть другой активный ученик с тем же телефоном родителя. 0 — выключено.
+          </p>
         </div>
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>

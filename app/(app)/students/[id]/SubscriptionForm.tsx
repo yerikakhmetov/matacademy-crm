@@ -1,27 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { multiPercentFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
 
 type Subject = { id: string; name: string; price: number; color: string };
-type Discount = { name: string; percent: number };
-type MultiTier = { count: number; percent: number };
 
 const fmt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
-
-function multiPercentFor(count: number, tiers: MultiTier[]): number {
-  let pct = 0;
-  for (const t of [...tiers].sort((a, b) => a.count - b.count)) if (count >= t.count) pct = t.percent;
-  return pct;
-}
 
 export function SubscriptionForm({
   subjects,
   discounts,
   tiers,
+  mode = "add",
+  personalPct = 0,
+  siblingPct = 0,
 }: {
   subjects: Subject[];
   discounts: Discount[];
   tiers: MultiTier[];
+  mode?: DiscountMode;
+  personalPct?: number;
+  siblingPct?: number;
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const hasSubjects = subjects.length > 0;
@@ -34,25 +33,18 @@ export function SubscriptionForm({
 
   const calc = useMemo(() => {
     const chosen = picked.map((id) => subjects.find((s) => s.id === id)!).filter(Boolean);
-    const base = chosen.reduce((a, s) => a + s.price, 0) * Math.max(1, months);
     const discountPct = discounts.find((d) => d.name === discountName)?.percent ?? 0;
     const multiPct = multiPercentFor(chosen.length, tiers);
-    const totalPct = Math.min(100, discountPct + multiPct);
-    const total = Math.round((base * (100 - totalPct)) / 100);
-    // доли по предметам (последнему — остаток)
-    let acc = 0;
-    const rows = chosen.map((s, i) => {
-      const b = s.price * Math.max(1, months);
-      let amount: number;
-      if (i === chosen.length - 1) amount = total - acc;
-      else {
-        amount = base > 0 ? Math.round((total * b) / base) : 0;
-        acc += amount;
-      }
-      return { ...s, b, amount };
+    const pricing = computePricing({
+      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
+      months,
+      discountParts: [discountPct, multiPct, personalPct, siblingPct],
+      mode,
     });
-    return { base, total, discountPct, multiPct, totalPct, rows, saved: base - total };
-  }, [picked, months, discountName, subjects, discounts, tiers]);
+    const colorById = new Map(chosen.map((s) => [s.id, s.color]));
+    const rows = pricing.items.map((it) => ({ id: it.id, name: it.name, color: colorById.get(it.id) ?? "#999", b: it.base, amount: it.amount }));
+    return { base: pricing.base, total: pricing.total, discountPct, multiPct, totalPct: pricing.totalPct, rows, saved: pricing.base - pricing.total };
+  }, [picked, months, discountName, subjects, discounts, tiers, mode, personalPct, siblingPct]);
 
   if (!hasSubjects) {
     // Резервный режим: предметы не заданы — ручная цена
@@ -173,6 +165,24 @@ export function SubscriptionForm({
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>
                   <span>{discountName}</span>
                   <span className="num">−{calc.discountPct}%</span>
+                </div>
+              )}
+              {personalPct > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>
+                  <span>Персональная скидка</span>
+                  <span className="num">−{personalPct}%</span>
+                </div>
+              )}
+              {siblingPct > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>
+                  <span>Брат/сестра</span>
+                  <span className="num">−{siblingPct}%</span>
+                </div>
+              )}
+              {mode !== "add" && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--ink-3)" }}>
+                  <span>Итоговая скидка</span>
+                  <span className="num">−{calc.totalPct}%</span>
                 </div>
               )}
               <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 16, marginTop: 4 }}>

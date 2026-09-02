@@ -17,7 +17,7 @@ import { ParentPortalLink } from "./ParentPortalLink";
 import { StudentCabinetLink } from "./StudentCabinetLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
-import { getSettings, parseDiscounts, parseMultiTiers } from "@/lib/settings";
+import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +47,13 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   ]);
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);
+  const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
+  const personalPct = Math.max(0, student.personalDiscount);
+  let siblingPct = 0;
+  if (settings.siblingDiscount > 0 && student.parentPhone) {
+    const sib = await prisma.student.count({ where: { id: { not: student.id }, status: "ACTIVE", parentPhone: student.parentPhone } });
+    if (sib > 0) siblingPct = settings.siblingDiscount;
+  }
 
   // Ленивая генерация постоянного токена родительской страницы
   let portalToken = student.portalToken;
@@ -81,7 +88,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
             {showMoney && (
               <>
                 <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} />
+                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} />
                 </ModalButton>
                 <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
                   <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} />
@@ -216,9 +223,9 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         {sub.plan}
-                        {sub.discountPct + sub.multiPct > 0 && (
+                        {sub.basePrice > sub.price && sub.basePrice > 0 && (
                           <span className="chip c-ok" style={{ padding: "1px 7px", fontSize: 10.5 }}>
-                            <span className="d" />−{sub.discountPct + sub.multiPct}%
+                            <span className="d" />−{Math.round((1 - sub.price / sub.basePrice) * 100)}%
                           </span>
                         )}
                       </div>

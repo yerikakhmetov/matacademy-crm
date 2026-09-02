@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
@@ -134,6 +134,8 @@ export async function updateSettings(formData: FormData) {
     managerDenied: MANAGER_PERMS.filter((p) => !formData.get(`perm_${p.key}`)).map((p) => p.key).join(","),
     discounts: String(formData.get("discounts") ?? "").trim(),
     multiDiscount: String(formData.get("multiDiscount") ?? "").trim(),
+    discountMode: isDiscountMode(String(formData.get("discountMode"))) ? String(formData.get("discountMode")) : "add",
+    siblingDiscount: Math.min(100, Math.max(0, int(formData.get("siblingDiscount")))),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -180,6 +182,7 @@ export async function createStudent(formData: FormData) {
       parentPhone: str(formData.get("parentPhone")) || null,
       groups: { connect: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
+      personalDiscount: Math.min(100, Math.max(0, int(formData.get("personalDiscount")))),
       // attendance намеренно не задаём: показатель появится после первой отметки посещаемости
       portalToken: newToken(),
     },
@@ -202,6 +205,7 @@ export async function updateStudent(id: string, formData: FormData) {
       parentPhone: str(formData.get("parentPhone")) || null,
       groups: { set: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
+      personalDiscount: Math.min(100, Math.max(0, int(formData.get("personalDiscount")))),
     },
   });
   await logAudit("UPDATE", "Ученик", str(formData.get("name")));
@@ -518,11 +522,21 @@ export async function createSubscription(studentId: string, formData: FormData) 
     discountPct = disc ? disc.percent : 0;
     multiPct = multiPercentFor(chosen.length, parseMultiTiers(settings.multiDiscount));
 
+    // Персональная скидка ученика и авто-скидка «брат/сестра» (по телефону родителя)
+    const student = await prisma.student.findUnique({ where: { id: studentId }, select: { personalDiscount: true, parentPhone: true } });
+    const personalPct = Math.max(0, student?.personalDiscount ?? 0);
+    let siblingPct = 0;
+    if (settings.siblingDiscount > 0 && student?.parentPhone) {
+      const sib = await prisma.student.count({ where: { id: { not: studentId }, status: "ACTIVE", parentPhone: student.parentPhone } });
+      if (sib > 0) siblingPct = settings.siblingDiscount;
+    }
+
+    const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
     const pricing = computePricing({
       subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
       months,
-      discountPct,
-      multiPct,
+      discountParts: [discountPct, multiPct, personalPct, siblingPct],
+      mode,
     });
     basePrice = pricing.base;
     price = pricing.total;

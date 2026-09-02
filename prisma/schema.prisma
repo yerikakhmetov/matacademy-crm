@@ -106,6 +106,7 @@ model Student {
   parentPhone   String?
   status         String        @default("ACTIVE") // ACTIVE | PAUSED | LEFT
   balance        Int           @default(0) // < 0 — задолженность (в тенге)
+  personalDiscount Int         @default(0) // персональная скидка ученика, % (0 = нет)
   attendance     Int?          // % посещаемости; null = отметок ещё нет
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
@@ -322,6 +323,8 @@ model Settings {
   managerDenied String @default("") // запрещённые менеджеру модули (ключи через запятую)
   discounts     String @default("") // спец-скидки: "название | процент" построчно
   multiDiscount String @default("") // скидки за несколько предметов: "кол-во | процент" построчно
+  discountMode  String @default("add") // как объединять скидки: add | max | mul
+  siblingDiscount Int  @default(0) // скидка «брат/сестра», % (0 = выкл)
   updatedAt  DateTime @updatedAt
 }
 
