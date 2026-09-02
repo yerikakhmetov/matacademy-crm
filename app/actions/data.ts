@@ -11,6 +11,7 @@ import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPer
 import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
+import { getStudentIdForUser } from "@/lib/teacher";
 import bcrypt from "bcryptjs";
 
 async function assertAdmin() {
@@ -741,6 +742,37 @@ export async function toggleHomeworkDone(homeworkId: string, studentId: string) 
     await prisma.homeworkDone.create({ data: { homeworkId, studentId, done: true } });
   }
   revalidatePath("/homework");
+}
+
+// Ученик отмечает/снимает выполнение СВОЕГО задания (studentId берётся из сессии).
+export async function toggleMyHomework(homeworkId: string): Promise<{ done: boolean }> {
+  const session = await auth();
+  const studentId = await getStudentIdForUser(session?.user?.id);
+  if (!studentId) throw new Error("Профиль ученика не найден");
+
+  const hw = await prisma.homework.findUnique({ where: { id: homeworkId }, select: { groupId: true } });
+  if (!hw) throw new Error("Задание не найдено");
+
+  // Задание должно относиться к одной из групп ученика
+  const inGroup = await prisma.student.findFirst({
+    where: { id: studentId, groups: { some: { id: hw.groupId } } },
+    select: { id: true },
+  });
+  if (!inGroup) throw new Error("Недостаточно прав");
+
+  const existing = await prisma.homeworkDone.findUnique({
+    where: { homeworkId_studentId: { homeworkId, studentId } },
+  });
+  let done: boolean;
+  if (existing) {
+    done = !existing.done;
+    await prisma.homeworkDone.update({ where: { id: existing.id }, data: { done } });
+  } else {
+    done = true;
+    await prisma.homeworkDone.create({ data: { homeworkId, studentId, done } });
+  }
+  revalidatePath("/cabinet");
+  return { done };
 }
 
 // ---------- Оценки ----------

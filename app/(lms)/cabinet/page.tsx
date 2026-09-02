@@ -6,6 +6,7 @@ import { getStudentIdForUser } from "@/lib/teacher";
 import { formatDate, scoreColor, gradeChipClass, DAYS, GRADE_TYPE } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
+import { CabinetHomework } from "./CabinetHomework";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,15 @@ export default async function CabinetHome() {
     orderBy: { createdAt: "desc" },
     take: 8,
   });
+
+  const hwItems = homeworks.map((hw) => ({
+    id: hw.id,
+    title: hw.title,
+    groupName: hw.group.name,
+    dueLabel: hw.dueDate ? formatDate(hw.dueDate) : null,
+    dueTs: hw.dueDate ? new Date(hw.dueDate).getTime() : null,
+    done: hw.completions[0]?.done ?? false,
+  }));
 
   const avg = student.grades.length
     ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
@@ -87,33 +97,7 @@ export default async function CabinetHome() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-h">
-          <h3>Домашние задания</h3>
-          <span className="chip c-mut"><span className="d" />{homeworks.length}</span>
-        </div>
-        <div style={{ padding: "6px 0" }}>
-          {homeworks.length === 0 && <div className="empty">Заданий пока нет</div>}
-          {homeworks.map((hw) => {
-            const done = hw.completions[0]?.done ?? false;
-            const overdue = hw.dueDate && new Date(hw.dueDate) < new Date() && !done;
-            return (
-              <div className="list-row" key={hw.id}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{hw.title}</div>
-                  <div className="mut" style={{ fontSize: 12 }}>
-                    {hw.group.name}
-                    {hw.dueDate ? ` · срок: ${formatDate(hw.dueDate)}` : ""}
-                  </div>
-                </div>
-                <span className={`chip ${done ? "c-ok" : overdue ? "c-bad" : "c-mut"}`}>
-                  <span className="d" />{done ? "Выполнено" : overdue ? "Просрочено" : "Активно"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <CabinetHomework items={hwItems} />
 
       {materials.length > 0 && (
         <div className="card">
