@@ -55,10 +55,13 @@ export default async function CabinetHome() {
     ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
     : null;
   const lessons = student.groups
-    .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name })))
+    .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name, color: g.color, teacherName: g.teacher?.name ?? null })))
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
 
-  const hour = new Date().getHours();
+  const now = new Date();
+  const jsDay = now.getDay(); // 0 = вс
+  const todayDow = jsDay === 0 ? 7 : jsDay; // 1..6 = Пн..Сб (как в расписании)
+  const hour = now.getHours();
   const greeting = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
 
   return (
@@ -88,13 +91,27 @@ export default async function CabinetHome() {
         <div className="card-h"><h3>Расписание</h3></div>
         <div style={{ padding: "6px 0" }}>
           {lessons.length === 0 && <div className="empty">Расписание не задано</div>}
-          {lessons.map((l) => (
-            <div className="list-row" key={l.id}>
-              <div style={{ width: 40, fontWeight: 700 }}>{DAYS[l.dayOfWeek]}</div>
-              <div className="num" style={{ width: 54, fontWeight: 600 }}>{l.startTime}</div>
-              <div style={{ flex: 1 }} className="mut">{l.groupName} · {l.room}</div>
-            </div>
-          ))}
+          {lessons.map((l) => {
+            const today = l.dayOfWeek === todayDow;
+            return (
+              <div className="list-row" key={l.id} style={today ? { background: "var(--accent-soft)" } : undefined}>
+                <div style={{ width: 40, fontWeight: 700, color: today ? "var(--accent)" : undefined }}>
+                  {DAYS[l.dayOfWeek]}
+                  {today && <span className="mut" style={{ display: "block", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>сегодня</span>}
+                </div>
+                <div className="num" style={{ width: 54, fontWeight: 600 }}>{l.startTime}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 3, background: l.color, flex: "none" }} />
+                    {l.groupName}
+                  </div>
+                  <div className="mut" style={{ fontSize: 12 }}>
+                    {l.room}{l.teacherName ? ` · ${l.teacherName}` : ""}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
