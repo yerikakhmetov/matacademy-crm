@@ -7,6 +7,7 @@ import { formatDate, scoreColor, gradeChipClass, DAYS, GRADE_TYPE } from "@/lib/
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { CabinetHomework } from "./CabinetHomework";
+import { isTestOpen, testAvailableAt } from "@/lib/tests";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,36 @@ export default async function CabinetHome() {
     where: { OR: [{ groupId: null }, ...(groupIds.length ? [{ groupId: { in: groupIds } }] : [])] },
     orderBy: { createdAt: "desc" },
     take: 8,
+  });
+
+  const testsRaw = groupIds.length
+    ? await prisma.test.findMany({
+        where: { groupId: { in: groupIds }, questions: { some: {} } },
+        orderBy: { date: "desc" },
+        take: 12,
+        include: {
+          _count: { select: { questions: true } },
+          attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true } },
+          subject: { select: { name: true, color: true } },
+        },
+      })
+    : [];
+  const lessonsByGroup = new Map(student.groups.map((g) => [g.id, g.lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime }))]));
+  const tests = testsRaw.map((t) => {
+    const lessons = lessonsByGroup.get(t.groupId ?? "") ?? [];
+    const attempt = t.attempts[0] ?? null;
+    return {
+      id: t.id,
+      title: t.title,
+      date: t.date,
+      maxScore: t.maxScore,
+      questions: t._count.questions,
+      subjectName: t.subject?.name ?? null,
+      subjectColor: t.subject?.color ?? "#3A5AE0",
+      attempt,
+      open: isTestOpen(t.date, lessons),
+      opensAt: testAvailableAt(t.date, lessons),
+    };
   });
 
   const topics = groupIds.length
@@ -123,6 +154,44 @@ export default async function CabinetHome() {
           })}
         </div>
       </div>
+
+      {tests.length > 0 && (
+        <div className="card">
+          <div className="card-h"><h3>Тесты</h3><span className="chip c-mut"><span className="d" />{tests.length}</span></div>
+          <div style={{ padding: "6px 0" }}>
+            {tests.map((t) => {
+              const pct = t.attempt ? Math.round((t.attempt.score / t.maxScore) * 100) : null;
+              const inner = (
+                <>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 3, background: t.subjectColor, flex: "none" }} />
+                      {t.title}
+                    </div>
+                    <div className="mut" style={{ fontSize: 12 }}>
+                      {t.subjectName ? `${t.subjectName} · ` : ""}{t.questions} вопр.{t.attempt ? ` · ${t.attempt.correctCount}/${t.attempt.total} верно` : ""}
+                    </div>
+                  </div>
+                  {t.attempt ? (
+                    <span className={`chip ${gradeChipClass(pct!)}`}><span className="d" />{t.attempt.score}/{t.maxScore}</span>
+                  ) : t.open ? (
+                    <span className="chip c-ok"><span className="d" />Пройти →</span>
+                  ) : (
+                    <span className="chip c-mut"><span className="d" />После урока {formatDate(t.date)}</span>
+                  )}
+                </>
+              );
+              return t.attempt || t.open ? (
+                <Link key={t.id} href={`/cabinet/test/${t.id}`} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                  {inner}
+                </Link>
+              ) : (
+                <div key={t.id} className="list-row" style={{ opacity: 0.6 }}>{inner}</div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {topics.length > 0 && (
         <div className="card">

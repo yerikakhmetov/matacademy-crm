@@ -119,6 +119,7 @@ model Student {
   attendanceRecords Attendance[]
   grades            Grade[]
   homeworkDone      HomeworkDone[]
+  testAttempts      TestAttempt[]
   createdAt         DateTime       @default(now())
 }
 
@@ -183,9 +184,27 @@ model Test {
   createdAt DateTime       @default(now())
   grades    Grade[]
   questions TestQuestion[]
+  attempts  TestAttempt[]
 
   @@index([groupId])
   @@index([subjectId])
+}
+
+// Прохождение теста учеником (одна попытка): ответы, результат
+model TestAttempt {
+  id           String   @id @default(cuid())
+  testId       String
+  test         Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  answers      Int[] // выбранный вариант по каждому вопросу (в порядке order); -1 = без ответа
+  correctCount Int      @default(0)
+  total        Int      @default(0)
+  score        Int      @default(0) // в баллах (0..maxScore)
+  submittedAt  DateTime @default(now())
+
+  @@unique([testId, studentId])
+  @@index([studentId])
 }
 
 // Вопрос теста с вариантами ответов и правильным вариантом

@@ -12,6 +12,7 @@ import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
+import { isTestOpen } from "@/lib/tests";
 import bcrypt from "bcryptjs";
 
 async function assertAdmin() {
@@ -962,6 +963,69 @@ export async function saveTestResults(testId: string, formData: FormData) {
   await logAudit("UPDATE", "Тест", `${test.title} · ${saved} оценок`);
   revalidatePath(`/tests/${testId}`);
   revalidatePath("/tests");
+  revalidatePath("/grades");
+}
+
+// Ученик проходит тест (одна попытка): авто-проверка по правильным ответам.
+export async function submitTestAttempt(testId: string, formData: FormData) {
+  const session = await auth();
+  const studentId = await getStudentIdForUser(session?.user?.id);
+  if (!studentId) throw new Error("Профиль ученика не найден");
+
+  const test = await prisma.test.findUnique({
+    where: { id: testId },
+    include: {
+      questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
+      group: { include: { lessons: { select: { dayOfWeek: true, startTime: true } } } },
+    },
+  });
+  if (!test) throw new Error("Тест не найден");
+  if (!test.groupId || !test.group) throw new Error("Тест не привязан к группе");
+  if (test.questions.length === 0) throw new Error("В тесте нет вопросов");
+
+  // Ученик должен состоять в группе теста
+  const inGroup = await prisma.student.findFirst({ where: { id: studentId, groups: { some: { id: test.groupId } } }, select: { id: true } });
+  if (!inGroup) throw new Error("Тест не для вашей группы");
+
+  // Тест открывается только после времени урока по расписанию
+  if (!isTestOpen(test.date, test.group.lessons)) throw new Error("Тест ещё не открыт");
+
+  // Одна попытка
+  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });
+  if (existing) throw new Error("Тест уже пройден");
+
+  const answers = test.questions.map((q) => {
+    const raw = formData.get(`q_${q.id}`);
+    const n = raw == null ? -1 : parseInt(String(raw), 10);
+    return isNaN(n) ? -1 : n;
+  });
+  const total = test.questions.length;
+  const correctCount = test.questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
+  const score = Math.round((correctCount / total) * test.maxScore);
+
+  await prisma.testAttempt.create({
+    data: { testId, studentId, answers, correctCount, total, score },
+  });
+
+  // Результат сразу становится оценкой за тест
+  await prisma.grade.upsert({
+    where: { testId_studentId: { testId, studentId } },
+    create: {
+      studentId,
+      testId,
+      topic: test.title,
+      type: "TEST",
+      score,
+      maxScore: test.maxScore,
+      date: new Date(),
+      createdBy: session?.user?.name ?? null,
+    },
+    update: { score, maxScore: test.maxScore, topic: test.title },
+  });
+
+  revalidatePath(`/cabinet/test/${testId}`);
+  revalidatePath("/cabinet");
+  revalidatePath(`/tests/${testId}`);
   revalidatePath("/grades");
 }
 
