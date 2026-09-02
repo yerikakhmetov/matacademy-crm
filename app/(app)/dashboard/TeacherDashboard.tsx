@@ -25,7 +25,8 @@ export async function TeacherDashboard({ userId, name }: { userId: string; name?
   ]);
 
   const totalStudents = students.length;
-  const avgAtt = totalStudents ? Math.round(students.reduce((a, s) => a + s.attendance, 0) / totalStudents) : 0;
+  const attRated = students.filter((s) => s.attendance != null);
+  const avgAtt = attRated.length ? Math.round(attRated.reduce((a, s) => a + (s.attendance ?? 0), 0) / attRated.length) : null;
   const weekLessons = groups.reduce((a, g) => a + g.lessons.length, 0);
 
   const now = new Date();
@@ -36,7 +37,7 @@ export async function TeacherDashboard({ userId, name }: { userId: string; name?
   const kpis = [
     { l: "Мои группы", v: String(groups.length), icon: "groups", col: "var(--accent)", bg: "var(--accent-soft)" },
     { l: "Моих учеников", v: String(totalStudents), icon: "students", col: "var(--violet)", bg: "var(--violet-soft)" },
-    { l: "Средняя посещаемость", v: avgAtt + "%", icon: "check", col: "var(--ok)", bg: "var(--ok-soft)" },
+    { l: "Средняя посещаемость", v: avgAtt == null ? "—" : `${avgAtt}%`, icon: "check", col: "var(--ok)", bg: "var(--ok-soft)" },
     { l: "Занятий в неделю", v: String(weekLessons), icon: "schedule", col: "var(--teal)", bg: "var(--teal-soft)" },
   ];
 

@@ -179,7 +179,7 @@ export async function createStudent(formData: FormData) {
       parentPhone: str(formData.get("parentPhone")) || null,
       groups: { connect: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
-      attendance: 90,
+      // attendance намеренно не задаём: показатель появится после первой отметки посещаемости
       portalToken: newToken(),
     },
   });

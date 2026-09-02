@@ -178,7 +178,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                 <dt>Преподаватель</dt>
                 <dd>{[...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ") || "—"}</dd>
                 <dt>Посещаемость</dt>
-                <dd style={{ color: student.attendance >= 85 ? "var(--ok)" : "var(--warn)" }}>{student.attendance}%</dd>
+                <dd style={{ color: student.attendance == null ? "var(--ink-3)" : student.attendance >= 85 ? "var(--ok)" : "var(--warn)" }}>{student.attendance == null ? "—" : `${student.attendance}%`}</dd>
                 {showMoney && (
                   <>
                     <dt>Баланс</dt>

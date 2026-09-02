@@ -87,7 +87,7 @@ export default async function MyStudentsPage() {
                         <td className="mut">{s.grade ?? "—"}</td>
                         <td className="mut">{s.parentName ?? "—"}</td>
                         <td>
-                          <span className="num" style={{ fontWeight: 700, color: scoreColor(s.attendance) }}>{s.attendance}%</span>
+                          <span className="num" style={{ fontWeight: 700, color: s.attendance == null ? "var(--ink-3)" : scoreColor(s.attendance) }}>{s.attendance == null ? "—" : `${s.attendance}%`}</span>
                         </td>
                         <td className="right num" style={{ fontWeight: 700, color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>
                           {avg != null ? `${avg}%` : "—"}

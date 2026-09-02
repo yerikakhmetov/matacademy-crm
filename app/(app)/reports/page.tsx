@@ -134,7 +134,7 @@ export default async function ReportsPage() {
     .map((s) => {
       const avg = s.grades.length ? Math.round(s.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / s.grades.length) : null;
       const reasons: string[] = [];
-      if (s.attendance < 70) reasons.push(`посещаемость ${s.attendance}%`);
+      if (s.attendance != null && s.attendance < 70) reasons.push(`посещаемость ${s.attendance}%`);
       if (s.balance < 0) reasons.push(`долг ${money(s.balance)}`);
       if (avg != null && avg < 60) reasons.push(`средний балл ${avg}%`);
       return { s, avg, reasons };
@@ -180,7 +180,8 @@ export default async function ReportsPage() {
   const paused = students.filter((s) => s.status === "PAUSED").length;
   const debtors = students.filter((s) => s.balance < 0);
   const totalDebt = debtors.reduce((a, s) => a + s.balance, 0);
-  const avgAtt = students.length ? Math.round(students.reduce((a, s) => a + s.attendance, 0) / students.length) : 0;
+  const attRated = students.filter((s) => s.attendance != null);
+  const avgAtt = attRated.length ? Math.round(attRated.reduce((a, s) => a + (s.attendance ?? 0), 0) / attRated.length) : null;
 
   return (
     <>
@@ -233,7 +234,7 @@ export default async function ReportsPage() {
             </span>
             Средняя посещаемость
           </div>
-          <div className="kval num">{avgAtt}%</div>
+          <div className="kval num">{avgAtt == null ? "—" : `${avgAtt}%`}</div>
         </div>
         {money$ && (
           <div className="card kpi">

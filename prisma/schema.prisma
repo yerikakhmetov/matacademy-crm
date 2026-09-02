@@ -106,7 +106,7 @@ model Student {
   parentPhone   String?
   status         String        @default("ACTIVE") // ACTIVE | PAUSED | LEFT
   balance        Int           @default(0) // < 0 — задолженность (в тенге)
-  attendance     Int           @default(90) // % посещаемости
+  attendance     Int?          // % посещаемости; null = отметок ещё нет
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
   photoUrl       String? // фото ученика (Vercel Blob)

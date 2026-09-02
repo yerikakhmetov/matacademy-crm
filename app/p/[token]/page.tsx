@@ -90,7 +90,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               </span>
               Посещаемость
             </div>
-            <div className="kval num" style={{ color: scoreColor(student.attendance) }}>{student.attendance}%</div>
+            <div className="kval num" style={{ color: student.attendance == null ? "var(--ink-3)" : scoreColor(student.attendance) }}>{student.attendance == null ? "—" : `${student.attendance}%`}</div>
           </div>
           <div className="card kpi">
             <div className="klabel">

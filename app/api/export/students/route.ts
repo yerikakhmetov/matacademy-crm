@@ -24,7 +24,7 @@ export async function GET() {
       s.phone ?? "",
       s.parentName ?? "",
       s.parentPhone ?? "",
-      s.attendance,
+      s.attendance ?? "",
       s.balance,
     ])
   );

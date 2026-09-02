@@ -88,7 +88,8 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
               )}
               {students.map((s) => {
                 const st = STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE;
-                const attC = s.attendance >= 85 ? "var(--ok)" : s.attendance >= 70 ? "var(--warn)" : "var(--bad)";
+                const att = s.attendance;
+                const attC = att == null ? "var(--ink-3)" : att >= 85 ? "var(--ok)" : att >= 70 ? "var(--warn)" : "var(--bad)";
                 return (
                   <tr className="clk" key={s.id}>
                     <td style={{ padding: 0 }}>
@@ -109,10 +110,10 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div className="bar" style={{ width: 60 }}>
-                          <span style={{ width: `${s.attendance}%`, background: attC }} />
+                          <span style={{ width: `${att ?? 0}%`, background: attC }} />
                         </div>
                         <span className="num" style={{ fontSize: 12, color: attC, fontWeight: 700 }}>
-                          {s.attendance}%
+                          {att == null ? "—" : `${att}%`}
                         </span>
                       </div>
                     </td>

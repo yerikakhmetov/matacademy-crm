@@ -65,7 +65,7 @@ export default async function CabinetHome() {
       <div className="grid kpis" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
         <div className="card kpi">
           <div className="klabel"><span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}><Icon name="check" size={16} /></span>Посещаемость</div>
-          <div className="kval num" style={{ color: scoreColor(student.attendance) }}>{student.attendance}%</div>
+          <div className="kval num" style={{ color: student.attendance == null ? "var(--ink-3)" : scoreColor(student.attendance) }}>{student.attendance == null ? "—" : `${student.attendance}%`}</div>
         </div>
         <div className="card kpi">
           <div className="klabel"><span className="kico" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}><Icon name="chart" size={16} /></span>Средний балл</div>
