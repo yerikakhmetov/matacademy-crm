@@ -14,6 +14,7 @@ import { SubscriptionForm } from "./SubscriptionForm";
 import { DeleteStudentButton } from "./DeleteStudentButton";
 import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
+import { StudentCabinetLink } from "./StudentCabinetLink";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
 import { getSettings, parseDiscounts, parseMultiTiers } from "@/lib/settings";
@@ -275,6 +276,21 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               </div>
               <div style={{ padding: 18 }}>
                 <ParentPortalLink token={portalToken} />
+              </div>
+            </div>
+          )}
+
+          {editor && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Кабинет ученика</h3>
+                <span className={`chip ${student.userId ? "c-ok" : "c-mut"}`}>
+                  <span className="d" />
+                  {student.userId ? "привязан" : "не привязан"}
+                </span>
+              </div>
+              <div style={{ padding: 18 }}>
+                <StudentCabinetLink id={student.id} linked={!!student.userId} />
               </div>
             </div>
           )}

@@ -9,6 +9,7 @@ import { Topbar } from "@/components/Topbar";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (session.user.role === "STUDENT") redirect("/cabinet");
 
   const [students, leads, settings] = await Promise.all([
     prisma.student.count({ where: { status: "ACTIVE" } }),

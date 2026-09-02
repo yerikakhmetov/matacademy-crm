@@ -10,3 +10,14 @@ export async function getTeacherIdForUser(userId?: string | null): Promise<strin
 export function isTeacher(role?: string | null): boolean {
   return role === "TEACHER";
 }
+
+export function isStudent(role?: string | null): boolean {
+  return role === "STUDENT";
+}
+
+// Id ученика, привязанного к аккаунту пользователя (или null).
+export async function getStudentIdForUser(userId?: string | null): Promise<string | null> {
+  if (!userId) return null;
+  const s = await prisma.student.findUnique({ where: { userId }, select: { id: true } });
+  return s?.id ?? null;
+}

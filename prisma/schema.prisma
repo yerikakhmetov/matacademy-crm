@@ -19,9 +19,10 @@ model User {
   name           String
   email          String   @unique
   passwordHash   String
-  role           String   @default("MANAGER") // ADMIN | MANAGER | TEACHER
+  role           String   @default("MANAGER") // ADMIN | MANAGER | TEACHER | STUDENT
   telegramUserId String?  @unique // id пользователя Telegram (для входа через Telegram)
   teacher        Teacher?
+  student        Student?
   createdAt      DateTime @default(now())
 }
 
@@ -109,6 +110,8 @@ model Student {
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
   photoUrl       String? // фото ученика (Vercel Blob)
+  userId         String? @unique // аккаунт ученика для входа в кабинет (вход через Telegram)
+  user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups        Group[] // ученик может заниматься в нескольких группах (по предметам)
   payments          Payment[]
   subscriptions     Subscription[]

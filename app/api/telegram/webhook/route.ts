@@ -78,6 +78,40 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true });
     }
 
+    // Вход/регистрация ученика в кабинет: /start slogin_<studentId>_<token>
+    if (payload.startsWith("slogin_")) {
+      const rest = payload.slice("slogin_".length);
+      const sep = rest.indexOf("_");
+      const studentId = sep >= 0 ? rest.slice(0, sep) : rest;
+      const token = sep >= 0 ? rest.slice(sep + 1) : "";
+      const student = await prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
+      if (student) {
+        let userId = student.userId;
+        if (!userId) {
+          const user = await prisma.user.create({
+            data: {
+              name: student.name,
+              email: `student_${student.id}@matacademy.local`,
+              passwordHash: bcrypt.hashSync(randomUUID(), 10),
+              role: "STUDENT",
+              telegramUserId: fromId,
+            },
+          });
+          userId = user.id;
+          await prisma.student.update({ where: { id: student.id }, data: { userId } });
+        } else {
+          await prisma.user.update({ where: { id: userId }, data: { telegramUserId: fromId } });
+        }
+        if (token) {
+          await prisma.loginToken.upsert({ where: { token }, create: { token, userId }, update: { userId } });
+        }
+        await sendTelegram(chat, `✅ Готово, ${student.name}! Возвращайтесь на страницу — вход в личный кабинет произойдёт автоматически.`);
+      } else {
+        await sendTelegram(chat, `⚠️ Ученик не найден. Попросите новую ссылку у школы.`);
+      }
+      return Response.json({ ok: true });
+    }
+
     const studentId = payload;
     if (studentId) {
       const student = await prisma.student.findUnique({ where: { id: studentId } });
