@@ -6,7 +6,14 @@ import { saveAttendance } from "@/app/actions/data";
 import { initials, avatarColor } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 
-type S = { id: string; name: string; grade: string | null; present: boolean };
+type AttState = "present" | "excused" | "unexcused";
+type S = { id: string; name: string; grade: string | null; state: AttState };
+
+const STATES: { key: AttState; label: string; cls: string }[] = [
+  { key: "present", label: "Был", cls: "c-ok" },
+  { key: "excused", label: "Уваж.", cls: "c-mut" },
+  { key: "unexcused", label: "Н/ув", cls: "c-bad" },
+];
 
 export function AttendanceForm({
   lessonId,
@@ -28,12 +35,12 @@ export function AttendanceForm({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
-  // локальное состояние галочек
-  const [present, setPresent] = useState<Record<string, boolean>>(
-    Object.fromEntries(students.map((s) => [s.id, s.present]))
+  // локальное состояние отметок
+  const [state, setState] = useState<Record<string, AttState>>(
+    Object.fromEntries(students.map((s) => [s.id, s.state]))
   );
 
-  const presentCount = Object.values(present).filter(Boolean).length;
+  const presentCount = Object.values(state).filter((v) => v === "present").length;
 
   function changeDate(newDate: string) {
     router.push(`/schedule/${lessonId}?date=${newDate}`);
@@ -74,35 +81,36 @@ export function AttendanceForm({
         {students.length === 0 && <div className="empty">В группе пока нет учеников</div>}
 
         {students.map((s) => {
-          const on = present[s.id];
+          const cur = state[s.id];
           return (
-            <label
-              key={s.id}
-              className="list-row"
-              style={{ cursor: editor ? "pointer" : "default", userSelect: "none" }}
-            >
+            <div key={s.id} className="list-row">
               <div className="av2" style={{ background: avatarColor(s.name) }}>
                 {initials(s.name)}
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600 }}>{s.name}</div>
-                <div className="mut" style={{ fontSize: 12 }}>
-                  {s.grade ?? "—"}
-                </div>
+                <div className="mut" style={{ fontSize: 12 }}>{s.grade ?? "—"}</div>
               </div>
-              <input
-                type="checkbox"
-                name={`p_${s.id}`}
-                checked={on}
-                disabled={!editor}
-                onChange={(e) => setPresent((p) => ({ ...p, [s.id]: e.target.checked }))}
-                style={{ display: "none" }}
-              />
-              <span className={`chip ${on ? "c-ok" : "c-bad"}`} style={{ minWidth: 96, justifyContent: "center" }}>
-                <span className="d" />
-                {on ? "Присутствует" : "Отсутствует"}
-              </span>
-            </label>
+              <input type="hidden" name={`att_${s.id}`} value={cur} />
+              <div style={{ display: "flex", gap: 4, flex: "none" }}>
+                {STATES.map((st) => {
+                  const active = cur === st.key;
+                  return (
+                    <button
+                      key={st.key}
+                      type="button"
+                      disabled={!editor}
+                      onClick={() => setState((p) => ({ ...p, [s.id]: st.key }))}
+                      className={`chip ${active ? st.cls : "c-mut"}`}
+                      style={{ minWidth: 52, justifyContent: "center", cursor: editor ? "pointer" : "default", opacity: active ? 1 : 0.55, border: "none" }}
+                    >
+                      {active && <span className="d" />}
+                      {st.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
 

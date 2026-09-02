@@ -10,7 +10,7 @@ import { money } from "@/lib/format";
 import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { recalc, markOverdue } from "@/lib/overdue";
-import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
+import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
 import bcrypt from "bcryptjs";
@@ -137,6 +137,7 @@ export async function updateSettings(formData: FormData) {
     multiDiscount: String(formData.get("multiDiscount") ?? "").trim(),
     discountMode: isDiscountMode(String(formData.get("discountMode"))) ? String(formData.get("discountMode")) : "add",
     siblingDiscount: Math.min(100, Math.max(0, int(formData.get("siblingDiscount")))),
+    schoolFeePct: Math.min(100, Math.max(0, int(formData.get("schoolFeePct")))),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -719,11 +720,14 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
 
   await prisma.$transaction(
     students.map((s) => {
-      const present = formData.get(`p_${s.id}`) === "on";
+      // состояние: present | excused | unexcused
+      const st = String(formData.get(`att_${s.id}`) ?? "present");
+      const present = st === "present";
+      const excused = st === "excused";
       return prisma.attendance.upsert({
         where: { lessonId_studentId_date: { lessonId, studentId: s.id, date } },
-        create: { lessonId, studentId: s.id, date, present },
-        update: { present },
+        create: { lessonId, studentId: s.id, date, present, excused },
+        update: { present, excused },
       });
     })
   );
@@ -1044,39 +1048,16 @@ export async function deleteTest(id: string) {
 // Снимок расчёта за месяц, чтобы прошлые месяцы не пересчитывались при изменении ставок/состава.
 export async function lockPayrollMonth(year: number, month0: number) {
   await assertEditor("payroll");
-  const monthStart = new Date(year, month0, 1);
-  const monthEnd = new Date(year, month0 + 1, 1);
-
-  const [teachers, paidPayments, payItems] = await Promise.all([
-    prisma.teacher.findMany({
-      include: {
-        groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
-        subjects: { select: { id: true } },
-      },
-    }),
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groups: { select: { id: true } } } } } }),
-    prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
-  ]);
-
-  const revByGroup = new Map<string, number>();
-  for (const p of paidPayments) {
-    const gids = p.student.groups.map((g) => g.id);
-    if (gids.length === 0) continue;
-    const per = p.amount / gids.length;
-    for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
-  }
-  const revBySubject = new Map<string, number>();
-  for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
-  const subjTeacherCount = subjectTeacherCounts(teachers);
-  const ctx = { year, month0, revByGroup, revBySubject, subjTeacherCount };
+  const settings = await getSettings();
+  const feePct = settings.schoolFeePct;
+  const rows = await gatherPayroll(year, month0, feePct);
 
   const session = await auth();
-  for (const t of teachers) {
-    const { base, salary } = computeSalary(t, ctx);
+  for (const [teacherId, r] of rows) {
     await prisma.payrollRecord.upsert({
-      where: { teacherId_year_month: { teacherId: t.id, year, month: month0 } },
-      create: { teacherId: t.id, year, month: month0, rate: t.rate, rateType: t.rateType, base, salary, createdBy: session?.user?.name ?? null },
-      update: { rate: t.rate, rateType: t.rateType, base, salary, createdBy: session?.user?.name ?? null },
+      where: { teacherId_year_month: { teacherId, year, month: month0 } },
+      create: { teacherId, year, month: month0, rate: feePct, rateType: "ATTENDANCE", base: r.base, salary: r.salary, createdBy: session?.user?.name ?? null },
+      update: { rate: feePct, rateType: "ATTENDANCE", base: r.base, salary: r.salary, createdBy: session?.user?.name ?? null },
     });
   }
   await logAudit("UPDATE", "Зарплата", `Зафиксирован месяц ${month0 + 1}.${year}`);

@@ -3,13 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
-import { money, initials, avatarColor, RATE_TYPE } from "@/lib/format";
-import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
-import { ModalButton } from "@/components/ModalButton";
+import { getSettings } from "@/lib/settings";
+import { money, initials, avatarColor } from "@/lib/format";
+import { gatherPayroll } from "@/lib/payroll";
 import { MonthSelect } from "./PayrollControls";
-import { RateForm } from "./RateForm";
 import { PayrollLockButton } from "./PayrollLockButton";
-import { updateTeacherRate } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
@@ -29,46 +27,28 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   });
   const sel = (sp.month && monthOpts.find((m) => m.id === sp.month)) || monthOpts[0];
 
-  const monthStart = new Date(sel.year, sel.month0, 1);
-  const monthEnd = new Date(sel.year, sel.month0 + 1, 1);
+  const settings = await getSettings();
+  const feePct = settings.schoolFeePct;
 
-  const [teachers, paidPayments, payItems, records] = await Promise.all([
-    prisma.teacher.findMany({
-      include: {
-        groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
-        subjects: { select: { id: true } },
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: monthStart, lt: monthEnd } }, select: { amount: true, student: { select: { groups: { select: { id: true } } } } } }),
-    prisma.paymentItem.findMany({ where: { payment: { status: "PAID", date: { gte: monthStart, lt: monthEnd } } }, select: { subjectId: true, amount: true } }),
+  const [teachers, records, live] = await Promise.all([
+    prisma.teacher.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     prisma.payrollRecord.findMany({ where: { year: sel.year, month: sel.month0 } }),
+    gatherPayroll(sel.year, sel.month0, feePct),
   ]);
-
-  const revByGroup = new Map<string, number>();
-  for (const p of paidPayments) {
-    const gids = p.student.groups.map((g) => g.id);
-    if (gids.length === 0) continue;
-    const per = p.amount / gids.length;
-    for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
-  }
-  const revBySubject = new Map<string, number>();
-  for (const it of payItems) if (it.subjectId) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
-  const subjTeacherCount = subjectTeacherCounts(teachers);
-  const ctx = { year: sel.year, month0: sel.month0, revByGroup, revBySubject, subjTeacherCount };
 
   const locked = records.length > 0;
   const recMap = new Map(records.map((r) => [r.teacherId, r]));
 
   const rows = teachers.map((t) => {
     const rec = locked ? recMap.get(t.id) : undefined;
-    if (rec) {
-      const rt = RATE_TYPE[rec.rateType] ?? RATE_TYPE.PER_LESSON;
-      const baseLabel = rec.rateType === "PERCENT" || rec.rateType === "PERCENT_SUBJECT" ? money(rec.base) : rec.rateType === "PER_STUDENT" ? `${rec.base} учеников` : `${rec.base} уроков`;
-      return { t, rt, rate: rec.rate, rateType: rec.rateType, baseLabel, salary: rec.salary };
-    }
-    const c = computeSalary(t, ctx);
-    return { t, rt: RATE_TYPE[t.rateType] ?? RATE_TYPE.PER_LESSON, rate: t.rate, rateType: t.rateType, baseLabel: c.baseLabel, salary: c.salary };
+    const src = rec ?? live.get(t.id);
+    return {
+      t,
+      students: rec ? undefined : live.get(t.id)?.students ?? 0,
+      lessons: rec ? undefined : live.get(t.id)?.paidLessons ?? 0,
+      base: src?.base ?? 0,
+      salary: src?.salary ?? 0,
+    };
   });
 
   const total = rows.reduce((a, r) => a + r.salary, 0);
@@ -78,15 +58,13 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       <div className="page-head">
         <div>
           <h1>Зарплата преподавателей</h1>
-          <p>{locked ? "Зафиксированный расчёт" : "Автоматический расчёт"} за {sel.name}</p>
+          <p>{locked ? "Зафиксированный расчёт" : "Автоматический расчёт по посещаемости"} за {sel.name} · удержание школы {feePct}%</p>
         </div>
         <div style={{ textAlign: "right" }}>
           <div className="mut" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>
             Фонд оплаты за месяц
           </div>
-          <div className="kval num" style={{ fontSize: 26 }}>
-            {money(total)}
-          </div>
+          <div className="kval num" style={{ fontSize: 26 }}>{money(total)}</div>
         </div>
       </div>
 
@@ -102,15 +80,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             <thead>
               <tr>
                 <th>Преподаватель</th>
-                <th>Тип оплаты</th>
-                <th className="right">Ставка</th>
-                <th className="right">База за месяц</th>
+                <th className="right">Учеников</th>
+                <th className="right">Оплач. занятий</th>
+                <th className="right">Начислено</th>
                 <th className="right">К выплате</th>
-                {editor && !locked && <th></th>}
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ t, rt, rate, rateType, baseLabel, salary }) => (
+              {rows.map(({ t, students, lessons, base, salary }) => (
                 <tr key={t.id}>
                   <td>
                     <div className="person">
@@ -120,21 +97,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                       <div className="nm" style={{ fontSize: 13.5 }}>{t.name}</div>
                     </div>
                   </td>
-                  <td className="mut">{rt.label}</td>
-                  <td className="right num">
-                    {rate ? (rateType === "PERCENT" || rateType === "PERCENT_SUBJECT" ? `${rate}%` : money(rate)) : <span className="mut">не задана</span>}
-                  </td>
-                  <td className="right mut num">{baseLabel}</td>
-                  <td className="right money num" style={{ color: salary > 0 ? "var(--ok)" : "var(--ink-3)" }}>
-                    {money(salary)}
-                  </td>
-                  {editor && !locked && (
-                    <td className="right">
-                      <ModalButton label="Ставка" title={`Ставка · ${t.name}`} icon="edit" buttonClass="btn ghost" action={updateTeacherRate.bind(null, t.id)} submitLabel="Сохранить">
-                        <RateForm rate={t.rate} rateType={t.rateType} />
-                      </ModalButton>
-                    </td>
-                  )}
+                  <td className="right mut num">{students ?? "—"}</td>
+                  <td className="right mut num">{lessons ?? "—"}</td>
+                  <td className="right mut num">{money(base)}</td>
+                  <td className="right money num" style={{ color: salary > 0 ? "var(--ok)" : "var(--ink-3)" }}>{money(salary)}</td>
                 </tr>
               ))}
             </tbody>
@@ -143,7 +109,10 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        «За урок» — по числу занятий в расписании · «За ученика» — по числу учеников · «% от оплат» — процент от оплат его учеников · «% от дохода по предметам» — процент от собранных по его предметам оплат за месяц (доход предмета делится между его преподавателями; предметы отмечаются при приёме оплаты). «Зафиксировать месяц» сохраняет расчёт как есть — прошлые месяцы не меняются при смене ставок или состава.
+        Зарплата = месячная доля ученика по предмету − {feePct}% (доход школы), делённая на «занятий в неделю × 4»,
+        начисляется за каждое оплачиваемое посещение (был или отсутствовал без уважительной причины).
+        За пропуск по уважительной причине за этого ученика в этот день не платят.
+        «Зафиксировать месяц» сохраняет расчёт как есть — прошлые месяцы не меняются задним числом.
       </p>
     </>
   );

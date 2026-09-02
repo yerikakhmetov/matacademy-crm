@@ -52,14 +52,13 @@ export default async function LessonPage({
     prisma.attendance.findMany({ where: { lessonId: id, date: dateObj } }),
     prisma.lessonSession.findUnique({ where: { lessonId_date: { lessonId: id, date: dateObj } } }),
   ]);
-  const presentMap = new Map(records.map((r) => [r.studentId, r.present]));
-  const students = lesson.group.students.map((s) => ({
-    id: s.id,
-    name: s.name,
-    grade: s.grade,
+  const recMap = new Map(records.map((r) => [r.studentId, r]));
+  const students = lesson.group.students.map((s) => {
+    const r = recMap.get(s.id);
     // если отметки ещё нет — по умолчанию присутствует
-    present: presentMap.has(s.id) ? presentMap.get(s.id)! : true,
-  }));
+    const state: "present" | "excused" | "unexcused" = !r ? "present" : r.present ? "present" : r.excused ? "excused" : "unexcused";
+    return { id: s.id, name: s.name, grade: s.grade, state };
+  });
 
   const marked = records.length > 0;
 

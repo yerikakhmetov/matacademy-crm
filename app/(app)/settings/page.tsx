@@ -101,6 +101,20 @@ export default async function SettingsPage() {
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+            Зарплата преподавателей
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+            Зарплата считается по посещаемости: из месячной доли ученика по предмету удерживается процент школы,
+            остаток делится на «занятий в неделю × 4» и начисляется за каждое оплачиваемое посещение.
+          </p>
+          <div className="field" style={{ maxWidth: 240 }}>
+            <label>Удержание школы, %</label>
+            <input name="schoolFeePct" type="number" min={0} max={100} defaultValue={s.schoolFeePct} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
             Шаблоны напоминаний (Telegram)
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>

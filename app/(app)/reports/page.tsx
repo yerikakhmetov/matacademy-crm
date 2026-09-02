@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
-import { subjectTeacherCounts } from "@/lib/payroll";
+import { gatherPayroll } from "@/lib/payroll";
+import { getSettings } from "@/lib/settings";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
@@ -25,17 +26,6 @@ function lastMonths(count: number) {
 }
 const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
 
-// Сколько занятий с данным днём недели в месяце
-function lessonsInMonth(year: number, month0: number, dayOfWeek: number): number {
-  let c = 0;
-  const d = new Date(Date.UTC(year, month0, 1));
-  while (d.getUTCMonth() === month0) {
-    const js = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-    if (js === dayOfWeek) c++;
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return c;
-}
 
 export default async function ReportsPage() {
   const session = await auth();
@@ -46,16 +36,22 @@ export default async function ReportsPage() {
   const months = lastMonths(6);
   const since = new Date(months[0].year, months[0].month0, 1);
 
-  const [paidPayments, leads, students, teachers] = await Promise.all([
+  const [paidPayments, leads, students] = await Promise.all([
     prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true, student: { select: { groups: { select: { id: true } } } } } }),
     prisma.lead.findMany({ select: { source: true, stage: true, createdAt: true } }),
     prisma.student.findMany({
       select: { id: true, name: true, status: true, balance: true, attendance: true, groups: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
     }),
-    money$
-      ? prisma.teacher.findMany({ select: { rate: true, rateType: true, subjects: { select: { id: true } }, groups: { select: { id: true, lessons: { select: { dayOfWeek: true } }, _count: { select: { students: true } } } } } })
-      : Promise.resolve([]),
   ]);
+  const feePct = (await getSettings()).schoolFeePct;
+  // Живой фонд зарплаты по каждому месяцу (по посещаемости), только при доступе к финансам
+  const liveTotals: number[] = money$
+    ? (await Promise.all(months.map((m) => gatherPayroll(m.year, m.month0, feePct)))).map((map) => {
+        let s = 0;
+        for (const r of map.values()) s += r.salary;
+        return s;
+      })
+    : months.map(() => 0);
 
   // Фактически собранный доход по предметам (по оплаченным платежам за период)
   const payItemsPeriod = money$
@@ -64,15 +60,6 @@ export default async function ReportsPage() {
         select: { subjectId: true, subjectName: true, amount: true, payment: { select: { date: true } } },
       })
     : [];
-  const revBySubjectMonth = new Map<string, number>(); // `${subjectId}|${key}` -> сумма
-  for (const it of payItemsPeriod) {
-    if (it.subjectId) {
-      const k = `${it.subjectId}|${monthKey(it.payment.date)}`;
-      revBySubjectMonth.set(k, (revBySubjectMonth.get(k) ?? 0) + it.amount);
-    }
-  }
-  const subjTeacherCount = subjectTeacherCounts(teachers as { rateType: string; subjects: { id: string }[] }[]);
-
   // Зафиксированные зарплаты (для закрытых месяцев берём их вместо живого расчёта)
   const payrollRecords = money$
     ? await prisma.payrollRecord.findMany({ where: { year: { gte: since.getFullYear() } }, select: { year: true, month: true, salary: true } })
@@ -91,38 +78,10 @@ export default async function ReportsPage() {
   const totalRev = revByMonth.reduce((a, m) => a + m.value, 0);
 
   // Прибыль по месяцам: доход − фонд зарплаты
-  const revByGroupMonth = new Map<string, number>(); // `${gid}|${key}` -> сумма
-  for (const p of paidPayments) {
-    const gids = p.student.groups.map((g) => g.id);
-    if (gids.length === 0) continue;
-    const per = p.amount / gids.length; // платёж делится между группами ученика
-    for (const gid of gids) {
-      const k = `${gid}|${monthKey(p.date)}`;
-      revByGroupMonth.set(k, (revByGroupMonth.get(k) ?? 0) + per);
-    }
-  }
-  function payrollForMonth(m: { key: string; year: number; month0: number }): number {
-    let total = 0;
-    for (const t of teachers) {
-      if (t.rateType === "PER_STUDENT") {
-        total += t.groups.reduce((a, g) => a + g._count.students, 0) * t.rate;
-      } else if (t.rateType === "PERCENT") {
-        const rev = t.groups.reduce((a, g) => a + (revByGroupMonth.get(`${g.id}|${m.key}`) ?? 0), 0);
-        total += Math.round((rev * t.rate) / 100);
-      } else if (t.rateType === "PERCENT_SUBJECT") {
-        const rev = t.subjects.reduce((a, s) => a + (revBySubjectMonth.get(`${s.id}|${m.key}`) ?? 0) / Math.max(1, subjTeacherCount.get(s.id) ?? 1), 0);
-        total += Math.round((rev * t.rate) / 100);
-      } else {
-        const lessons = t.groups.reduce((a, g) => a + g.lessons.reduce((la, l) => la + lessonsInMonth(m.year, m.month0, l.dayOfWeek), 0), 0);
-        total += lessons * t.rate;
-      }
-    }
-    return total;
-  }
-  const profitRows = months.map((m) => {
+  const profitRows = months.map((m, idx) => {
     const rev = revByMonth.find((r) => r.label === m.label)?.value ?? 0;
     const mk = `${m.year}-${m.month0}`;
-    const payroll = lockedPayroll.has(mk) ? (lockedPayroll.get(mk) ?? 0) : payrollForMonth(m);
+    const payroll = lockedPayroll.has(mk) ? (lockedPayroll.get(mk) ?? 0) : liveTotals[idx];
     return { label: m.label, rev, payroll, profit: rev - payroll };
   });
   const totalPayroll = profitRows.reduce((a, r) => a + r.payroll, 0);

@@ -2,14 +2,14 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
-import { money, RATE_TYPE } from "@/lib/format";
-import { computeSalary, subjectTeacherCounts } from "@/lib/payroll";
+import { getSettings } from "@/lib/settings";
+import { money } from "@/lib/format";
+import { gatherPayroll } from "@/lib/payroll";
 import { MonthSelect } from "../payroll/PayrollControls";
 
 export const dynamic = "force-dynamic";
 
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
-const mKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
 
 export default async function MySalaryPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const sp = await searchParams;
@@ -30,7 +30,7 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
         <div className="page-head">
           <div>
             <h1>Моя зарплата</h1>
-            <p>Расчёт вознаграждения по вашей ставке</p>
+            <p>Расчёт вознаграждения по посещаемости</p>
           </div>
         </div>
         <div className="card">
@@ -40,67 +40,31 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
     );
   }
 
-  const since = new Date(monthOpts[monthOpts.length - 1].year, monthOpts[monthOpts.length - 1].month0, 1);
+  const settings = await getSettings();
+  const feePct = settings.schoolFeePct;
 
-  const teacher = await prisma.teacher.findUnique({
-    where: { id: teacherId },
-    include: {
-      groups: { include: { _count: { select: { students: true } }, lessons: { select: { dayOfWeek: true } } } },
-      subjects: { select: { id: true, name: true, color: true } },
-    },
-  });
-  if (!teacher) redirect("/dashboard");
-
-  const groupIds = teacher.groups.map((g) => g.id);
-  const subjectIds = teacher.subjects.map((s) => s.id);
-
-  const [paidPayments, subjItems, records, subjTeachers] = await Promise.all([
-    teacher.rateType === "PERCENT" && groupIds.length
-      ? prisma.payment.findMany({ where: { status: "PAID", date: { gte: since }, student: { groups: { some: { id: { in: groupIds } } } } }, select: { amount: true, date: true, student: { select: { groups: { select: { id: true } } } } } })
-      : Promise.resolve([] as { amount: number; date: Date; student: { groups: { id: string }[] } }[]),
-    teacher.rateType === "PERCENT_SUBJECT" && subjectIds.length
-      ? prisma.paymentItem.findMany({ where: { subjectId: { in: subjectIds }, payment: { status: "PAID", date: { gte: since } } }, select: { subjectId: true, amount: true, payment: { select: { date: true } } } })
-      : Promise.resolve([] as { subjectId: string | null; amount: number; payment: { date: Date } }[]),
-    prisma.payrollRecord.findMany({ where: { teacherId, year: { gte: since.getFullYear() } } }),
-    teacher.rateType === "PERCENT_SUBJECT"
-      ? prisma.teacher.findMany({ where: { rateType: "PERCENT_SUBJECT" }, select: { rateType: true, subjects: { select: { id: true } } } })
-      : Promise.resolve([] as { rateType: string; subjects: { id: string }[] }[]),
-  ]);
-
-  const subjTeacherCount = subjectTeacherCounts(subjTeachers);
+  const records = await prisma.payrollRecord.findMany({ where: { teacherId, year: { gte: monthOpts[monthOpts.length - 1].year } } });
   const recMap = new Map(records.map((r) => [`${r.year}-${r.month}`, r]));
-  const rt = RATE_TYPE[teacher.rateType] ?? RATE_TYPE.PER_LESSON;
 
-  function monthData(m: { year: number; month0: number }) {
+  // Живой расчёт по каждому из 6 месяцев (для незафиксированных)
+  const live = await Promise.all(monthOpts.map((m) => gatherPayroll(m.year, m.month0, feePct)));
+
+  const monthData = monthOpts.map((m, i) => {
     const rec = recMap.get(`${m.year}-${m.month0}`);
-    if (rec) {
-      const baseLabel = rec.rateType === "PERCENT" || rec.rateType === "PERCENT_SUBJECT" ? money(rec.base) : rec.rateType === "PER_STUDENT" ? `${rec.base} учеников` : `${rec.base} уроков`;
-      return { base: rec.base, baseLabel, salary: rec.salary, locked: true };
-    }
-    const revByGroup = new Map<string, number>();
-    for (const p of paidPayments) {
-      if (mKey(p.date) !== `${m.year}-${m.month0}`) continue;
-      const gids = p.student.groups.map((g) => g.id);
-      if (gids.length === 0) continue;
-      const per = p.amount / gids.length;
-      for (const gid of gids) revByGroup.set(gid, (revByGroup.get(gid) ?? 0) + per);
-    }
-    const revBySubject = new Map<string, number>();
-    for (const it of subjItems) if (it.subjectId && mKey(it.payment.date) === `${m.year}-${m.month0}`) revBySubject.set(it.subjectId, (revBySubject.get(it.subjectId) ?? 0) + it.amount);
-    const c = computeSalary(teacher!, { year: m.year, month0: m.month0, revByGroup, revBySubject, subjTeacherCount });
-    return { ...c, locked: false };
-  }
+    if (rec) return { name: m.name, id: m.id, base: rec.base, salary: rec.salary, students: null as number | null, lessons: null as number | null, locked: true };
+    const r = live[i].get(teacherId);
+    return { name: m.name, id: m.id, base: r?.base ?? 0, salary: r?.salary ?? 0, students: r?.students ?? 0, lessons: r?.paidLessons ?? 0, locked: false };
+  });
 
-  const cur = monthData(sel);
-  const history = monthOpts.map((m) => ({ name: m.name, salary: monthData(m).salary }));
-  const histMax = Math.max(1, ...history.map((h) => h.salary));
+  const cur = monthData.find((m) => m.id === sel.id) ?? monthData[0];
+  const histMax = Math.max(1, ...monthData.map((h) => h.salary));
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Моя зарплата</h1>
-          <p>Расчёт по вашей ставке за {sel.name}{cur.locked ? " · зафиксирован" : ""}</p>
+          <p>Расчёт по посещаемости за {sel.name}{cur.locked ? " · зафиксирован" : ""}</p>
         </div>
         <div style={{ textAlign: "right" }}>
           <div className="mut" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>К выплате за месяц</div>
@@ -110,7 +74,7 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
 
       <div className="toolbar">
         <MonthSelect months={monthOpts} month={sel.id} path="/my-salary" />
-        <span className="proto-note">{rt.label}{teacher.rate ? ` · ${teacher.rateType === "PERCENT" || teacher.rateType === "PERCENT_SUBJECT" ? `${teacher.rate}%` : money(teacher.rate)}` : " · ставка не задана"}</span>
+        <span className="proto-note">Удержание школы {feePct}%</span>
       </div>
 
       <div className="two-col">
@@ -118,12 +82,14 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
           <div className="card-h"><h3>Как рассчитано</h3></div>
           <div style={{ padding: 18 }}>
             <dl className="dl">
-              <dt>Тип оплаты</dt>
-              <dd>{rt.label}</dd>
-              <dt>Ставка</dt>
-              <dd>{teacher.rate ? (teacher.rateType === "PERCENT" || teacher.rateType === "PERCENT_SUBJECT" ? `${teacher.rate}%` : money(teacher.rate)) : "не задана"}</dd>
-              <dt>База за месяц</dt>
-              <dd>{cur.baseLabel}</dd>
+              <dt>Оплачиваемых посещений</dt>
+              <dd>{cur.lessons == null ? "—" : cur.lessons}</dd>
+              <dt>Учеников с оплатой</dt>
+              <dd>{cur.students == null ? "—" : cur.students}</dd>
+              <dt>Начислено</dt>
+              <dd>{money(cur.base)}</dd>
+              <dt>Удержание школы</dt>
+              <dd>−{feePct}%</dd>
               <dt>К выплате</dt>
               <dd style={{ fontWeight: 800, color: "var(--ok)" }}>{money(cur.salary)}</dd>
             </dl>
@@ -133,8 +99,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
         <div className="card">
           <div className="card-h"><h3>Последние 6 месяцев</h3></div>
           <div className="funnel" style={{ padding: 14 }}>
-            {history.map((h) => (
-              <div className="frow" key={h.name}>
+            {monthData.map((h) => (
+              <div className="frow" key={h.id}>
                 <div className="fl" style={{ width: 90 }}>{h.name}</div>
                 <div className="ftrack">
                   <div className="ffill" style={{ width: `${Math.round((h.salary / histMax) * 100)}%`, background: "var(--ok)" }} />
@@ -147,7 +113,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        Расчёт предварительный, пока месяц не зафиксирован администрацией. Итоговую сумму подтверждает администрация.
+        Оплачивается каждое посещение (были или отсутствовали без уважительной причины). Пропуск по уважительной причине не оплачивается.
+        Расчёт предварительный, пока месяц не зафиксирован администрацией.
       </p>
     </>
   );

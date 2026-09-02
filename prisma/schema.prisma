@@ -315,6 +315,7 @@ model Attendance {
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   date      DateTime // дата конкретного занятия
   present   Boolean  @default(true)
+  excused   Boolean  @default(false) // если отсутствовал: true = уважительная (учителю не платят за этот день)
 
   @@unique([lessonId, studentId, date])
 }
@@ -371,6 +372,7 @@ model Settings {
   multiDiscount String @default("") // скидки за несколько предметов: "кол-во | процент" построчно
   discountMode  String @default("add") // как объединять скидки: add | max | mul
   siblingDiscount Int  @default(0) // скидка «брат/сестра», % (0 = выкл)
+  schoolFeePct   Int   @default(3) // удержание школы из оплаты ученика перед начислением зарплаты, %
   updatedAt  DateTime @updatedAt
 }
 
