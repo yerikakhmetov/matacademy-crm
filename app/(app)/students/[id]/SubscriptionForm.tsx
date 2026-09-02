@@ -14,6 +14,7 @@ export function SubscriptionForm({
   mode = "add",
   personalPct = 0,
   siblingPct = 0,
+  promos = [],
 }: {
   subjects: Subject[];
   discounts: Discount[];
@@ -21,6 +22,7 @@ export function SubscriptionForm({
   mode?: DiscountMode;
   personalPct?: number;
   siblingPct?: number;
+  promos?: { code: string; percent: number }[];
 }) {
   const today = new Date().toISOString().slice(0, 10);
   const hasSubjects = subjects.length > 0;
@@ -28,6 +30,11 @@ export function SubscriptionForm({
   const [picked, setPicked] = useState<string[]>([]);
   const [months, setMonths] = useState(1);
   const [discountName, setDiscountName] = useState("");
+  const [promo, setPromo] = useState("");
+
+  const promoNorm = promo.trim().toUpperCase().replace(/\s+/g, "");
+  const promoMatch = promoNorm ? promos.find((p) => p.code === promoNorm) : undefined;
+  const promoPct = promoMatch?.percent ?? 0;
 
   const toggle = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
@@ -38,13 +45,13 @@ export function SubscriptionForm({
     const pricing = computePricing({
       subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
       months,
-      discountParts: [discountPct, multiPct, personalPct, siblingPct],
+      discountParts: [discountPct, multiPct, personalPct, siblingPct, promoPct],
       mode,
     });
     const colorById = new Map(chosen.map((s) => [s.id, s.color]));
     const rows = pricing.items.map((it) => ({ id: it.id, name: it.name, color: colorById.get(it.id) ?? "#999", b: it.base, amount: it.amount }));
     return { base: pricing.base, total: pricing.total, discountPct, multiPct, totalPct: pricing.totalPct, rows, saved: pricing.base - pricing.total };
-  }, [picked, months, discountName, subjects, discounts, tiers, mode, personalPct, siblingPct]);
+  }, [picked, months, discountName, subjects, discounts, tiers, mode, personalPct, siblingPct, promoPct]);
 
   if (!hasSubjects) {
     // Резервный режим: предметы не заданы — ручная цена
@@ -135,6 +142,16 @@ export function SubscriptionForm({
         </div>
       )}
 
+      {promos.length > 0 && (
+        <div className="field">
+          <label>Промокод</label>
+          <input name="promo" value={promo} onChange={(e) => setPromo(e.target.value)} placeholder="Например: SEPT2026" autoComplete="off" style={{ textTransform: "uppercase" }} />
+          {promoNorm && (promoMatch
+            ? <span className="mut" style={{ fontSize: 11.5, color: "var(--ok)" }}>Код применён: −{promoMatch.percent}%</span>
+            : <span className="mut" style={{ fontSize: 11.5, color: "var(--bad)" }}>Код не найден или отключён</span>)}
+        </div>
+      )}
+
       {/* Расчёт */}
       <div className="card" style={{ padding: 14, background: "var(--surface-2)", border: "1px solid var(--line-2)" }}>
         {calc.rows.length === 0 ? (
@@ -177,6 +194,12 @@ export function SubscriptionForm({
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>
                   <span>Брат/сестра</span>
                   <span className="num">−{siblingPct}%</span>
+                </div>
+              )}
+              {promoPct > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>
+                  <span>Промокод {promoNorm}</span>
+                  <span className="num">−{promoPct}%</span>
                 </div>
               )}
               {mode !== "add" && (

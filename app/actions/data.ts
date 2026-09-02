@@ -143,6 +143,44 @@ export async function updateSettings(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// ---------- Промокоды (только админ) ----------
+function normPromo(code: string): string {
+  return code.trim().toUpperCase().replace(/\s+/g, "");
+}
+
+export async function createPromo(formData: FormData) {
+  await assertAdmin();
+  const code = normPromo(str(formData.get("code")));
+  if (!code) throw new Error("Введите код");
+  const percent = Math.min(100, Math.max(1, int(formData.get("percent"))));
+  const maxUses = Math.max(0, int(formData.get("maxUses")));
+  const note = str(formData.get("note")) || null;
+  await prisma.promoCode.upsert({
+    where: { code },
+    create: { code, percent, maxUses, note },
+    update: { percent, maxUses, note, active: true },
+  });
+  await logAudit("CREATE", "Промокод", code);
+  revalidatePath("/settings");
+}
+
+export async function togglePromo(id: string) {
+  await assertAdmin();
+  const p = await prisma.promoCode.findUnique({ where: { id }, select: { active: true, code: true } });
+  if (!p) return;
+  await prisma.promoCode.update({ where: { id }, data: { active: !p.active } });
+  await logAudit("UPDATE", "Промокод", p.code);
+  revalidatePath("/settings");
+}
+
+export async function deletePromo(id: string) {
+  await assertAdmin();
+  const p = await prisma.promoCode.findUnique({ where: { id }, select: { code: true } });
+  await prisma.promoCode.delete({ where: { id } });
+  await logAudit("DELETE", "Промокод", p?.code ?? id);
+  revalidatePath("/settings");
+}
+
 // Очистка всех данных (кроме логинов и настроек). Только для администратора.
 export async function clearAllData(confirm: string) {
   const session = await auth();
@@ -506,6 +544,8 @@ export async function createSubscription(studentId: string, formData: FormData) 
   let discountName: string | null = null;
   let discountPct = 0;
   let multiPct = 0;
+  let promoCode: string | null = null;
+  let promoApplyId: string | null = null;
   let items: { subjectId: string; subjectName: string; base: number; amount: number }[] = [];
 
   if (subjectIds.length > 0) {
@@ -531,11 +571,24 @@ export async function createSubscription(studentId: string, formData: FormData) 
       if (sib > 0) siblingPct = settings.siblingDiscount;
     }
 
+    // Промокод (если введён и действителен)
+    let promoPct = 0;
+    const codeInput = str(formData.get("promo"));
+    if (codeInput) {
+      const code = codeInput.trim().toUpperCase().replace(/\s+/g, "");
+      const promo = await prisma.promoCode.findUnique({ where: { code } });
+      if (!promo || !promo.active) throw new Error("Промокод не найден или отключён");
+      if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) throw new Error("Промокод исчерпан");
+      promoPct = promo.percent;
+      promoCode = promo.code;
+      promoApplyId = promo.id;
+    }
+
     const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
     const pricing = computePricing({
       subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
       months,
-      discountParts: [discountPct, multiPct, personalPct, siblingPct],
+      discountParts: [discountPct, multiPct, personalPct, siblingPct, promoPct],
       mode,
     });
     basePrice = pricing.base;
@@ -559,12 +612,17 @@ export async function createSubscription(studentId: string, formData: FormData) 
       discountName,
       discountPct,
       multiPct,
+      promoCode,
       startDate: start,
       endDate: end,
       status: "ACTIVE",
       items: items.length > 0 ? { create: items } : undefined,
     },
   });
+
+  if (promoApplyId) {
+    await prisma.promoCode.update({ where: { id: promoApplyId }, data: { usedCount: { increment: 1 } } });
+  }
 
   if (withInvoice && price > 0) {
     // счёт наследует разбивку по предметам из абонемента (для дохода по предметам)
@@ -583,7 +641,7 @@ export async function createSubscription(studentId: string, formData: FormData) 
   }
 
   const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
-  const savedLabel = discountPct + multiPct > 0 ? ` (−${Math.min(100, discountPct + multiPct)}%)` : "";
+  const savedLabel = basePrice > price && basePrice > 0 ? ` (−${Math.round((1 - price / basePrice) * 100)}%)` : "";
   await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}${savedLabel}`);
   void subscription;
   revalidatePath(`/students/${studentId}`);

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES, DISCOUNT_MODE_LABEL } from "@/lib/settings";
 import { MANAGER_PERMS, parseDenied } from "@/lib/access";
-import { updateSettings } from "@/app/actions/data";
+import { prisma } from "@/lib/prisma";
+import { updateSettings, createPromo, togglePromo, deletePromo } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
 import { ClearDataButton } from "./ClearDataButton";
 
@@ -15,6 +16,7 @@ export default async function SettingsPage() {
   const s = await getSettings();
   const tariffsText = tariffsToText(parseTariffs(s.tariffs));
   const denied = parseDenied(s.managerDenied);
+  const promos = await prisma.promoCode.findMany({ orderBy: { createdAt: "desc" } });
 
   return (
     <>
@@ -140,6 +142,63 @@ export default async function SettingsPage() {
 
         <SaveButton />
       </form>
+
+      <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+          Промокоды
+        </div>
+        <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+          Разовые процентные скидки при оформлении абонемента. Применяются вместе с остальными скидками по выбранному правилу.
+        </p>
+
+        {promos.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {promos.map((p) => (
+              <div key={p.id} className="list-row" style={{ gap: 10, alignItems: "center" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700 }}>
+                    <span className="num">{p.code}</span> · −{p.percent}%
+                  </div>
+                  <div className="mut" style={{ fontSize: 12 }}>
+                    Использован: {p.usedCount}{p.maxUses > 0 ? ` из ${p.maxUses}` : ""}{p.note ? ` · ${p.note}` : ""}
+                  </div>
+                </div>
+                <span className={`chip ${p.active ? "c-ok" : "c-mut"}`}><span className="d" />{p.active ? "вкл" : "выкл"}</span>
+                <form action={togglePromo.bind(null, p.id)}>
+                  <button className="btn ghost" type="submit" style={{ padding: "5px 10px", fontSize: 12 }}>{p.active ? "Выключить" : "Включить"}</button>
+                </form>
+                <form action={deletePromo.bind(null, p.id)}>
+                  <button className="btn ghost" type="submit" style={{ padding: "5px 10px", fontSize: 12, color: "var(--bad)" }}>Удалить</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form action={createPromo}>
+          <div className="grid2">
+            <div className="field">
+              <label>Код</label>
+              <input name="code" required placeholder="SEPT2026" autoComplete="off" style={{ textTransform: "uppercase" }} />
+            </div>
+            <div className="field">
+              <label>Скидка, %</label>
+              <input name="percent" type="number" min={1} max={100} required placeholder="10" />
+            </div>
+          </div>
+          <div className="grid2">
+            <div className="field">
+              <label>Лимит применений (0 = без)</label>
+              <input name="maxUses" type="number" min={0} defaultValue={0} />
+            </div>
+            <div className="field">
+              <label>Комментарий</label>
+              <input name="note" placeholder="реферал / акция" />
+            </div>
+          </div>
+          <button className="btn" type="submit" style={{ marginTop: 4 }}>Добавить промокод</button>
+        </form>
+      </div>
 
       <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720, borderColor: "var(--bad)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--bad)", fontWeight: 700, marginBottom: 6 }}>

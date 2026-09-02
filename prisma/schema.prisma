@@ -228,10 +228,23 @@ model Subscription {
   discountName String? // название применённой спец-скидки
   discountPct  Int                @default(0) // спец-скидка, %
   multiPct     Int                @default(0) // скидка за несколько предметов, %
+  promoCode    String? // применённый промокод (если был)
   startDate    DateTime           @default(now())
   endDate      DateTime?
   status       String             @default("ACTIVE")
   items        SubscriptionItem[]
+}
+
+// Промокод: разовая процентная скидка, применяется при оформлении абонемента
+model PromoCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  percent   Int      @default(0) // размер скидки, %
+  active    Boolean  @default(true)
+  maxUses   Int      @default(0) // 0 = без ограничения
+  usedCount Int      @default(0) // сколько раз применён
+  note      String? // комментарий (напр. «реферал Ивановых»)
+  createdAt DateTime @default(now())
 }
 
 // Позиция абонемента по предмету (доля предмета)

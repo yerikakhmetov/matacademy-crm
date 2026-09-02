@@ -54,6 +54,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
     const sib = await prisma.student.count({ where: { id: { not: student.id }, status: "ACTIVE", parentPhone: student.parentPhone } });
     if (sib > 0) siblingPct = settings.siblingDiscount;
   }
+  const promos = editor ? await prisma.promoCode.findMany({ where: { active: true }, select: { code: true, percent: true }, orderBy: { code: "asc" } }) : [];
 
   // Ленивая генерация постоянного токена родительской страницы
   let portalToken = student.portalToken;
@@ -88,7 +89,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
             {showMoney && (
               <>
                 <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} />
+                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} promos={promos} />
                 </ModalButton>
                 <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
                   <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} />
