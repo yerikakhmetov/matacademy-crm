@@ -7,6 +7,7 @@ import { Icon } from "@/components/Icon";
 export type CabinetHW = {
   id: string;
   title: string;
+  description: string | null;
   groupName: string;
   dueLabel: string | null;
   dueTs: number | null;
@@ -78,7 +79,10 @@ export function CabinetHomework({ items }: { items: CabinetHW[] }) {
                 <div style={{ fontWeight: 600, textDecoration: isDone ? "line-through" : "none", color: isDone ? "var(--ink-3)" : "inherit" }}>
                   {hw.title}
                 </div>
-                <div className="mut" style={{ fontSize: 12 }}>
+                {hw.description && (
+                  <div className="mut" style={{ fontSize: 12.5, marginTop: 2, whiteSpace: "pre-wrap" }}>{hw.description}</div>
+                )}
+                <div className="mut" style={{ fontSize: 12, marginTop: 2 }}>
                   {hw.groupName}{hw.dueLabel ? ` · срок: ${hw.dueLabel}` : ""}
                 </div>
               </div>

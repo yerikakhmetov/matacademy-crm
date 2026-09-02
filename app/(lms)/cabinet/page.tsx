@@ -44,6 +44,7 @@ export default async function CabinetHome() {
   const hwItems = homeworks.map((hw) => ({
     id: hw.id,
     title: hw.title,
+    description: hw.description,
     groupName: hw.group.name,
     dueLabel: hw.dueDate ? formatDate(hw.dueDate) : null,
     dueTs: hw.dueDate ? new Date(hw.dueDate).getTime() : null,
