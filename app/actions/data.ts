@@ -727,6 +727,18 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
     })
   );
 
+  // Тема урока (журнал): пусто — убираем запись, иначе сохраняем/обновляем
+  const topic = str(formData.get("topic"));
+  if (topic) {
+    await prisma.lessonSession.upsert({
+      where: { lessonId_date: { lessonId, date } },
+      create: { lessonId, date, topic },
+      update: { topic },
+    });
+  } else {
+    await prisma.lessonSession.deleteMany({ where: { lessonId, date } });
+  }
+
   // Пересчёт % посещаемости по всем отметкам ученика
   for (const s of students) {
     const recs = await prisma.attendance.findMany({ where: { studentId: s.id } });

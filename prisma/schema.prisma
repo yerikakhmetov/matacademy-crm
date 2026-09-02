@@ -264,13 +264,27 @@ model SubscriptionItem {
 
 // Расписание — слот занятия для группы
 model Lesson {
-  id         String       @id @default(cuid())
+  id         String          @id @default(cuid())
   groupId    String
-  group      Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   dayOfWeek  Int // 1 = Пн ... 6 = Сб
   startTime  String // "16:00"
-  room       String       @default("Каб. 1")
+  room       String          @default("Каб. 1")
   attendance Attendance[]
+  sessions   LessonSession[]
+}
+
+// Проведённое занятие в конкретную дату: тема урока (журнал)
+model LessonSession {
+  id        String   @id @default(cuid())
+  lessonId  String
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  date      DateTime // дата конкретного занятия
+  topic     String // тема урока («что проходили»)
+  createdAt DateTime @default(now())
+
+  @@unique([lessonId, date])
+  @@index([lessonId])
 }
 
 // Посещаемость — отметка ученика на конкретную дату занятия

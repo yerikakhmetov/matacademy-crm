@@ -15,6 +15,7 @@ export function AttendanceForm({
   editor,
   marked,
   weekday,
+  topic,
 }: {
   lessonId: string;
   date: string;
@@ -22,6 +23,7 @@ export function AttendanceForm({
   editor: boolean;
   marked: boolean;
   weekday: number;
+  topic: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -54,6 +56,19 @@ export function AttendanceForm({
             <span className="d" />
             {marked ? "Отмечено" : "Не отмечено"}
           </span>
+        </div>
+
+        <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--line-2)" }}>
+          <label style={{ display: "block", fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 6 }}>
+            Тема урока
+          </label>
+          <input
+            name="topic"
+            defaultValue={topic}
+            disabled={!editor}
+            placeholder="Что проходили на занятии"
+            style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 12px" }}
+          />
         </div>
 
         {students.length === 0 && <div className="empty">В группе пока нет учеников</div>}

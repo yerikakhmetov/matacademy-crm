@@ -41,6 +41,15 @@ export default async function CabinetHome() {
     take: 8,
   });
 
+  const topics = groupIds.length
+    ? await prisma.lessonSession.findMany({
+        where: { lesson: { groupId: { in: groupIds } } },
+        orderBy: { date: "desc" },
+        take: 8,
+        include: { lesson: { include: { group: { select: { name: true, color: true } } } } },
+      })
+    : [];
+
   const hwItems = homeworks.map((hw) => ({
     id: hw.id,
     title: hw.title,
@@ -114,6 +123,26 @@ export default async function CabinetHome() {
           })}
         </div>
       </div>
+
+      {topics.length > 0 && (
+        <div className="card">
+          <div className="card-h"><h3>Пройденные темы</h3><span className="chip c-mut"><span className="d" />{topics.length}</span></div>
+          <div style={{ padding: "6px 0" }}>
+            {topics.map((t) => (
+              <div className="list-row" key={t.id}>
+                <div className="num mut" style={{ width: 62, fontSize: 12, fontWeight: 600 }}>{formatDate(t.date)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{t.topic}</div>
+                  <div className="mut" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: t.lesson.group.color, flex: "none" }} />
+                    {t.lesson.group.name}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <CabinetHomework items={hwItems} />
 

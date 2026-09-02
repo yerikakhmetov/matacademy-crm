@@ -47,9 +47,11 @@ export default async function LessonPage({
   const canMark = editor || ownsLesson;
 
   const date = dateParam || recentDateForDay(lesson.dayOfWeek);
-  const records = await prisma.attendance.findMany({
-    where: { lessonId: id, date: new Date(date + "T00:00:00.000Z") },
-  });
+  const dateObj = new Date(date + "T00:00:00.000Z");
+  const [records, session2] = await Promise.all([
+    prisma.attendance.findMany({ where: { lessonId: id, date: dateObj } }),
+    prisma.lessonSession.findUnique({ where: { lessonId_date: { lessonId: id, date: dateObj } } }),
+  ]);
   const presentMap = new Map(records.map((r) => [r.studentId, r.present]));
   const students = lesson.group.students.map((s) => ({
     id: s.id,
@@ -103,6 +105,7 @@ export default async function LessonPage({
         editor={canMark}
         marked={marked}
         weekday={lesson.dayOfWeek}
+        topic={session2?.topic ?? ""}
       />
     </>
   );
