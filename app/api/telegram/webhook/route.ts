@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ ok: true });
   }
 
+  try {
   const msg = update.message;
   const chatId = msg?.chat?.id;
   const text = (msg?.text ?? "").trim();
@@ -87,6 +88,8 @@ export async function POST(req: NextRequest) {
       const student = await prisma.student.findUnique({ where: { id: studentId }, include: { user: true } });
       if (student) {
         let userId = student.userId;
+        // Ученик входит по одноразовому токену, telegramUserId ему не нужен
+        // (и не должен конфликтовать с аккаунтом преподавателя/админа с тем же Telegram).
         if (!userId) {
           const user = await prisma.user.create({
             data: {
@@ -94,15 +97,12 @@ export async function POST(req: NextRequest) {
               email: `student_${student.id}@matacademy.local`,
               passwordHash: bcrypt.hashSync(randomUUID(), 10),
               role: "STUDENT",
-              telegramUserId: fromId,
             },
           });
           userId = user.id;
           await prisma.student.update({ where: { id: student.id }, data: { userId } });
-        } else {
-          await prisma.user.update({ where: { id: userId }, data: { telegramUserId: fromId } });
         }
-        if (token) {
+        if (token && userId) {
           await prisma.loginToken.upsert({ where: { token }, create: { token, userId }, update: { userId } });
         }
         await sendTelegram(chat, `✅ Готово, ${student.name}! Возвращайтесь на страницу — вход в личный кабинет произойдёт автоматически.`);
@@ -128,6 +128,10 @@ export async function POST(req: NextRequest) {
       chat,
       `👋 Здравствуйте! Это бот уведомлений МатАкадемии.\n\nЧтобы получать напоминания, откройте персональную ссылку-приглашение, которую выдаёт администратор школы в карточке ученика.`
     );
+  }
+  } catch (e) {
+    // Никогда не отвечаем Telegram 500 — иначе он бесконечно повторяет доставку.
+    console.error("Ошибка обработки вебхука Telegram:", e);
   }
 
   return Response.json({ ok: true });
