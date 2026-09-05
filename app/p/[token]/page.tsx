@@ -16,6 +16,9 @@ import {
 import { Icon } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
 import { BarChart } from "@/components/BarChart";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +36,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   });
   if (!student) notFound();
   const settings = await getSettings();
+  const locale = await getLocale();
 
   const groupIds = student.groups.map((g) => g.id);
 
@@ -57,7 +61,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
       : null;
   const sub = student.subscriptions[0];
   const ss = sub ? subStatus(sub.endDate) : null;
-  const groupsLabel = student.groups.map((g) => g.name).join(", ") || "без группы";
+  const groupsLabel = student.groups.map((g) => g.name).join(", ") || t(locale, "common.noGroup");
   const teachersLabel = [...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ");
   const lessons = student.groups
     .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name })))
@@ -78,7 +82,8 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{settings.schoolName}</div>
-            <div className="mut" style={{ fontSize: 11.5 }}>Дневник ученика</div>
+            <div className="mut" style={{ fontSize: 11.5, marginBottom: 6 }}>{t(locale, "portal.diary")}</div>
+            <LocaleSwitcher current={locale} path={`/p/${token}`} />
           </div>
         </div>
 
@@ -89,7 +94,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               <span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}>
                 <Icon name="check" size={16} />
               </span>
-              Посещаемость
+              {t(locale, "cabinet.attendance")}
             </div>
             <div className="kval num" style={{ color: student.attendance == null ? "var(--ink-3)" : scoreColor(student.attendance) }}>{student.attendance == null ? "—" : `${student.attendance}%`}</div>
           </div>
@@ -98,7 +103,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               <span className="kico" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}>
                 <Icon name="chart" size={16} />
               </span>
-              Средний балл
+              {t(locale, "cabinet.avgScore")}
             </div>
             <div className="kval num" style={{ color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>
               {avg != null ? `${avg}%` : "—"}
@@ -109,10 +114,10 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               <span className="kico" style={{ background: student.balance < 0 ? "var(--bad-soft)" : "var(--ok-soft)", color: student.balance < 0 ? "var(--bad)" : "var(--ok)" }}>
                 <Icon name="money" size={16} />
               </span>
-              Баланс
+              {t(locale, "portal.balance")}
             </div>
             <div className="kval num" style={{ fontSize: 22, color: student.balance < 0 ? "var(--bad)" : "var(--ok)" }}>
-              {student.balance < 0 ? money(student.balance) : "Нет долга"}
+              {student.balance < 0 ? money(student.balance) : t(locale, "portal.noDebt")}
             </div>
           </div>
         </div>
@@ -120,9 +125,9 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {/* Абонемент + расписание */}
         <div className="two-col">
           <div className="card">
-            <div className="card-h"><h3>Расписание</h3></div>
+            <div className="card-h"><h3>{t(locale, "cabinet.schedule")}</h3></div>
             <div style={{ padding: "6px 0" }}>
-              {lessons.length === 0 && <div className="empty">Расписание не задано</div>}
+              {lessons.length === 0 && <div className="empty">{t(locale, "cabinet.noSchedule")}</div>}
               {lessons.map((l) => (
                 <div className="list-row" key={l.id}>
                   <div style={{ width: 40, fontWeight: 700 }}>{DAYS[l.dayOfWeek]}</div>
@@ -134,7 +139,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
           </div>
           <div className="card">
             <div className="card-h">
-              <h3>Абонемент</h3>
+              <h3>{t(locale, "portal.subscription")}</h3>
               {ss && (
                 <span className={`chip ${ss.cls}`}>
                   <span className="d" />
@@ -145,15 +150,15 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             <div style={{ padding: 18 }}>
               {sub ? (
                 <dl className="dl">
-                  <dt>Тариф</dt>
+                  <dt>{t(locale, "portal.plan")}</dt>
                   <dd>{sub.plan}</dd>
-                  <dt>Действует</dt>
+                  <dt>{t(locale, "portal.validFor")}</dt>
                   <dd>{formatDate(sub.startDate)}{sub.endDate ? ` — ${formatDate(sub.endDate)}` : ""}</dd>
-                  <dt>Стоимость</dt>
+                  <dt>{t(locale, "portal.price")}</dt>
                   <dd>{money(sub.price)}</dd>
                 </dl>
               ) : (
-                <div className="empty">Активного абонемента нет</div>
+                <div className="empty">{t(locale, "portal.noSubscription")}</div>
               )}
             </div>
           </div>
@@ -162,11 +167,11 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {/* Домашние задания */}
         <div className="card">
           <div className="card-h">
-            <h3>Домашние задания</h3>
+            <h3>{t(locale, "hw.title")}</h3>
             <span className="chip c-mut"><span className="d" />{homeworks.length}</span>
           </div>
           <div style={{ padding: "6px 0" }}>
-            {homeworks.length === 0 && <div className="empty">Заданий пока нет</div>}
+            {homeworks.length === 0 && <div className="empty">{t(locale, "hw.empty")}</div>}
             {homeworks.map((hw) => {
               const done = hw.completions[0]?.done ?? false;
               const overdue = hw.dueDate && new Date(hw.dueDate) < new Date() && !done;
@@ -177,13 +182,13 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                     {hw.description && <div className="mut" style={{ fontSize: 12 }}>{hw.description}</div>}
                     {hw.dueDate && (
                       <div className="mut" style={{ fontSize: 11.5, color: overdue ? "var(--bad)" : undefined }}>
-                        срок: {formatDate(hw.dueDate)}
+                        {t(locale, "hw.due", { date: formatDate(hw.dueDate) })}
                       </div>
                     )}
                   </div>
                   <span className={`chip ${done ? "c-ok" : "c-mut"}`}>
                     <span className="d" />
-                    {done ? "Выполнено" : "Не выполнено"}
+                    {done ? t(locale, "hw.done") : t(locale, "portal.hwNotDone")}
                   </span>
                 </div>
               );
@@ -195,8 +200,8 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {student.grades.length >= 2 && (
           <div className="card" style={{ marginBottom: 16 }}>
             <div className="card-h">
-              <h3>Как идут дела</h3>
-              <span className="chip c-mut"><span className="d" />последние {student.grades.length}</span>
+              <h3>{t(locale, "cabinet.howAreThings")}</h3>
+              <span className="chip c-mut"><span className="d" />{t(locale, "cabinet.lastN", { n: student.grades.length })}</span>
             </div>
             <div style={{ padding: 18 }}>
               <BarChart
@@ -211,7 +216,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 formatValue={(n) => `${n}%`}
               />
               <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
-                Результаты по оценкам в процентах — от старых к новым.
+                {t(locale, "cabinet.progressNote")}
               </p>
             </div>
           </div>
@@ -220,22 +225,22 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {/* Оценки */}
         <div className="card">
           <div className="card-h">
-            <h3>Оценки</h3>
+            <h3>{t(locale, "cabinet.grades")}</h3>
             <span className="chip c-mut"><span className="d" />{student.grades.length}</span>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>За что</th>
-                  <th>Тип</th>
-                  <th>Дата</th>
-                  <th className="right">Оценка</th>
+                  <th>{t(locale, "portal.forWhat")}</th>
+                  <th>{t(locale, "portal.type")}</th>
+                  <th>{t(locale, "portal.date")}</th>
+                  <th className="right">{t(locale, "portal.grade")}</th>
                 </tr>
               </thead>
               <tbody>
                 {student.grades.length === 0 && (
-                  <tr><td colSpan={4}><div className="empty">Оценок пока нет</div></td></tr>
+                  <tr><td colSpan={4}><div className="empty">{t(locale, "cabinet.noGrades")}</div></td></tr>
                 )}
                 {student.grades.map((g) => {
                   const pct = Math.round((g.score / g.maxScore) * 100);
@@ -259,7 +264,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {materials.length > 0 && (
           <div className="card">
             <div className="card-h">
-              <h3>Материалы</h3>
+              <h3>{t(locale, "cabinet.materials")}</h3>
               <span className="chip c-mut"><span className="d" />{materials.length}</span>
             </div>
             <div style={{ padding: "6px 0" }}>
@@ -282,21 +287,21 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         {/* Оплаты */}
         <div className="card">
           <div className="card-h">
-            <h3>История оплат</h3>
+            <h3>{t(locale, "portal.payments")}</h3>
           </div>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Назначение</th>
-                  <th>Дата</th>
-                  <th>Статус</th>
-                  <th className="right">Сумма</th>
+                  <th>{t(locale, "portal.purpose")}</th>
+                  <th>{t(locale, "portal.date")}</th>
+                  <th>{t(locale, "portal.status")}</th>
+                  <th className="right">{t(locale, "portal.sum")}</th>
                 </tr>
               </thead>
               <tbody>
                 {student.payments.length === 0 && (
-                  <tr><td colSpan={4}><div className="empty">Оплат пока нет</div></td></tr>
+                  <tr><td colSpan={4}><div className="empty">{t(locale, "portal.noPayments")}</div></td></tr>
                 )}
                 {student.payments.map((p) => {
                   const psx = PAYMENT_STATUS[p.status] ?? PAYMENT_STATUS.PAID;
@@ -315,7 +320,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         </div>
 
         <p style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-3)", margin: "4px 0 16px" }}>
-          {settings.schoolName} · страница обновляется автоматически
+          {settings.schoolName} · {t(locale, "portal.autoUpdate")}
         </p>
       </div>
     </div>

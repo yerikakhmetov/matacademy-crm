@@ -85,6 +85,27 @@ const ru = {
   "test.retakeHint": "Тест можно пройти заново — последний результат станет итоговым.",
   "test.onceHint": "Тест можно пройти один раз. Проверьте ответы перед отправкой.",
   "test.submit": "Отправить",
+
+  // портал родителя
+  "portal.diary": "Дневник ученика",
+  "portal.balance": "Баланс",
+  "portal.noDebt": "Нет долга",
+  "portal.subscription": "Абонемент",
+  "portal.plan": "Тариф",
+  "portal.validFor": "Действует",
+  "portal.price": "Стоимость",
+  "portal.noSubscription": "Активного абонемента нет",
+  "portal.hwNotDone": "Не выполнено",
+  "portal.forWhat": "За что",
+  "portal.type": "Тип",
+  "portal.date": "Дата",
+  "portal.grade": "Оценка",
+  "portal.payments": "История оплат",
+  "portal.purpose": "Назначение",
+  "portal.status": "Статус",
+  "portal.sum": "Сумма",
+  "portal.noPayments": "Оплат пока нет",
+  "portal.autoUpdate": "страница обновляется автоматически",
 } as const;
 
 export type MsgKey = keyof typeof ru;
@@ -154,6 +175,26 @@ const kk: Record<MsgKey, string> = {
   "test.retakeHint": "Тестті қайта тапсыруға болады — соңғы нәтиже қорытынды болады.",
   "test.onceHint": "Тест бір рет қана тапсырылады. Жібермес бұрын жауаптарыңызды тексеріңіз.",
   "test.submit": "Жіберу",
+
+  "portal.diary": "Оқушының күнделігі",
+  "portal.balance": "Баланс",
+  "portal.noDebt": "Қарыз жоқ",
+  "portal.subscription": "Абонемент",
+  "portal.plan": "Тариф",
+  "portal.validFor": "Жарамды",
+  "portal.price": "Құны",
+  "portal.noSubscription": "Белсенді абонемент жоқ",
+  "portal.hwNotDone": "Орындалмаған",
+  "portal.forWhat": "Не үшін",
+  "portal.type": "Түрі",
+  "portal.date": "Күні",
+  "portal.grade": "Баға",
+  "portal.payments": "Төлемдер тарихы",
+  "portal.purpose": "Мақсаты",
+  "portal.status": "Күйі",
+  "portal.sum": "Сомасы",
+  "portal.noPayments": "Төлем әзірге жоқ",
+  "portal.autoUpdate": "бет автоматты жаңарып отырады",
 };
 
 const DICT: Record<Locale, Record<MsgKey, string>> = { ru, kk };
