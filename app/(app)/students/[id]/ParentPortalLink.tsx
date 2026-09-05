@@ -1,16 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { regeneratePortalToken } from "@/app/actions/data";
 import { Icon } from "@/components/Icon";
 
-export function ParentPortalLink({ token }: { token: string }) {
+export function ParentPortalLink({ studentId, token }: { studentId: string; token: string }) {
   const [copied, setCopied] = useState(false);
+  const [pending, start] = useTransition();
   const [url, setUrl] = useState(`/p/${token}`);
 
   // Полный адрес доступен только на клиенте
   useEffect(() => {
     setUrl(`${window.location.origin}/p/${token}`);
   }, [token]);
+
+  const regenerate = () => {
+    if (!confirm("Старая ссылка родителя перестанет работать. Перевыпустить?")) return;
+    start(() => regeneratePortalToken(studentId));
+  };
 
   const copy = async () => {
     try {
@@ -46,7 +53,19 @@ export function ParentPortalLink({ token }: { token: string }) {
         <a className="btn ghost" href={url} target="_blank" rel="noopener noreferrer" style={{ padding: "7px 13px", fontSize: 13 }}>
           Открыть
         </a>
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={regenerate}
+          disabled={pending}
+          style={{ padding: "7px 13px", fontSize: 13, color: "var(--bad)" }}
+        >
+          {pending ? "Перевыпускаем…" : "Перевыпустить"}
+        </button>
       </div>
+      <p className="mut" style={{ fontSize: 11.5, margin: 0 }}>
+        Ссылка открывает данные ученика без входа. Если она попала не тем — перевыпустите.
+      </p>
     </div>
   );
 }

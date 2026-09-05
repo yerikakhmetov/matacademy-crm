@@ -290,7 +290,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                 </span>
               </div>
               <div style={{ padding: 18 }}>
-                <ParentPortalLink token={portalToken} />
+                <ParentPortalLink studentId={student.id} token={portalToken} />
               </div>
             </div>
           )}

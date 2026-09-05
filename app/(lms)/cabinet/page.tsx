@@ -8,6 +8,7 @@ import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { CabinetHomework } from "./CabinetHomework";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export default async function CabinetHome() {
     take: 8,
   });
 
+  const tz = (await getSettings()).tzOffsetHours;
   const testsRaw = groupIds.length
     ? await prisma.test.findMany({
         where: { groupId: { in: groupIds }, questions: { some: {} } },
@@ -67,8 +69,8 @@ export default async function CabinetHome() {
       subjectName: t.subject?.name ?? null,
       subjectColor: t.subject?.color ?? "#3A5AE0",
       attempt,
-      open: isTestOpen(t.date, lessons),
-      opensAt: testAvailableAt(t.date, lessons),
+      open: isTestOpen(t.date, lessons, new Date(), tz),
+      opensAt: testAvailableAt(t.date, lessons, tz),
     };
   });
 

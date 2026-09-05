@@ -138,6 +138,7 @@ export async function updateSettings(formData: FormData) {
     discountMode: isDiscountMode(String(formData.get("discountMode"))) ? String(formData.get("discountMode")) : "add",
     siblingDiscount: Math.min(100, Math.max(0, int(formData.get("siblingDiscount")))),
     schoolFeePct: Math.min(100, Math.max(0, int(formData.get("schoolFeePct")))),
+    tzOffsetHours: Math.min(14, Math.max(-12, int(formData.get("tzOffsetHours")))),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -157,10 +158,11 @@ export async function createPromo(formData: FormData) {
   const percent = Math.min(100, Math.max(1, int(formData.get("percent"))));
   const maxUses = Math.max(0, int(formData.get("maxUses")));
   const note = str(formData.get("note")) || null;
+  const expiresAt = parseDate(formData.get("expiresAt"));
   await prisma.promoCode.upsert({
     where: { code },
-    create: { code, percent, maxUses, note },
-    update: { percent, maxUses, note, active: true },
+    create: { code, percent, maxUses, note, expiresAt },
+    update: { percent, maxUses, note, expiresAt, active: true },
   });
   await logAudit("CREATE", "Промокод", code);
   revalidatePath("/settings");
@@ -269,6 +271,18 @@ export async function regenerateJoinToken(id: string) {
     select: { name: true },
   });
   await logAudit("UPDATE", "Ученик", `Перевыпущена ссылка в кабинет · ${student.name}`);
+  revalidatePath(`/students/${id}`);
+}
+
+// Перевыпуск постоянной ссылки родителя: старая перестаёт работать.
+export async function regeneratePortalToken(id: string) {
+  await assertEditor();
+  const student = await prisma.student.update({
+    where: { id },
+    data: { portalToken: newToken() },
+    select: { name: true },
+  });
+  await logAudit("UPDATE", "Ученик", `Перевыпущена ссылка родителя · ${student.name}`);
   revalidatePath(`/students/${id}`);
 }
 
@@ -580,6 +594,7 @@ export async function createSubscription(studentId: string, formData: FormData) 
       const promo = await prisma.promoCode.findUnique({ where: { code } });
       if (!promo || !promo.active) throw new Error("Промокод не найден или отключён");
       if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) throw new Error("Промокод исчерпан");
+      if (promo.expiresAt && promo.expiresAt < new Date()) throw new Error("Срок действия промокода истёк");
       promoPct = promo.percent;
       promoCode = promo.code;
       promoApplyId = promo.id;
@@ -1086,7 +1101,8 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
   if (!inGroup) throw new Error("Тест не для вашей группы");
 
   // Тест открывается только после времени урока по расписанию
-  if (!isTestOpen(test.date, test.group.lessons)) throw new Error("Тест ещё не открыт");
+  const tz = (await getSettings()).tzOffsetHours;
+  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz)) throw new Error("Тест ещё не открыт");
 
   // Одна попытка
   const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });

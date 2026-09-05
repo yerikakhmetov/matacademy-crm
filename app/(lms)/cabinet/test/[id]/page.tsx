@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
+import { getSettings } from "@/lib/settings";
 import { submitTestAttempt } from "@/app/actions/data";
 import { formatDate, gradeChipClass } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -34,7 +35,8 @@ export default async function CabinetTest({ params }: { params: Promise<{ id: st
   if (!inGroup) redirect("/cabinet");
 
   const attempt = test.attempts[0] ?? null;
-  const open = isTestOpen(test.date, test.group?.lessons ?? []);
+  const tz = (await getSettings()).tzOffsetHours;
+  const open = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz);
 
   const header = (
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>

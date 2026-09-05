@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES, DISCOUNT_MODE_LABEL } from "@/lib/settings";
 import { MANAGER_PERMS, parseDenied } from "@/lib/access";
+import { formatDate } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { updateSettings, createPromo, togglePromo, deletePromo } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
@@ -108,10 +109,19 @@ export default async function SettingsPage() {
             остаток делится на число занятий группы в этом месяце по расписанию и начисляется за каждое
             оплачиваемое посещение (был или отсутствовал без уважительной причины).
           </p>
-          <div className="field" style={{ maxWidth: 240 }}>
-            <label>Удержание школы, %</label>
-            <input name="schoolFeePct" type="number" min={0} max={100} defaultValue={s.schoolFeePct} />
+          <div className="grid2">
+            <div className="field">
+              <label>Удержание школы, %</label>
+              <input name="schoolFeePct" type="number" min={0} max={100} defaultValue={s.schoolFeePct} />
+            </div>
+            <div className="field">
+              <label>Часовой пояс школы (UTC±)</label>
+              <input name="tzOffsetHours" type="number" min={-12} max={14} defaultValue={s.tzOffsetHours} />
+            </div>
           </div>
+          <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>
+            Часовой пояс определяет, когда тест открывается ученику после урока. Алматы — 5.
+          </p>
         </div>
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
@@ -175,10 +185,15 @@ export default async function SettingsPage() {
                     <span className="num">{p.code}</span> · −{p.percent}%
                   </div>
                   <div className="mut" style={{ fontSize: 12 }}>
-                    Использован: {p.usedCount}{p.maxUses > 0 ? ` из ${p.maxUses}` : ""}{p.note ? ` · ${p.note}` : ""}
+                    Использован: {p.usedCount}{p.maxUses > 0 ? ` из ${p.maxUses}` : ""}
+                    {p.expiresAt ? ` · до ${formatDate(p.expiresAt)}` : ""}
+                    {p.note ? ` · ${p.note}` : ""}
                   </div>
                 </div>
-                <span className={`chip ${p.active ? "c-ok" : "c-mut"}`}><span className="d" />{p.active ? "вкл" : "выкл"}</span>
+                <span className={`chip ${p.expiresAt && p.expiresAt < new Date() ? "c-bad" : p.active ? "c-ok" : "c-mut"}`}>
+                  <span className="d" />
+                  {p.expiresAt && p.expiresAt < new Date() ? "истёк" : p.active ? "вкл" : "выкл"}
+                </span>
                 <form action={togglePromo.bind(null, p.id)}>
                   <button className="btn ghost" type="submit" style={{ padding: "5px 10px", fontSize: 12 }}>{p.active ? "Выключить" : "Включить"}</button>
                 </form>
@@ -207,9 +222,13 @@ export default async function SettingsPage() {
               <input name="maxUses" type="number" min={0} defaultValue={0} />
             </div>
             <div className="field">
-              <label>Комментарий</label>
-              <input name="note" placeholder="реферал / акция" />
+              <label>Действует до</label>
+              <input name="expiresAt" type="date" />
             </div>
+          </div>
+          <div className="field" style={{ marginBottom: 4 }}>
+            <label>Комментарий</label>
+            <input name="note" placeholder="реферал / акция" />
           </div>
           <button className="btn" type="submit" style={{ marginTop: 4 }}>Добавить промокод</button>
         </form>

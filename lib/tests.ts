@@ -1,12 +1,13 @@
 // Когда тест становится доступен ученику: после времени урока по расписанию.
-// Школа в Алматы (UTC+5, без переходов на летнее время).
-const ALMATY_OFFSET_HOURS = 5;
+// Часовой пояс школы задаётся в настройках (Settings.tzOffsetHours), по умолчанию Алматы = UTC+5.
+export const DEFAULT_TZ_OFFSET_HOURS = 5;
 
 // Момент (UTC), с которого тест открыт: дата теста + время самого позднего урока
 // группы в этот день недели. Если урока в этот день нет — начало дня теста.
 export function testAvailableAt(
   date: Date,
-  lessons: { dayOfWeek: number; startTime: string }[]
+  lessons: { dayOfWeek: number; startTime: string }[],
+  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS
 ): Date {
   const d = new Date(date);
   const y = d.getUTCFullYear();
@@ -25,10 +26,15 @@ export function testAvailableAt(
     mm = isNaN(mi) ? 0 : mi;
   }
   // локальное время урока → UTC
-  return new Date(Date.UTC(y, m, day, hh - ALMATY_OFFSET_HOURS, mm, 0));
+  return new Date(Date.UTC(y, m, day, hh - tzOffsetHours, mm, 0));
 }
 
 // Доступен ли тест ученику прямо сейчас (по расписанию).
-export function isTestOpen(date: Date, lessons: { dayOfWeek: number; startTime: string }[], now: Date = new Date()): boolean {
-  return now.getTime() >= testAvailableAt(date, lessons).getTime();
+export function isTestOpen(
+  date: Date,
+  lessons: { dayOfWeek: number; startTime: string }[],
+  now: Date = new Date(),
+  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS
+): boolean {
+  return now.getTime() >= testAvailableAt(date, lessons, tzOffsetHours).getTime();
 }

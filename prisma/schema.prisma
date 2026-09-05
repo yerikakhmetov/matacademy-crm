@@ -264,6 +264,7 @@ model PromoCode {
   active    Boolean  @default(true)
   maxUses   Int      @default(0) // 0 = без ограничения
   usedCount Int      @default(0) // сколько раз применён
+  expiresAt DateTime? // действует до этой даты включительно (пусто = бессрочно)
   note      String? // комментарий (напр. «реферал Ивановых»)
   createdAt DateTime @default(now())
 }
@@ -377,6 +378,7 @@ model Settings {
   discountMode  String @default("add") // как объединять скидки: add | max | mul
   siblingDiscount Int  @default(0) // скидка «брат/сестра», % (0 = выкл)
   schoolFeePct   Int   @default(3) // удержание школы из оплаты ученика перед начислением зарплаты, %
+  tzOffsetHours  Int   @default(5) // часовой пояс школы относительно UTC (Алматы = 5)
   updatedAt  DateTime @updatedAt
 }
 

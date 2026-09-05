@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isTestOpen, testAvailableAt } from "./tests.ts";
+import { DEFAULT_TZ_OFFSET_HOURS, isTestOpen, testAvailableAt } from "./tests.ts";
 
 // 3 сентября 2026 — день недели вычисляем, чтобы тест не зависел от календаря в голове
 const DATE = new Date(Date.UTC(2026, 8, 3));
@@ -36,4 +36,25 @@ test("isTestOpen: закрыт до урока, открыт после", () => 
 test("некорректное время урока не ломает расчёт", () => {
   const at = testAvailableAt(DATE, [{ dayOfWeek: DOW, startTime: "" }]);
   assert.equal(Number.isNaN(at.getTime()), false);
+});
+
+test("часовой пояс берётся из настроек, а не зашит", () => {
+  const lessons = [{ dayOfWeek: DOW, startTime: "16:00" }];
+  // UTC+0: урок в 16:00 наступает в 16:00 UTC
+  assert.equal(testAvailableAt(DATE, lessons, 0).toISOString(), "2026-09-03T16:00:00.000Z");
+  // UTC+6 — на час раньше, чем при UTC+5
+  assert.equal(testAvailableAt(DATE, lessons, 6).toISOString(), "2026-09-03T10:00:00.000Z");
+  // по умолчанию — Алматы
+  assert.equal(DEFAULT_TZ_OFFSET_HOURS, 5);
+  assert.equal(
+    testAvailableAt(DATE, lessons).toISOString(),
+    testAvailableAt(DATE, lessons, DEFAULT_TZ_OFFSET_HOURS).toISOString()
+  );
+});
+
+test("isTestOpen учитывает переданный часовой пояс", () => {
+  const lessons = [{ dayOfWeek: DOW, startTime: "16:00" }];
+  const t = new Date("2026-09-03T12:00:00Z");
+  assert.equal(isTestOpen(DATE, lessons, t, 5), true);  // урок был в 11:00 UTC
+  assert.equal(isTestOpen(DATE, lessons, t, 0), false); // урок будет в 16:00 UTC
 });
