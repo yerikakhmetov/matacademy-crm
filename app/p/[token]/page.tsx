@@ -9,7 +9,6 @@ import {
   subStatus,
   scoreColor,
   gradeChipClass,
-  DAYS,
   GRADE_TYPE,
   PAYMENT_STATUS,
 } from "@/lib/format";
@@ -18,7 +17,7 @@ import { Avatar } from "@/components/Avatar";
 import { BarChart } from "@/components/BarChart";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
-import { t } from "@/lib/i18n";
+import { dayShort, t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -130,7 +129,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               {lessons.length === 0 && <div className="empty">{t(locale, "cabinet.noSchedule")}</div>}
               {lessons.map((l) => (
                 <div className="list-row" key={l.id}>
-                  <div style={{ width: 40, fontWeight: 700 }}>{DAYS[l.dayOfWeek]}</div>
+                  <div style={{ width: 40, fontWeight: 700 }}>{dayShort(locale, l.dayOfWeek)}</div>
                   <div className="num" style={{ width: 54, fontWeight: 600 }}>{l.startTime}</div>
                   <div style={{ flex: 1 }} className="mut">{l.groupName} · {l.room}</div>
                 </div>

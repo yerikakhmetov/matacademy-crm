@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LOCALE, isLocale, LOCALES, t } from "./i18n.ts";
+import { DEFAULT_LOCALE, dayShort, isLocale, LOCALES, t } from "./i18n.ts";
 
 test("переводы есть на всех языках и не совпадают дословно", () => {
   for (const l of LOCALES) {
@@ -26,4 +26,12 @@ test("isLocale отсекает мусор из куки", () => {
   assert.equal(isLocale("en"), false);
   assert.equal(isLocale(null), false);
   assert.equal(DEFAULT_LOCALE, "ru");
+});
+
+test("дни недели переведены и не съезжают по индексам", () => {
+  assert.equal(dayShort("ru", 1), "Пн");
+  assert.equal(dayShort("kk", 1), "Дс");
+  assert.equal(dayShort("kk", 5), "Жм");
+  assert.equal(dayShort("kk", 6), "Сб");
+  assert.equal(dayShort("kk", 0), "", "нулевой индекс не используется");
 });

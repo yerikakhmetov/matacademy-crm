@@ -199,6 +199,16 @@ const kk: Record<MsgKey, string> = {
 
 const DICT: Record<Locale, Record<MsgKey, string>> = { ru, kk };
 
+// Сокращения дней недели (1 = Пн … 6 = Сб) — в расписании кабинета и портала.
+const DAY_SHORT: Record<Locale, string[]> = {
+  ru: ["", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"],
+  kk: ["", "Дс", "Сс", "Ср", "Бс", "Жм", "Сб"],
+};
+
+export function dayShort(locale: Locale, dayOfWeek: number): string {
+  return DAY_SHORT[locale][dayOfWeek] ?? DAY_SHORT[DEFAULT_LOCALE][dayOfWeek] ?? "";
+}
+
 export function t(locale: Locale, key: MsgKey, vars?: Record<string, string | number>): string {
   const s = DICT[locale][key] ?? DICT[DEFAULT_LOCALE][key] ?? key;
   if (!vars) return s;
