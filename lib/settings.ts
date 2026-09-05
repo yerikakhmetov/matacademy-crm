@@ -60,6 +60,9 @@ export const DEFAULT_TEMPLATES = {
   overdue: "Здравствуйте! Напоминаем об оплате обучения в {school} (ученик: {name}): {purpose} — {amount}. Просрочено на {days} дн. Пожалуйста, оплатите при возможности. Спасибо!",
   pending: "Здравствуйте! Напоминаем об оплате в {school} (ученик: {name}): {purpose} — {amount}. Ждём оплату. Спасибо!",
   expiring: "Здравствуйте! Абонемент «{plan}» ученика {name} истекает {date}. Предлагаем продлить заранее. Спасибо, что вы с {school}!",
+  grade: "{school}: у {name} новая оценка — «{topic}»: {score} из {max} ({pct}%).",
+  homework: "{school}: новое домашнее задание по группе {group} — «{title}»{due}.",
+  cancel: "{school}: занятие группы {group} {date} не состоится. {reason}",
 };
 
 export function renderTemplate(tpl: string, vars: Record<string, string | number>): string {

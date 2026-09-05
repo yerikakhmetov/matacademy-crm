@@ -7,8 +7,9 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
+import { notifyParent, notifyParents, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
@@ -139,6 +140,12 @@ export async function updateSettings(formData: FormData) {
     siblingDiscount: Math.min(100, Math.max(0, int(formData.get("siblingDiscount")))),
     schoolFeePct: Math.min(100, Math.max(0, int(formData.get("schoolFeePct")))),
     tzOffsetHours: Math.min(14, Math.max(-12, int(formData.get("tzOffsetHours")))),
+    notifyGrade: formData.get("notifyGrade") != null,
+    notifyHomework: formData.get("notifyHomework") != null,
+    notifyCancel: formData.get("notifyCancel") != null,
+    tplGrade: String(formData.get("tplGrade") ?? "").trim(),
+    tplHomework: String(formData.get("tplHomework") ?? "").trim(),
+    tplCancel: String(formData.get("tplCancel") ?? "").trim(),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -742,6 +749,19 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
   }
 
   await logAudit("UPDATE", "Занятие", `${lesson.group.name} · ${dateStr} · ${cancelled ? "отменено" : "восстановлено"}`);
+
+  const stC = await getSettings();
+  if (cancelled && stC.notifyCancel) {
+    await notifyParents(
+      lesson.group.students.map((s) => s.id),
+      renderTemplate(stC.tplCancel || DEFAULT_TEMPLATES.cancel, {
+        school: stC.schoolName,
+        group: lesson.group.name,
+        date: new Date(dateStr).toLocaleDateString("ru-RU"),
+        reason: str(reason) || "",
+      })
+    );
+  }
   revalidatePath(`/schedule/${lessonId}`);
   revalidatePath("/journal");
   revalidatePath("/payroll");
@@ -872,6 +892,22 @@ export async function addHomework(groupId: string, formData: FormData) {
     },
   });
   await logAudit("CREATE", "Домашнее задание", str(formData.get("title")));
+
+  const stH = await getSettings();
+  if (stH.notifyHomework) {
+    const group = await prisma.group.findUnique({ where: { id: groupId }, select: { name: true } });
+    const due = parseDate(formData.get("dueDate"));
+    await notifyParents(
+      await studentIdsOfGroup(groupId),
+      renderTemplate(stH.tplHomework || DEFAULT_TEMPLATES.homework, {
+        school: stH.schoolName,
+        group: group?.name ?? "",
+        title: str(formData.get("title")) || "Домашнее задание",
+        due: due ? `, срок: ${due.toLocaleDateString("ru-RU")}` : "",
+      })
+    );
+  }
+
   revalidatePath("/homework");
 }
 
@@ -1004,6 +1040,23 @@ export async function addGrade(studentId: string, formData: FormData) {
     },
   });
   await logAudit("CREATE", "Оценка", `${score}/${maxScore} · ${str(formData.get("topic"))}`);
+
+  const st = await getSettings();
+  if (st.notifyGrade) {
+    const stu = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
+    await notifyParent(
+      studentId,
+      renderTemplate(st.tplGrade || DEFAULT_TEMPLATES.grade, {
+        school: st.schoolName,
+        name: stu?.name ?? "",
+        topic: str(formData.get("topic")) || "Оценка",
+        score,
+        max: maxScore,
+        pct: Math.round((score / maxScore) * 100),
+      })
+    );
+  }
+
   revalidatePath("/grades");
   revalidatePath(`/students/${studentId}`);
 }

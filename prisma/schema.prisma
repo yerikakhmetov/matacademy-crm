@@ -381,6 +381,12 @@ model Settings {
   siblingDiscount Int  @default(0) // скидка «брат/сестра», % (0 = выкл)
   schoolFeePct   Int   @default(3) // удержание школы из оплаты ученика перед начислением зарплаты, %
   tzOffsetHours  Int   @default(5) // часовой пояс школы относительно UTC (Алматы = 5)
+  notifyGrade    Boolean @default(false) // авто-уведомление родителю о новой оценке
+  notifyHomework Boolean @default(false) // авто-уведомление о новом ДЗ
+  notifyCancel   Boolean @default(false) // авто-уведомление об отмене занятия
+  tplGrade       String  @default("")
+  tplHomework    String  @default("")
+  tplCancel      String  @default("")
   updatedAt  DateTime @updatedAt
 }
 

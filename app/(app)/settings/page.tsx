@@ -147,6 +147,43 @@ export default async function SettingsPage() {
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+            Авто-уведомления родителям
+          </div>
+          <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+            Отправляются в Telegram сразу после действия преподавателя — только тем родителям,
+            кто подписан на бота. <b>По умолчанию выключены</b>: включайте по одному, чтобы не заспамить.
+          </p>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
+            <input type="checkbox" name="notifyGrade" defaultChecked={s.notifyGrade} />
+            Новая оценка
+          </label>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <textarea name="tplGrade" rows={2} defaultValue={s.tplGrade} placeholder={DEFAULT_TEMPLATES.grade} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+            <span className="mut" style={{ fontSize: 11.5 }}>Плейсхолдеры: {"{school} {name} {topic} {score} {max} {pct}"}</span>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
+            <input type="checkbox" name="notifyHomework" defaultChecked={s.notifyHomework} />
+            Новое домашнее задание
+          </label>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <textarea name="tplHomework" rows={2} defaultValue={s.tplHomework} placeholder={DEFAULT_TEMPLATES.homework} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+            <span className="mut" style={{ fontSize: 11.5 }}>Плейсхолдеры: {"{school} {group} {title} {due}"}</span>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
+            <input type="checkbox" name="notifyCancel" defaultChecked={s.notifyCancel} />
+            Занятие отменено
+          </label>
+          <div className="field">
+            <textarea name="tplCancel" rows={2} defaultValue={s.tplCancel} placeholder={DEFAULT_TEMPLATES.cancel} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+            <span className="mut" style={{ fontSize: 11.5 }}>Плейсхолдеры: {"{school} {group} {date} {reason}"}</span>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
             Права менеджера
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
