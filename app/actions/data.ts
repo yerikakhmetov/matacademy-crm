@@ -1031,6 +1031,8 @@ export async function createTest(formData: FormData) {
       subjectId,
       maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
       date: parseDate(formData.get("date")) ?? new Date(),
+      shuffle: formData.get("shuffle") != null,
+      allowRetake: formData.get("allowRetake") != null,
     },
   });
   await logAudit("CREATE", "Тест", `${test.title}`);
@@ -1104,9 +1106,9 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
   const tz = (await getSettings()).tzOffsetHours;
   if (!isTestOpen(test.date, test.group.lessons, new Date(), tz)) throw new Error("Тест ещё не открыт");
 
-  // Одна попытка
+  // Одна попытка, если преподаватель не разрешил проходить заново
   const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });
-  if (existing) throw new Error("Тест уже пройден");
+  if (existing && !test.allowRetake) throw new Error("Тест уже пройден");
 
   const answers = test.questions.map((q) => {
     const raw = formData.get(`q_${q.id}`);
@@ -1117,8 +1119,10 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
   const correctCount = test.questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
   const score = Math.round((correctCount / total) * test.maxScore);
 
-  await prisma.testAttempt.create({
-    data: { testId, studentId, answers, correctCount, total, score },
+  await prisma.testAttempt.upsert({
+    where: { testId_studentId: { testId, studentId } },
+    create: { testId, studentId, answers, correctCount, total, score },
+    update: { answers, correctCount, total, score, submittedAt: new Date() },
   });
 
   // Результат сразу становится оценкой за тест

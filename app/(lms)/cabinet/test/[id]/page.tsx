@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStudentIdForUser } from "@/lib/teacher";
-import { isTestOpen } from "@/lib/tests";
+import { isTestOpen, shuffleForSeed } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { submitTestAttempt } from "@/app/actions/data";
 import { formatDate, gradeChipClass } from "@/lib/format";
@@ -13,8 +13,15 @@ export const dynamic = "force-dynamic";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
-export default async function CabinetTest({ params }: { params: Promise<{ id: string }> }) {
+export default async function CabinetTest({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ retake?: string }>;
+}) {
   const { id } = await params;
+  const { retake } = await searchParams;
   const session = await auth();
   const studentId = await getStudentIdForUser(session?.user?.id);
   if (!studentId) redirect("/cabinet");
@@ -53,8 +60,10 @@ export default async function CabinetTest({ params }: { params: Promise<{ id: st
     </div>
   );
 
+  const retaking = retake === "1" && test.allowRetake;
+
   // ── Результат (тест уже пройден) ──
-  if (attempt) {
+  if (attempt && !retaking) {
     const pct = Math.round((attempt.score / test.maxScore) * 100);
     return (
       <div>
@@ -66,6 +75,15 @@ export default async function CabinetTest({ params }: { params: Promise<{ id: st
           </div>
           <span className={`chip ${gradeChipClass(pct)}`} style={{ marginLeft: "auto" }}><span className="d" />{attempt.correctCount} из {attempt.total} верно</span>
         </div>
+
+        {test.allowRetake && (
+          <div className="card" style={{ padding: 16, marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+            <p className="mut" style={{ fontSize: 13, margin: 0, flex: 1 }}>
+              Этот тест можно пройти заново — прошлый результат заменится новым.
+            </p>
+            <Link className="btn ghost" href={`/cabinet/test/${test.id}?retake=1`}>Пройти заново</Link>
+          </div>
+        )}
 
         {test.questions.map((q, i) => {
           const chosen = attempt.answers[i] ?? -1;
@@ -118,7 +136,7 @@ export default async function CabinetTest({ params }: { params: Promise<{ id: st
     <div>
       {header}
       <form action={submitTestAttempt.bind(null, test.id)}>
-        {test.questions.map((q, i) => (
+        {(test.shuffle ? shuffleForSeed(test.questions, `${test.id}|${studentId}`) : test.questions).map((q, i) => (
           <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
             <div style={{ fontWeight: 600, marginBottom: 10 }}>{i + 1}. {q.text}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -133,7 +151,11 @@ export default async function CabinetTest({ params }: { params: Promise<{ id: st
           </div>
         ))}
         <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, position: "sticky", bottom: 12 }}>
-          <p className="mut" style={{ fontSize: 12, margin: 0, flex: 1 }}>Тест можно пройти один раз. Проверьте ответы перед отправкой.</p>
+          <p className="mut" style={{ fontSize: 12, margin: 0, flex: 1 }}>
+            {test.allowRetake
+              ? "Тест можно пройти заново — последний результат станет итоговым."
+              : "Тест можно пройти один раз. Проверьте ответы перед отправкой."}
+          </p>
           <button className="btn" type="submit"><Icon name="check" size={16} />Отправить</button>
         </div>
       </form>

@@ -182,6 +182,8 @@ model Test {
   subject   Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   date      DateTime       @default(now())
   maxScore  Int            @default(100)
+  shuffle   Boolean        @default(false) // перемешивать порядок вопросов для каждого ученика
+  allowRetake Boolean      @default(false) // можно пройти заново (иначе одна попытка)
   createdBy String?
   createdAt DateTime       @default(now())
   grades    Grade[]

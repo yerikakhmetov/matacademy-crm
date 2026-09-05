@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_TZ_OFFSET_HOURS, isTestOpen, testAvailableAt } from "./tests.ts";
+import { DEFAULT_TZ_OFFSET_HOURS, isTestOpen, shuffleForSeed, testAvailableAt } from "./tests.ts";
 
 // 3 сентября 2026 — день недели вычисляем, чтобы тест не зависел от календаря в голове
 const DATE = new Date(Date.UTC(2026, 8, 3));
@@ -57,4 +57,23 @@ test("isTestOpen учитывает переданный часовой пояс
   const t = new Date("2026-09-03T12:00:00Z");
   assert.equal(isTestOpen(DATE, lessons, t, 5), true);  // урок был в 11:00 UTC
   assert.equal(isTestOpen(DATE, lessons, t, 0), false); // урок будет в 16:00 UTC
+});
+
+test("shuffleForSeed: порядок стабилен для одного ученика и различается у разных", () => {
+  const items = [1, 2, 3, 4, 5, 6, 7, 8];
+  const a1 = shuffleForSeed(items, "test1|student1");
+  const a2 = shuffleForSeed(items, "test1|student1");
+  const b = shuffleForSeed(items, "test1|student2");
+  assert.deepEqual(a1, a2, "обновление страницы не меняет порядок");
+  assert.notDeepEqual(a1, b, "у другого ученика другой порядок");
+  assert.deepEqual([...a1].sort((x, y) => x - y), items, "ничего не потеряно и не задвоено");
+  assert.equal(a1.length, items.length);
+});
+
+test("shuffleForSeed: не портит исходный массив и работает на пустом", () => {
+  const items = [1, 2, 3];
+  const copy = [...items];
+  shuffleForSeed(items, "seed");
+  assert.deepEqual(items, copy);
+  assert.deepEqual(shuffleForSeed([], "seed"), []);
 });

@@ -43,6 +43,16 @@ export function TestForm({ groups, subjects = [] }: { groups: Group[]; subjects?
           <input name="maxScore" type="number" min={1} defaultValue={100} />
         </div>
       </div>
+      <div className="field">
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--ink-2)", fontSize: 13 }}>
+          <input type="checkbox" name="shuffle" value="on" />
+          Перемешивать вопросы у каждого ученика
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--ink-2)", fontSize: 13, marginTop: 8 }}>
+          <input type="checkbox" name="allowRetake" value="on" />
+          Разрешить пройти заново
+        </label>
+      </div>
     </>
   );
 }
