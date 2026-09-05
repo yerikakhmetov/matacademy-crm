@@ -6,6 +6,7 @@ import { getStudentIdForUser } from "@/lib/teacher";
 import { formatDate, scoreColor, gradeChipClass, DAYS, GRADE_TYPE } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
+import { BarChart } from "@/components/BarChart";
 import { CabinetHomework } from "./CabinetHomework";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
@@ -74,6 +75,13 @@ export default async function CabinetHome() {
     };
   });
 
+  const attendance = await prisma.attendance.findMany({
+    where: { studentId },
+    orderBy: { date: "desc" },
+    take: 20,
+    include: { lesson: { include: { group: { select: { name: true, color: true } } } } },
+  });
+
   const topics = groupIds.length
     ? await prisma.lessonSession.findMany({
         where: { lesson: { groupId: { in: groupIds } }, cancelled: false, topic: { not: "" } },
@@ -99,6 +107,11 @@ export default async function CabinetHome() {
   const lessons = student.groups
     .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name, color: g.color, teacherName: g.teacher?.name ?? null })))
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
+
+  const shortDate = (d: Date) => `${d.getUTCDate()}.${d.getUTCMonth() + 1}`;
+  const progress = [...student.grades]
+    .reverse()
+    .map((g) => ({ label: shortDate(new Date(g.date)), value: Math.round((g.score / g.maxScore) * 100) }));
 
   const now = new Date();
   const jsDay = now.getDay(); // 0 = вс
@@ -235,6 +248,21 @@ export default async function CabinetHome() {
         </div>
       )}
 
+      {progress.length >= 2 && (
+        <div className="card">
+          <div className="card-h">
+            <h3>Как идут дела</h3>
+            <span className="chip c-mut"><span className="d" />последние {progress.length}</span>
+          </div>
+          <div style={{ padding: 18 }}>
+            <BarChart data={progress} color="var(--violet)" height={150} formatValue={(n) => `${n}%`} />
+            <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
+              Результаты по оценкам в процентах — от старых к новым.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-h"><h3>Оценки</h3></div>
         <div style={{ padding: "6px 0" }}>
@@ -253,6 +281,34 @@ export default async function CabinetHome() {
           })}
         </div>
       </div>
+
+      {attendance.length > 0 && (
+        <div className="card">
+          <div className="card-h">
+            <h3>Посещаемость по занятиям</h3>
+            <span className="chip c-mut"><span className="d" />{attendance.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            {attendance.map((a) => {
+              const label = a.present ? "Был" : a.excused ? "Уважительная" : "Пропуск";
+              const cls = a.present ? "c-ok" : a.excused ? "c-mut" : "c-bad";
+              return (
+                <div className="list-row" key={a.id}>
+                  <div className="num mut" style={{ width: 62, fontSize: 12, fontWeight: 600 }}>{formatDate(a.date)}</div>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: a.lesson.group.color, flex: "none" }} />
+                    <span style={{ fontWeight: 600 }}>{a.lesson.group.name}</span>
+                  </div>
+                  <span className={`chip ${cls}`}><span className="d" />{label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mut" style={{ fontSize: 11.5, padding: "0 18px 14px", margin: 0 }}>
+            Пропуски по уважительной причине не влияют на процент посещаемости.
+          </p>
+        </div>
+      )}
 
       <p style={{ textAlign: "center" }}>
         <Link href="/cabinet" className="mut" style={{ fontSize: 11.5 }}>Обновить</Link>

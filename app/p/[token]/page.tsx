@@ -15,6 +15,7 @@ import {
 } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { Avatar } from "@/components/Avatar";
+import { BarChart } from "@/components/BarChart";
 
 export const dynamic = "force-dynamic";
 
@@ -189,6 +190,32 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             })}
           </div>
         </div>
+
+        {/* Динамика оценок */}
+        {student.grades.length >= 2 && (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-h">
+              <h3>Как идут дела</h3>
+              <span className="chip c-mut"><span className="d" />последние {student.grades.length}</span>
+            </div>
+            <div style={{ padding: 18 }}>
+              <BarChart
+                data={[...student.grades]
+                  .reverse()
+                  .map((g) => ({
+                    label: `${new Date(g.date).getUTCDate()}.${new Date(g.date).getUTCMonth() + 1}`,
+                    value: Math.round((g.score / g.maxScore) * 100),
+                  }))}
+                color="var(--violet)"
+                height={150}
+                formatValue={(n) => `${n}%`}
+              />
+              <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
+                Результаты по оценкам в процентах — от старых к новым.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Оценки */}
         <div className="card">
