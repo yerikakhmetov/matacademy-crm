@@ -15,7 +15,7 @@ import { DeleteStudentButton } from "./DeleteStudentButton";
 import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
 import { StudentCabinetLink } from "./StudentCabinetLink";
-import { MarkPaidButton } from "@/components/MarkPaidButton";
+import { PaymentActions } from "@/components/PaymentActions";
 import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 
@@ -151,16 +151,30 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                             {ps.label}
                           </span>
                         </td>
-                        <td className="right money num">{money(p.amount)}</td>
+                        <td className="right money num">
+                          {money(p.amount)}
+                          {p.paidAmount > 0 && p.paidAmount < p.amount && (
+                            <div className="mut" style={{ fontSize: 11.5, fontWeight: 500 }}>остаток {money(p.amount - p.paidAmount)}</div>
+                          )}
+                          {p.refundedAmount > 0 && (
+                            <div style={{ fontSize: 11.5, fontWeight: 500, color: "var(--bad)" }}>возврат {money(p.refundedAmount)}</div>
+                          )}
+                        </td>
                         {editor && (
                           <td className="right">
-                            {p.status === "PAID" ? (
-                              <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
-                                Квитанция
-                              </Link>
-                            ) : (
-                              <MarkPaidButton paymentId={p.id} />
-                            )}
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                              {p.paidAmount >= p.amount && (
+                                <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
+                                  Квитанция
+                                </Link>
+                              )}
+                              <PaymentActions
+                                paymentId={p.id}
+                                amount={p.amount}
+                                paidAmount={p.paidAmount}
+                                refundedAmount={p.refundedAmount}
+                              />
+                            </div>
                           </td>
                         )}
                       </tr>

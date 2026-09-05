@@ -11,6 +11,7 @@ import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPer
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
+import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
@@ -1255,14 +1256,19 @@ export async function createPayment(formData: FormData) {
     payItems = splitByPrice(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
   }
 
+  const method = str(formData.get("method")) || null;
+  const paidNow = status === "PAID" ? amount : 0;
   await prisma.payment.create({
     data: {
       studentId,
       purpose: str(formData.get("purpose")) || "Оплата",
-      method: str(formData.get("method")) || null,
+      method,
       amount,
       status,
+      paidAmount: paidNow,
       items: payItems.length > 0 ? { create: payItems } : undefined,
+      // Деньги, полученные сразу, тоже становятся движением — доход считается по ним
+      txs: paidNow > 0 ? { create: [{ kind: "PAYMENT", amount: paidNow, method }] } : undefined,
     },
   });
   const st0 = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
@@ -1276,19 +1282,112 @@ export async function createPayment(formData: FormData) {
 }
 
 // Отметить счёт оплаченным (гасит долг)
-export async function markPaid(paymentId: string, method?: string) {
+// Принять оплату по счёту: сумма по умолчанию — весь остаток (кнопка «Оплачен»),
+// либо частичная сумма из формы.
+export async function receivePayment(paymentId: string, amountIn: number | null, method?: string, dateStr?: string) {
   await assertEditor("finance");
-  const payment = await prisma.payment.update({
+  const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    data: { status: "PAID", method: method || undefined, date: new Date() },
     include: { student: { select: { name: true } } },
   });
-  await logAudit("UPDATE", "Оплата", `${payment.student.name} · ${money(payment.amount)} · оплачен`);
+  if (!payment) throw new Error("Счёт не найден");
+
+  const left = outstanding(payment.amount, payment.paidAmount);
+  if (left <= 0) throw new Error("Счёт уже оплачен полностью");
+  const sum = amountIn == null ? left : Math.min(Math.max(1, amountIn), left);
+
+  const session = await auth();
+  const paidAmount = payment.paidAmount + sum;
+  await prisma.$transaction([
+    prisma.paymentTx.create({
+      data: {
+        paymentId,
+        kind: "PAYMENT",
+        amount: sum,
+        method: method || payment.method,
+        date: parseDate(dateStr ?? null) ?? new Date(),
+        createdBy: session?.user?.name ?? null,
+      },
+    }),
+    prisma.payment.update({
+      where: { id: paymentId },
+      data: {
+        paidAmount,
+        method: method || payment.method,
+        status: paymentStatus(payment.amount, paidAmount, payment.date),
+      },
+    }),
+  ]);
+
+  await logAudit(
+    "UPDATE",
+    "Оплата",
+    `${payment.student.name} · принято ${money(sum)}${paidAmount < payment.amount ? ` · остаток ${money(payment.amount - paidAmount)}` : " · оплачен полностью"}`
+  );
   await recalc(payment.studentId);
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
+}
+
+// Приём оплаты из формы (частичной или полной).
+export async function receivePaymentForm(paymentId: string, formData: FormData) {
+  const asked = int(formData.get("amount"));
+  return receivePayment(
+    paymentId,
+    asked > 0 ? asked : null,
+    str(formData.get("method")) || undefined,
+    str(formData.get("date")) || undefined
+  );
+}
+
+// Совместимость со старой кнопкой «Оплачен» — принимает весь остаток.
+export async function markPaid(paymentId: string, method?: string) {
+  return receivePayment(paymentId, null, method);
+}
+
+// Возврат денег родителю. Уменьшает доход тем месяцем, когда возврат сделан.
+export async function refundPayment(paymentId: string, formData: FormData) {
+  await assertEditor("finance");
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { student: { select: { name: true } } },
+  });
+  if (!payment) throw new Error("Счёт не найден");
+
+  const canRefund = maxRefundable(payment.paidAmount, payment.refundedAmount);
+  if (canRefund <= 0) throw new Error("По этому счёту возвращать нечего");
+  const asked = int(formData.get("amount"));
+  const sum = Math.min(Math.max(1, asked || canRefund), canRefund);
+
+  const session = await auth();
+  await prisma.$transaction([
+    prisma.paymentTx.create({
+      data: {
+        paymentId,
+        kind: "REFUND",
+        amount: sum,
+        method: str(formData.get("method")) || payment.method,
+        date: parseDate(formData.get("date")) ?? new Date(),
+        note: str(formData.get("note")) || null,
+        createdBy: session?.user?.name ?? null,
+      },
+    }),
+    prisma.payment.update({
+      where: { id: paymentId },
+      data: { refundedAmount: payment.refundedAmount + sum },
+    }),
+  ]);
+
+  await logAudit("UPDATE", "Возврат", `${payment.student.name} · ${money(sum)}`);
+  await recalc(payment.studentId);
+  revalidatePath("/payments");
+  revalidatePath("/students");
+  revalidatePath(`/students/${payment.studentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
 
 export async function deletePayment(paymentId: string) {

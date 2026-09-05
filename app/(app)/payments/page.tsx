@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { netRevenue } from "@/lib/revenue";
 import { auth } from "@/auth";
 import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
@@ -8,7 +9,7 @@ import { money, initials, avatarColor, formatDate, PAYMENT_STATUS } from "@/lib/
 import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
-import { MarkPaidButton } from "@/components/MarkPaidButton";
+import { PaymentActions } from "@/components/PaymentActions";
 import { createPayment, refreshOverdue } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
@@ -36,23 +37,31 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
   const where = status === "all" ? {} : { status };
 
-  const [payments, students, subjects, paidAgg, pendingAgg, overdueAgg, paidCount] = await Promise.all([
+  const [payments, students, subjects, revenue, owing, paidCount] = await Promise.all([
     prisma.payment.findMany({ where, include: { student: true }, orderBy: { date: "desc" } }),
     prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
-    prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "PAID", date: { gte: monthStart() } } }),
-    prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: "PENDING" } }),
-    prisma.payment.aggregate({ _sum: { amount: true }, _count: true, where: { status: "OVERDUE" } }),
-    prisma.payment.count({ where: { status: "PAID", date: { gte: monthStart() } } }),
+    netRevenue(monthStart()),
+    // Долги считаем по остаткам, а не по полной сумме счёта: частично оплаченный
+    // счёт должен попадать в «ожидается» только неоплаченной частью.
+    prisma.payment.findMany({
+      where: { status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
+      select: { amount: true, paidAmount: true, status: true, studentId: true },
+    }),
+    prisma.paymentTx.count({ where: { kind: "PAYMENT", date: { gte: monthStart() } } }),
   ]);
 
-  const revenue = paidAgg._sum.amount ?? 0;
   const avg = paidCount > 0 ? Math.round(revenue / paidCount) : 0;
+  const left = (p: { amount: number; paidAmount: number }) => Math.max(0, p.amount - p.paidAmount);
+  const pendingSum = owing.filter((p) => p.status !== "OVERDUE").reduce((a, p) => a + left(p), 0);
+  const pendingCount = owing.filter((p) => p.status !== "OVERDUE").length;
+  const overdueSum = owing.filter((p) => p.status === "OVERDUE").reduce((a, p) => a + left(p), 0);
+  const overdueStudents = new Set(owing.filter((p) => p.status === "OVERDUE").map((p) => p.studentId)).size;
 
   const kpis = [
     { l: "Поступило за месяц", v: money(revenue), icon: "check", col: "var(--ok)", bg: "var(--ok-soft)" },
-    { l: "Ожидается", v: money(pendingAgg._sum.amount ?? 0), t: `${pendingAgg._count} счетов`, icon: "clock", col: "var(--warn)", bg: "var(--warn-soft)" },
-    { l: "Просрочено", v: money(overdueAgg._sum.amount ?? 0), t: `${overdueAgg._count} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" },
+    { l: "Ожидается", v: money(pendingSum), t: `${pendingCount} счетов`, icon: "clock", col: "var(--warn)", bg: "var(--warn-soft)" },
+    { l: "Просрочено", v: money(overdueSum), t: `${overdueStudents} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" },
     { l: "Средний чек", v: money(avg), icon: "chart", col: "var(--accent)", bg: "var(--accent-soft)" },
   ];
 
@@ -140,17 +149,33 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td className="right money num" style={{ color: p.status === "PAID" ? "var(--ok)" : p.status === "OVERDUE" ? "var(--bad)" : "var(--ink)" }}>
                       {money(p.amount)}
+                      {p.paidAmount > 0 && p.paidAmount < p.amount && (
+                        <div className="mut" style={{ fontSize: 11.5, fontWeight: 500 }}>
+                          принято {money(p.paidAmount)} · остаток {money(p.amount - p.paidAmount)}
+                        </div>
+                      )}
+                      {p.refundedAmount > 0 && (
+                        <div style={{ fontSize: 11.5, fontWeight: 500, color: "var(--bad)" }}>
+                          возврат {money(p.refundedAmount)}
+                        </div>
+                      )}
                     </td>
                     {editor && (
                       <td className="right">
-                        {p.status === "PAID" ? (
-                          <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
-                            <Icon name="export" size={14} />
-                            Квитанция
-                          </Link>
-                        ) : (
-                          <MarkPaidButton paymentId={p.id} />
-                        )}
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          {p.paidAmount >= p.amount && (
+                            <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
+                              <Icon name="export" size={14} />
+                              Квитанция
+                            </Link>
+                          )}
+                          <PaymentActions
+                            paymentId={p.id}
+                            amount={p.amount}
+                            paidAmount={p.paidAmount}
+                            refundedAmount={p.refundedAmount}
+                          />
+                        </div>
                       </td>
                     )}
                   </tr>

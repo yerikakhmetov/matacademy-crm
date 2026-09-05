@@ -1,3 +1,4 @@
+import { PAYMENT_METHODS } from "@/lib/format";
 type StudentLite = { id: string; name: string };
 type Subject = { id: string; name: string; color: string };
 
@@ -33,11 +34,9 @@ export function PaymentForm({ students, fixedStudentId, subjects = [] }: { stude
         <div className="field">
           <label>Способ оплаты</label>
           <select name="method" defaultValue="Kaspi">
-            <option>Kaspi</option>
-            <option>Халық банк</option>
-            <option>Карта</option>
-            <option>Наличные</option>
-            <option>Перевод</option>
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
           </select>
         </div>
       </div>

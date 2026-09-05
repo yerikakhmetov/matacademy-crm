@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { netRevenue } from "@/lib/revenue";
 import { auth } from "@/auth";
 import { isTeacher } from "@/lib/teacher";
 import { getAccess } from "@/lib/access";
@@ -29,20 +30,19 @@ export default async function DashboardPage() {
   const jsDay = new Date().getDay(); // 0=Вс..6=Сб
   const today = jsDay === 0 ? 0 : jsDay; // 1..6 = Пн..Сб
 
-  const [activeStudents, revenueAgg, newLeads, debtStudents, todayLessons, stageCounts, recentPays, overdue, pausedStudents] =
+  const [activeStudents, revenue, newLeads, debtStudents, todayLessons, stageCounts, recentPays, overdue, pausedStudents] =
     await Promise.all([
       prisma.student.count({ where: { status: "ACTIVE" } }),
-      prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "PAID", date: { gte: monthStart() } } }),
+      netRevenue(monthStart()),
       prisma.lead.count({ where: { createdAt: { gte: monthStart() } } }),
       prisma.student.findMany({ where: { balance: { lt: 0 } }, select: { balance: true } }),
       prisma.lesson.findMany({ where: { dayOfWeek: today }, include: { group: { include: { teacher: true, students: true } } }, orderBy: { startTime: "asc" } }),
       prisma.lead.groupBy({ by: ["stage"], _count: true }),
-      prisma.payment.findMany({ where: { status: "PAID" }, include: { student: true }, orderBy: { date: "desc" }, take: 5 }),
+      prisma.payment.findMany({ where: { paidAmount: { gt: 0 } }, include: { student: true }, orderBy: { date: "desc" }, take: 5 }),
       prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true } }),
       prisma.student.findMany({ where: { status: "PAUSED" }, take: 3 }),
     ]);
 
-  const revenue = revenueAgg._sum.amount ?? 0;
   const totalDebt = debtStudents.reduce((a, s) => a + s.balance, 0);
   const countByStage = (k: string) => stageCounts.find((s) => s.stage === k)?._count ?? 0;
   const totalLeadsAll = stageCounts.reduce((a, s) => a + s._count, 0);

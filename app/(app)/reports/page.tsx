@@ -5,6 +5,8 @@ import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
 import { gatherPayrollRange } from "@/lib/payroll";
 import { getSettings } from "@/lib/settings";
+import { txSign, txsSince } from "@/lib/revenue";
+import { settledRatio } from "@/lib/payments";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
@@ -36,8 +38,8 @@ export default async function ReportsPage() {
   const months = lastMonths(6);
   const since = new Date(months[0].year, months[0].month0, 1);
 
-  const [paidPayments, leads, students] = await Promise.all([
-    prisma.payment.findMany({ where: { status: "PAID", date: { gte: since } }, select: { amount: true, date: true, method: true, student: { select: { groups: { select: { id: true } } } } } }),
+  const [txs, leads, students] = await Promise.all([
+    txsSince(since),
     prisma.lead.findMany({ select: { source: true, stage: true, createdAt: true } }),
     prisma.student.findMany({
       select: { id: true, name: true, status: true, balance: true, attendance: true, groups: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
@@ -64,8 +66,13 @@ export default async function ReportsPage() {
   // Фактически собранный доход по предметам (по оплаченным платежам за период)
   const payItemsPeriod = money$
     ? await prisma.paymentItem.findMany({
-        where: { payment: { status: "PAID", date: { gte: since } } },
-        select: { subjectId: true, subjectName: true, amount: true, payment: { select: { date: true } } },
+        where: { payment: { paidAmount: { gt: 0 }, date: { gte: since } } },
+        select: {
+          subjectId: true,
+          subjectName: true,
+          amount: true,
+          payment: { select: { date: true, amount: true, paidAmount: true, refundedAmount: true } },
+        },
       })
     : [];
   // Зафиксированные зарплаты (для закрытых месяцев берём их вместо живого расчёта)
@@ -81,7 +88,7 @@ export default async function ReportsPage() {
   // Доход по месяцам
   const revByMonth = months.map((m) => ({
     label: m.label,
-    value: paidPayments.filter((p) => monthKey(p.date) === m.key).reduce((a, p) => a + p.amount, 0),
+    value: txs.filter((t) => monthKey(t.date) === m.key).reduce((a, t) => a + txSign(t.kind) * t.amount, 0),
   }));
   const totalRev = revByMonth.reduce((a, m) => a + m.value, 0);
 
@@ -113,16 +120,21 @@ export default async function ReportsPage() {
 
   // Способы оплаты
   const methodMap = new Map<string, number>();
-  for (const p of paidPayments) {
-    const k = p.method || "Другое";
-    methodMap.set(k, (methodMap.get(k) ?? 0) + p.amount);
+  for (const t of txs) {
+    const k = t.method || t.payment.method || "Другое";
+    methodMap.set(k, (methodMap.get(k) ?? 0) + txSign(t.kind) * t.amount);
   }
   const methods = [...methodMap.entries()].sort((a, b) => b[1] - a[1]);
   const methodMax = Math.max(1, ...methods.map((m) => m[1]));
 
   // Доход по предметам (фактически собранный — из оплаченных платежей за период)
   const subjRevMap = new Map<string, number>();
-  for (const it of payItemsPeriod) subjRevMap.set(it.subjectName, (subjRevMap.get(it.subjectName) ?? 0) + it.amount);
+  // Наполовину оплаченный счёт даёт предмету половину — иначе доход по предметам
+  // был бы больше фактического.
+  for (const it of payItemsPeriod) {
+    const k = settledRatio(it.payment.amount, it.payment.paidAmount, it.payment.refundedAmount);
+    subjRevMap.set(it.subjectName, (subjRevMap.get(it.subjectName) ?? 0) + Math.round(it.amount * k));
+  }
   const subjectRev = [...subjRevMap.entries()].sort((a, b) => b[1] - a[1]);
   const subjectRevTotal = subjectRev.reduce((a, [, v]) => a + v, 0);
   const subjectMax = Math.max(1, ...subjectRev.map(([, v]) => v));

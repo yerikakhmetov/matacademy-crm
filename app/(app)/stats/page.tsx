@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { txSign } from "@/lib/revenue";
 import { auth } from "@/auth";
 import { money } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -24,7 +25,7 @@ export default async function StatsPage() {
     prisma.group.count(),
     prisma.teacher.count(),
     prisma.lead.count(),
-    prisma.payment.aggregate({ _sum: { amount: true }, where: { status: "PAID" } }),
+    prisma.paymentTx.groupBy({ by: ["kind"], _sum: { amount: true } }),
     prisma.subscription.count(),
     prisma.student.count({ where: { telegramChatId: { not: null } } }),
     prisma.user.count({ where: { telegramUserId: { not: null } } }),
@@ -69,7 +70,7 @@ export default async function StatsPage() {
       col: "var(--ok)",
       bg: "var(--ok-soft)",
       items: [
-        { k: "Всего оплачено", v: money(paidAgg._sum.amount ?? 0) },
+        { k: "Всего оплачено", v: money(paidAgg.reduce((a, r) => a + txSign(r.kind) * (r._sum.amount ?? 0), 0)) },
         { k: "Абонементов", v: String(subs) },
         { k: "Лидов", v: String(leads) },
       ],

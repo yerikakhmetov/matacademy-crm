@@ -410,10 +410,31 @@ model Payment {
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   purpose   String
   method    String?  // Kaspi, Халық банк, Карта, Наличные
-  amount    Int
-  status    String   @default("PAID") // PAID | PENDING | OVERDUE
+  amount    Int // сумма счёта
+  paidAmount     Int @default(0) // фактически принято (сумма приходов) — кэш из PaymentTx
+  refundedAmount Int @default(0) // фактически возвращено — кэш из PaymentTx
+  status    String   @default("PAID") // PAID | PARTIAL | PENDING | OVERDUE
   date      DateTime @default(now())
   items     PaymentItem[]
+  txs       PaymentTx[]
+}
+
+// Движение денег по счёту: приход или возврат, у каждого своя дата.
+// Доход за период считается по этим записям, а не по дате счёта.
+model PaymentTx {
+  id        String   @id @default(cuid())
+  paymentId String
+  payment   Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  kind      String   @default("PAYMENT") // PAYMENT | REFUND
+  amount    Int // всегда положительная
+  method    String?
+  date      DateTime @default(now())
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([paymentId])
+  @@index([date])
 }
 
 // Разбивка платежа по предметам (пропорционально) — фактически собранный доход по предметам

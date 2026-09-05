@@ -1,20 +1,23 @@
 import { prisma } from "./prisma";
+import { outstanding } from "./payments.ts";
 
 // Внутренние серверные помощники (НЕ server actions) — вызываются из авторизованных
 // действий и из cron. Не содержат проверки прав: вызывающая сторона отвечает за доступ.
 
-// Пересчёт задолженности ученика: долг = сумма неоплаченных счетов (PENDING + OVERDUE).
-// Баланс отрицательный = долг.
+// Пересчёт задолженности ученика: долг = неоплаченные остатки по счетам.
+// Частично оплаченный счёт добавляет только остаток, а не всю сумму.
+// Возврат долг не создаёт: если счёт закрыт, а деньги вернули, задолженность не возникает.
 export async function recalc(studentId: string) {
-  const unpaid = await prisma.payment.aggregate({
-    _sum: { amount: true },
-    where: { studentId, status: { in: ["PENDING", "OVERDUE"] } },
+  const rows = await prisma.payment.findMany({
+    where: { studentId, status: { in: ["PENDING", "OVERDUE", "PARTIAL"] } },
+    select: { amount: true, paidAmount: true },
   });
-  const debt = unpaid._sum.amount ?? 0;
+  const debt = rows.reduce((a, p) => a + outstanding(p.amount, p.paidAmount), 0);
   await prisma.student.update({ where: { id: studentId }, data: { balance: -debt } });
 }
 
 // Автопометка просроченных счетов: PENDING со сроком раньше сегодняшнего → OVERDUE.
+// Частично оплаченные (PARTIAL) не трогаем — по ним уже видно, что долг остался.
 export async function markOverdue() {
   const today = new Date();
   const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));

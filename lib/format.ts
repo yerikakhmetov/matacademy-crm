@@ -34,6 +34,7 @@ export const STUDENT_STATUS: Record<string, { cls: string; label: string }> = {
 // Статусы оплат
 export const PAYMENT_STATUS: Record<string, { cls: string; label: string }> = {
   PAID: { cls: "c-ok", label: "Оплачено" },
+  PARTIAL: { cls: "c-warn", label: "Частично" },
   PENDING: { cls: "c-warn", label: "Ожидает" },
   OVERDUE: { cls: "c-bad", label: "Просрочен" },
 };
@@ -102,3 +103,6 @@ export const EXPENSE_CATEGORY: Record<string, string> = {
   TAX: "Налоги и сборы",
   OTHER: "Прочее",
 };
+
+// Способы оплаты (используются в формах приёма оплаты и возврата)
+export const PAYMENT_METHODS = ["Kaspi", "Халық банк", "Карта", "Наличные", "Перевод"];

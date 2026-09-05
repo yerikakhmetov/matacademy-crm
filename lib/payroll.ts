@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { settledRatio } from "./payments.ts";
 import {
   computePayrollRows,
   feeKey,
@@ -75,9 +76,13 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
       ? prisma.paymentItem.findMany({
           where: {
             subjectId: { not: null },
-            payment: { status: "PAID", studentId: { in: ids }, date: { gte: rangeStart, lt: rangeEnd } },
+            payment: { paidAmount: { gt: 0 }, studentId: { in: ids }, date: { gte: rangeStart, lt: rangeEnd } },
           },
-          select: { subjectId: true, amount: true, payment: { select: { studentId: true, date: true } } },
+          select: {
+            subjectId: true,
+            amount: true,
+            payment: { select: { studentId: true, date: true, amount: true, paidAmount: true, refundedAmount: true } },
+          },
         })
       : Promise.resolve([]),
     // Отменённые занятия не входят в делитель
@@ -109,7 +114,9 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
     let m = paidFeeByMonth.get(mk);
     if (!m) paidFeeByMonth.set(mk, (m = new Map()));
     const k = feeKey(it.payment.studentId, it.subjectId);
-    m.set(k, (m.get(k) ?? 0) + it.amount);
+    // Частично оплаченный счёт даёт предмету только оплаченную долю
+    const ratio = settledRatio(it.payment.amount, it.payment.paidAmount, it.payment.refundedAmount);
+    m.set(k, (m.get(k) ?? 0) + it.amount * ratio);
   }
 
   const cancelledByMonth = new Map<string, Map<string, number>>();
