@@ -280,6 +280,19 @@ export default async function SettingsPage() {
         </form>
       </div>
 
+      <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+          Резервная копия
+        </div>
+        <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+          Выгружает все данные школы одним JSON-файлом: ученики, группы, расписание, посещаемость,
+          оценки, оплаты и движения денег, расходы, лиды. Пароли и токены входа в файл не попадают.
+        </p>
+        <a className="btn ghost" href="/api/export/backup" download>
+          Скачать резервную копию
+        </a>
+      </div>
+
       <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720, borderColor: "var(--bad)" }}>
         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--bad)", fontWeight: 700, marginBottom: 6 }}>
           Опасная зона
