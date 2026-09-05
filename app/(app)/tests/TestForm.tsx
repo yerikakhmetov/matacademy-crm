@@ -44,6 +44,13 @@ export function TestForm({ groups, subjects = [] }: { groups: Group[]; subjects?
         </div>
       </div>
       <div className="field">
+        <label>Ограничение по времени, мин</label>
+        <input name="timeLimitMin" type="number" min={1} placeholder="пусто — без ограничения" />
+        <span className="mut" style={{ fontSize: 11.5 }}>
+          Ответы сохраняются по ходу, поэтому закрытая вкладка не обнуляет работу.
+        </span>
+      </div>
+      <div className="field">
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, color: "var(--ink-2)", fontSize: 13 }}>
           <input type="checkbox" name="shuffle" value="on" />
           Перемешивать вопросы у каждого ученика

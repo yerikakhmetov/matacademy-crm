@@ -1135,6 +1135,7 @@ export async function createTest(formData: FormData) {
       date: parseDate(formData.get("date")) ?? new Date(),
       shuffle: formData.get("shuffle") != null,
       allowRetake: formData.get("allowRetake") != null,
+      timeLimitMin: int(formData.get("timeLimitMin")) > 0 ? int(formData.get("timeLimitMin")) : null,
     },
   });
   await logAudit("CREATE", "Тест", `${test.title}`);
@@ -1180,6 +1181,104 @@ export async function saveTestResults(testId: string, formData: FormData) {
   await logAudit("UPDATE", "Тест", `${test.title} · ${saved} оценок`);
   revalidatePath(`/tests/${testId}`);
   revalidatePath("/tests");
+  revalidatePath("/grades");
+}
+
+// Проверка доступа ученика к тесту: он в группе теста и тест уже открыт.
+async function assertCanTakeTest(testId: string) {
+  const session = await auth();
+  const studentId = await getStudentIdForUser(session?.user?.id);
+  if (!studentId) throw new Error("Профиль ученика не найден");
+
+  const test = await prisma.test.findUnique({
+    where: { id: testId },
+    include: {
+      questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
+      group: { include: { lessons: { select: { dayOfWeek: true, startTime: true } } } },
+    },
+  });
+  if (!test) throw new Error("Тест не найден");
+  if (!test.groupId || !test.group) throw new Error("Тест не привязан к группе");
+  if (test.questions.length === 0) throw new Error("В тесте нет вопросов");
+
+  const inGroup = await prisma.student.findFirst({
+    where: { id: studentId, groups: { some: { id: test.groupId } } },
+    select: { id: true },
+  });
+  if (!inGroup) throw new Error("Тест не для вашей группы");
+
+  const tz = (await getSettings()).tzOffsetHours;
+  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz)) throw new Error("Тест ещё не открыт");
+
+  return { studentId, test };
+}
+
+// Подсчёт результата по сохранённым ответам.
+function scoreAnswers(questions: { correct: number }[], answers: number[], maxScore: number) {
+  const total = questions.length;
+  const correctCount = questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
+  return { total, correctCount, score: Math.round((correctCount / total) * maxScore) };
+}
+
+// Начать тест с ограничением по времени: фиксируем момент старта.
+export async function startTestAttempt(testId: string) {
+  const { studentId, test } = await assertCanTakeTest(testId);
+  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  if (existing && existing.finished && !test.allowRetake) throw new Error("Тест уже пройден");
+
+  await prisma.testAttempt.upsert({
+    where: { testId_studentId: { testId, studentId } },
+    create: {
+      testId,
+      studentId,
+      answers: new Array(test.questions.length).fill(-1),
+      total: test.questions.length,
+      startedAt: new Date(),
+      finished: false,
+    },
+    update: { answers: new Array(test.questions.length).fill(-1), correctCount: 0, score: 0, startedAt: new Date(), finished: false },
+  });
+  revalidatePath(`/cabinet/test/${testId}`);
+}
+
+// Сохранение ответа по ходу теста: если вкладка закроется, ответы уже на сервере.
+export async function saveTestAnswer(testId: string, index: number, choice: number) {
+  const { studentId, test } = await assertCanTakeTest(testId);
+  const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  if (!attempt || attempt.finished) return;
+  if (index < 0 || index >= test.questions.length) return;
+
+  const answers = [...attempt.answers];
+  while (answers.length < test.questions.length) answers.push(-1);
+  answers[index] = choice;
+  await prisma.testAttempt.update({ where: { id: attempt.id }, data: { answers } });
+}
+
+// Завершить попытку по сохранённым ответам — вызывается по кнопке и когда время вышло.
+export async function finishTestAttempt(testId: string) {
+  const { studentId, test } = await assertCanTakeTest(testId);
+  const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  if (!attempt || attempt.finished) return;
+
+  const { total, correctCount, score } = scoreAnswers(test.questions, attempt.answers, test.maxScore);
+  const session = await auth();
+  await prisma.$transaction([
+    prisma.testAttempt.update({
+      where: { id: attempt.id },
+      data: { correctCount, total, score, finished: true, submittedAt: new Date() },
+    }),
+    prisma.grade.upsert({
+      where: { testId_studentId: { testId, studentId } },
+      create: {
+        studentId, testId, topic: test.title, type: "TEST", score,
+        maxScore: test.maxScore, date: new Date(), createdBy: session?.user?.name ?? null,
+      },
+      update: { score, maxScore: test.maxScore, topic: test.title },
+    }),
+  ]);
+  revalidatePath(`/cabinet/test/${testId}`);
+  revalidatePath("/cabinet");
+  revalidatePath(`/tests/${testId}`);
   revalidatePath("/grades");
 }
 

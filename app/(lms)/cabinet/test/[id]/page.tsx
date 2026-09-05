@@ -7,7 +7,8 @@ import { isTestOpen, shuffleForSeed } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
-import { submitTestAttempt } from "@/app/actions/data";
+import { finishTestAttempt, startTestAttempt, submitTestAttempt } from "@/app/actions/data";
+import { TimedTest } from "./TimedTest";
 import { formatDate, gradeChipClass } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 
@@ -63,10 +64,20 @@ export default async function CabinetTest({
     </div>
   );
 
+  const timed = test.timeLimitMin != null && test.timeLimitMin > 0;
+  const deadline =
+    timed && attempt?.startedAt ? new Date(attempt.startedAt.getTime() + test.timeLimitMin! * 60_000) : null;
+
+  // Время вышло, а попытка не закрыта (например, закрыли вкладку) — считаем по сохранённым ответам
+  if (timed && attempt && !attempt.finished && deadline && deadline.getTime() <= Date.now()) {
+    await finishTestAttempt(test.id);
+    redirect(`/cabinet/test/${test.id}`);
+  }
+
   const retaking = retake === "1" && test.allowRetake;
 
   // ── Результат (тест уже пройден) ──
-  if (attempt && !retaking) {
+  if (attempt && attempt.finished && !retaking) {
     const pct = Math.round((attempt.score / test.maxScore) * 100);
     return (
       <div>
@@ -134,7 +145,46 @@ export default async function CabinetTest({
     );
   }
 
-  // ── Прохождение теста ──
+  // ── Тест с ограничением по времени ──
+  if (timed) {
+    const ordered = test.shuffle
+      ? shuffleForSeed(test.questions.map((q, i) => ({ q, i })), `${test.id}|${studentId}`)
+      : test.questions.map((q, i) => ({ q, i }));
+
+    // Попытка ещё не начата — показываем экран старта, отсчёт пойдёт после нажатия
+    if (!attempt || attempt.finished) {
+      return (
+        <div>
+          {header}
+          <div className="card" style={{ padding: 28, textAlign: "center" }}>
+            <div style={{ fontSize: 34, marginBottom: 8 }}>⏱</div>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>{t(locale, "test.startTitle")}</div>
+            <p className="mut" style={{ fontSize: 13, margin: "0 0 16px" }}>
+              {t(locale, "test.startNote", { min: test.timeLimitMin! })}
+            </p>
+            <form action={startTestAttempt.bind(null, test.id)}>
+              <button className="btn" type="submit">{t(locale, "test.start")}</button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        {header}
+        <TimedTest
+          testId={test.id}
+          locale={locale}
+          deadlineIso={deadline!.toISOString()}
+          initialAnswers={test.questions.map((_, i) => attempt.answers[i] ?? -1)}
+          questions={ordered.map(({ q, i }) => ({ id: q.id, index: i, text: q.text, options: q.options }))}
+        />
+      </div>
+    );
+  }
+
+  // ── Прохождение теста без ограничения по времени ──
   return (
     <div>
       {header}
