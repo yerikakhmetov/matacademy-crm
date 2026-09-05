@@ -87,26 +87,36 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const records = lessonIds.length
     ? await prisma.attendance.findMany({ where: { lessonId: { in: lessonIds }, date: { gte: monthStart, lt: monthEnd } } })
     : [];
-  // ключ: lessonId|iso|studentId -> present
-  const recMap = new Map<string, boolean>();
-  for (const r of records) recMap.set(`${r.lessonId}|${r.date.toISOString().slice(0, 10)}|${r.studentId}`, r.present);
+  // ключ: lessonId|iso|studentId -> состояние отметки
+  type Cell = "present" | "excused" | "unexcused";
+  const recMap = new Map<string, Cell>();
+  for (const r of records) {
+    const state: Cell = r.present ? "present" : r.excused ? "excused" : "unexcused";
+    recMap.set(`${r.lessonId}|${r.date.toISOString().slice(0, 10)}|${r.studentId}`, state);
+  }
 
-  // Итоги по ученику
+  // Итоги по ученику. Уважительный пропуск не входит в знаменатель —
+  // так же, как в общем показателе посещаемости и в расчёте зарплаты.
   function summary(studentId: string) {
     let present = 0,
-      marked = 0;
+      marked = 0,
+      excused = 0;
     for (const o of occurrences) {
       const v = recMap.get(`${o.lessonId}|${o.iso}|${studentId}`);
       if (v === undefined) continue;
+      if (v === "excused") {
+        excused++;
+        continue;
+      }
       marked++;
-      if (v) present++;
+      if (v === "present") present++;
     }
-    return { present, marked, pct: marked ? Math.round((present / marked) * 100) : null };
+    return { present, marked, excused, pct: marked ? Math.round((present / marked) * 100) : null };
   }
 
-  const totalMarked = records.length;
+  const counted = records.filter((r) => r.present || !r.excused);
   const totalPresent = records.filter((r) => r.present).length;
-  const groupPct = totalMarked ? Math.round((totalPresent / totalMarked) * 100) : null;
+  const groupPct = counted.length ? Math.round((totalPresent / counted.length) * 100) : null;
 
   return (
     <>
@@ -171,8 +181,10 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                           <td key={i} style={{ textAlign: "center", padding: "8px 6px" }}>
                             {v === undefined ? (
                               <span className="jcell jnone">·</span>
-                            ) : v ? (
+                            ) : v === "present" ? (
                               <span className="jcell jyes">✓</span>
+                            ) : v === "excused" ? (
+                              <span className="jcell jnone" title="Уважительная причина — не считается прогулом">У</span>
                             ) : (
                               <span className="jcell jno">✕</span>
                             )}
@@ -181,10 +193,11 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                       })}
                       <td style={{ textAlign: "right" }}>
                         {sum.marked === 0 ? (
-                          <span className="mut">—</span>
+                          <span className="mut">{sum.excused > 0 ? `${sum.excused} уваж.` : "—"}</span>
                         ) : (
                           <span className="num" style={{ fontWeight: 700, color: sum.pct! >= 85 ? "var(--ok)" : sum.pct! >= 70 ? "var(--warn)" : "var(--bad)" }}>
                             {sum.present}/{sum.marked} · {sum.pct}%
+                            {sum.excused > 0 && <span className="mut" style={{ fontWeight: 500 }}> · {sum.excused} уваж.</span>}
                           </span>
                         )}
                       </td>
