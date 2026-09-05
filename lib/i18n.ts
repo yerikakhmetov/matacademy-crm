@@ -79,6 +79,13 @@ const ru = {
   "hw.markDone": "Отметить выполненным",
   "hw.markUndone": "Отметить невыполненным",
   "hw.due": "срок: {date}",
+  "hw.attach": "Прикрепить работу",
+  "hw.attached": "Работа прикреплена",
+  "hw.replace": "Заменить",
+  "hw.remove": "Убрать",
+  "hw.uploading": "Загружаем…",
+  "hw.tooBig": "Файл больше 20 МБ",
+  "hw.uploadHint": "Фото тетради или файл, до 20 МБ",
 
   // тест
   "test.summary": "{n} вопросов · макс. {max} баллов",
@@ -189,6 +196,13 @@ const kk: Record<MsgKey, string> = {
   "hw.markDone": "Орындалды деп белгілеу",
   "hw.markUndone": "Орындалмады деп белгілеу",
   "hw.due": "мерзімі: {date}",
+  "hw.attach": "Жұмысты тіркеу",
+  "hw.attached": "Жұмыс тіркелді",
+  "hw.replace": "Ауыстыру",
+  "hw.remove": "Алып тастау",
+  "hw.uploading": "Жүктелуде…",
+  "hw.tooBig": "Файл 20 МБ-тан үлкен",
+  "hw.uploadHint": "Дәптердің суреті не файл, 20 МБ-қа дейін",
 
   "test.summary": "{n} сұрақ · ең жоғары {max} балл",
   "test.yourResult": "Сіздің нәтижеңіз",

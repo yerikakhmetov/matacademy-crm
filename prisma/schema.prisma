@@ -149,6 +149,10 @@ model HomeworkDone {
   studentId  String
   student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
   done       Boolean  @default(true)
+  fileUrl    String? // прикреплённая работа (Vercel Blob)
+  fileName   String?
+  comment    String? // короткая записка ученика к работе
+  submittedAt DateTime? // когда прикрепил файл
 
   @@unique([homeworkId, studentId])
 }

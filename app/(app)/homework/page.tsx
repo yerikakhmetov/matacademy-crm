@@ -78,10 +78,14 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {homeworks.map((hw) => {
-          const doneMap = new Map(hw.completions.map((c) => [c.studentId, c.done]));
-          const doneCount = group.students.filter((s) => doneMap.get(s.id)).length;
+          const byStudent = new Map(hw.completions.map((c) => [c.studentId, c]));
+          const doneCount = group.students.filter((s) => byStudent.get(s.id)?.done).length;
           const overdue = hw.dueDate && new Date(hw.dueDate) < new Date();
-          const students = group.students.map((s) => ({ id: s.id, name: s.name, done: !!doneMap.get(s.id) }));
+          const students = group.students.map((s) => {
+            const c = byStudent.get(s.id);
+            return { id: s.id, name: s.name, done: !!c?.done, fileUrl: c?.fileUrl ?? null, fileName: c?.fileName ?? null };
+          });
+          const submitted = group.students.filter((s) => byStudent.get(s.id)?.fileUrl).length;
           return (
             <div className="card" key={hw.id} style={{ padding: 18 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
@@ -99,6 +103,12 @@ export default async function HomeworkPage({ searchParams }: { searchParams: Pro
                       <span className="d" />
                       {doneCount}/{group.students.length} выполнили
                     </span>
+                    {submitted > 0 && (
+                      <span className="chip c-mut" title="Сколько учеников прикрепили работу файлом">
+                        <span className="d" />
+                        📎 {submitted}
+                      </span>
+                    )}
                   </div>
                 </div>
                 {canManage && <DeleteHomeworkButton id={hw.id} />}

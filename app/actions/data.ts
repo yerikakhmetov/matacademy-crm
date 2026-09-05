@@ -986,6 +986,18 @@ export async function toggleHomeworkDone(homeworkId: string, studentId: string) 
   revalidatePath("/homework");
 }
 
+// Ученик убирает прикреплённую работу (например, чтобы приложить другую).
+export async function removeMyHomeworkFile(homeworkId: string) {
+  const session = await auth();
+  const studentId = await getStudentIdForUser(session?.user?.id);
+  if (!studentId) throw new Error("Профиль ученика не найден");
+  await prisma.homeworkDone.updateMany({
+    where: { homeworkId, studentId },
+    data: { fileUrl: null, fileName: null, comment: null, submittedAt: null },
+  });
+  revalidatePath("/cabinet");
+}
+
 // Ученик отмечает/снимает выполнение СВОЕГО задания (studentId берётся из сессии).
 export async function toggleMyHomework(homeworkId: string): Promise<{ done: boolean }> {
   const session = await auth();

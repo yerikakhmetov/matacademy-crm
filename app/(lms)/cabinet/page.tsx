@@ -109,6 +109,8 @@ export default async function CabinetHome() {
       dueLabel: hw.dueDate ? formatDate(hw.dueDate) : null,
       dueTs: hw.dueDate ? new Date(hw.dueDate).getTime() : null,
       done: hw.completions[0]?.done ?? false,
+      fileUrl: hw.completions[0]?.fileUrl ?? null,
+      fileName: hw.completions[0]?.fileName ?? null,
     }))
     // Сначала невыполненные и с ближайшим сроком: раньше список шёл по дате
     // создания, и задание «на завтра» могло оказаться внизу.
