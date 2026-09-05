@@ -34,8 +34,8 @@ model Teacher {
   phone     String?
   color     String   @default("#3A5AE0")
   photoUrl  String? // фото профиля (Vercel Blob)
-  rate      Int      @default(0) // ставка (тг за урок/ученика или % — по rateType)
-  rateType  String   @default("PER_LESSON") // PER_LESSON | PER_STUDENT | PERCENT
+  rate      Int      @default(0) // УСТАРЕЛО: зарплата считается по посещаемости (lib/payroll-calc.ts)
+  rateType  String   @default("PER_LESSON") // УСТАРЕЛО: оставлено, чтобы не терять историю; нигде не читается
   userId    String?  @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups    Group[]

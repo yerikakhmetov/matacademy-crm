@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
 import { getSettings } from "@/lib/settings";
 import { money } from "@/lib/format";
-import { gatherPayroll } from "@/lib/payroll";
+import { gatherPayrollRange } from "@/lib/payroll";
 import { MonthSelect } from "../payroll/PayrollControls";
 
 export const dynamic = "force-dynamic";
@@ -46,8 +46,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
   const records = await prisma.payrollRecord.findMany({ where: { teacherId, year: { gte: monthOpts[monthOpts.length - 1].year } } });
   const recMap = new Map(records.map((r) => [`${r.year}-${r.month}`, r]));
 
-  // Живой расчёт по каждому из 6 месяцев (для незафиксированных)
-  const live = await Promise.all(monthOpts.map((m) => gatherPayroll(m.year, m.month0, feePct)));
+  // Живой расчёт по всем 6 месяцам одним набором запросов (для незафиксированных)
+  const live = await gatherPayrollRange(monthOpts, feePct);
 
   const monthData = monthOpts.map((m, i) => {
     const rec = recMap.get(`${m.year}-${m.month0}`);

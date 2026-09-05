@@ -335,8 +335,6 @@ export async function createTeacher(formData: FormData) {
       specialty: str(formData.get("specialty")),
       phone: str(formData.get("phone")) || null,
       color: str(formData.get("color")) || "#3A5AE0",
-      rate: int(formData.get("rate")),
-      rateType: str(formData.get("rateType")) || "PER_LESSON",
       subjects: subjectIds.length ? { connect: subjectIds.map((id) => ({ id })) } : undefined,
     },
   });
@@ -354,8 +352,6 @@ export async function updateTeacher(id: string, formData: FormData) {
       specialty: str(formData.get("specialty")),
       phone: str(formData.get("phone")) || null,
       color: str(formData.get("color")) || "#3A5AE0",
-      rate: int(formData.get("rate")),
-      rateType: str(formData.get("rateType")) || "PER_LESSON",
       subjects: { set: subjectIds.map((id) => ({ id })) },
     },
   });
@@ -374,16 +370,6 @@ export async function deleteTeacher(id: string) {
 }
 
 // Изменить ставку преподавателя
-export async function updateTeacherRate(id: string, formData: FormData) {
-  await assertEditor("payroll");
-  await prisma.teacher.update({
-    where: { id },
-    data: { rate: int(formData.get("rate")), rateType: str(formData.get("rateType")) || "PER_LESSON" },
-  });
-  await logAudit("UPDATE", "Ставка преподавателя", `${int(formData.get("rate"))}`);
-  revalidatePath("/payroll");
-  revalidatePath("/teachers");
-}
 
 // ---------- Лиды ----------
 export async function createLead(formData: FormData) {

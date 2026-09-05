@@ -1,7 +1,7 @@
 const COLORS = ["#3A5AE0", "#7048E8", "#0C8599", "#2F9E44", "#E8590C", "#C2255C"];
 
 type Subject = { id: string; name: string; color: string };
-type Values = { name?: string; specialty?: string; phone?: string | null; color?: string; rate?: number; rateType?: string; subjectIds?: string[] };
+type Values = { name?: string; specialty?: string; phone?: string | null; color?: string; subjectIds?: string[] };
 
 export function TeacherForm({ values, subjects = [] }: { values?: Values; subjects?: Subject[] }) {
   const selected = new Set(values?.subjectIds ?? []);
@@ -56,21 +56,6 @@ export function TeacherForm({ values, subjects = [] }: { values?: Values; subjec
               </option>
             ))}
           </select>
-        </div>
-      </div>
-      <div className="grid2">
-        <div className="field">
-          <label>Тип оплаты</label>
-          <select name="rateType" defaultValue={values?.rateType ?? "PER_LESSON"}>
-            <option value="PER_LESSON">За урок</option>
-            <option value="PER_STUDENT">За ученика</option>
-            <option value="PERCENT">% от оплат учеников</option>
-            <option value="PERCENT_SUBJECT">% от дохода по предметам</option>
-          </select>
-        </div>
-        <div className="field">
-          <label>Ставка</label>
-          <input name="rate" type="number" defaultValue={values?.rate ?? 0} placeholder="напр. 3000" />
         </div>
       </div>
     </>

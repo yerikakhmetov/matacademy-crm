@@ -53,6 +53,17 @@ export async function POST(req: NextRequest) {
       const teacherId = payload.slice("teacherlogin_".length);
       const teacher = await prisma.teacher.findUnique({ where: { id: teacherId }, include: { user: true } });
       if (teacher) {
+        // Один Telegram — одна учётная запись. Без этой проверки создание пользователя
+        // падало на уникальном telegramUserId, и бот просто молчал.
+        const taken = await prisma.user.findUnique({ where: { telegramUserId: fromId }, select: { id: true, name: true } });
+        if (taken && taken.id !== teacher.userId) {
+          await sendTelegram(
+            chat,
+            `⚠️ Этот Telegram уже привязан к учётной записи «${taken.name}». Один Telegram нельзя использовать для двух аккаунтов — обратитесь к администратору.`
+          );
+          return Response.json({ ok: true });
+        }
+
         let userId = teacher.userId;
         // если у преподавателя ещё нет учётной записи — создаём (вход только через Telegram)
         if (!userId) {

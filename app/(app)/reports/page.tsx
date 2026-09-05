@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
-import { gatherPayroll } from "@/lib/payroll";
+import { gatherPayrollRange } from "@/lib/payroll";
 import { getSettings } from "@/lib/settings";
 import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
@@ -54,7 +54,7 @@ export default async function ReportsPage() {
   }
   // Живой фонд зарплаты по каждому месяцу (по посещаемости), только при доступе к финансам
   const liveTotals: number[] = money$
-    ? (await Promise.all(months.map((m) => gatherPayroll(m.year, m.month0, feePct)))).map((map) => {
+    ? (await gatherPayrollRange(months, feePct)).map((map) => {
         let s = 0;
         for (const r of map.values()) s += r.salary;
         return s;
