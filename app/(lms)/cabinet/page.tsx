@@ -85,6 +85,12 @@ export default async function CabinetHome() {
     include: { lesson: { include: { group: { select: { name: true, color: true } } } } },
   });
 
+  const makeups = await prisma.makeup.findMany({
+    where: { studentId, status: "PLANNED" },
+    orderBy: { plannedAt: "asc" },
+    include: { lesson: { include: { group: { select: { name: true, color: true } } } } },
+  });
+
   const topics = groupIds.length
     ? await prisma.lessonSession.findMany({
         where: { lesson: { groupId: { in: groupIds } }, cancelled: false, topic: { not: "" } },
@@ -172,6 +178,35 @@ export default async function CabinetHome() {
           })}
         </div>
       </div>
+
+      {makeups.length > 0 && (
+        <div className="card">
+          <div className="card-h">
+            <h3>{t(locale, "makeup.title")}</h3>
+            <span className="chip c-mut"><span className="d" />{makeups.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            {makeups.map((m) => (
+              <div className="list-row" key={m.id}>
+                <div className="num mut" style={{ width: 62, fontSize: 12, fontWeight: 600 }}>{formatDate(m.plannedAt)}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: m.lesson.group.color, flex: "none" }} />
+                    {m.lesson.group.name}
+                  </div>
+                  <div className="mut" style={{ fontSize: 12 }}>
+                    {t(locale, "makeup.missed", { date: formatDate(m.missedDate) })}
+                    {m.note ? ` · ${m.note}` : ""}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mut" style={{ fontSize: 11.5, padding: "0 18px 14px", margin: 0 }}>
+            {t(locale, "makeup.note")}
+          </p>
+        </div>
+      )}
 
       {tests.length > 0 && (
         <div className="card">

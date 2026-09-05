@@ -11,6 +11,7 @@ import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPer
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
+import { recalcAttendance } from "@/lib/attendance";
 import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
@@ -724,6 +725,78 @@ export async function deleteLesson(id: string) {
   revalidatePath("/schedule");
 }
 
+// ---------- Отработки ----------
+// Право такое же, как на отметку посещаемости: админ/менеджер или учитель этой группы.
+async function assertCanMarkLesson(lessonId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: { group: { include: { teacher: true } } },
+  });
+  if (!lesson) throw new Error("Занятие не найдено");
+  const owns = lesson.group.teacher?.userId === session.user.id;
+  if (!(await canEditData(session.user.role)) && !owns) throw new Error("Недостаточно прав");
+  return { session, lesson };
+}
+
+export async function scheduleMakeup(formData: FormData) {
+  const lessonId = str(formData.get("lessonId"));
+  const studentId = str(formData.get("studentId"));
+  const missedDate = parseDate(formData.get("missedDate"));
+  const plannedAt = parseDate(formData.get("plannedAt"));
+  if (!lessonId || !studentId || !missedDate || !plannedAt) throw new Error("Заполните ученика, занятие и даты");
+
+  const { session, lesson } = await assertCanMarkLesson(lessonId);
+  await prisma.makeup.upsert({
+    where: { studentId_lessonId_missedDate: { studentId, lessonId, missedDate } },
+    create: {
+      studentId,
+      lessonId,
+      missedDate,
+      plannedAt,
+      note: str(formData.get("note")) || null,
+      createdBy: session.user?.name ?? null,
+    },
+    update: { plannedAt, status: "PLANNED", note: str(formData.get("note")) || null },
+  });
+  const stu = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
+  await logAudit("CREATE", "Отработка", `${stu?.name ?? ""} · ${lesson.group.name}`);
+  revalidatePath("/makeups");
+}
+
+// Отработка проведена: ставим посещение на дату отработки — за него преподавателю платят.
+export async function completeMakeup(id: string) {
+  const m = await prisma.makeup.findUnique({ where: { id }, include: { student: { select: { name: true } } } });
+  if (!m) throw new Error("Отработка не найдена");
+  await assertCanMarkLesson(m.lessonId);
+
+  const date = new Date(Date.UTC(m.plannedAt.getUTCFullYear(), m.plannedAt.getUTCMonth(), m.plannedAt.getUTCDate()));
+  await prisma.$transaction([
+    prisma.attendance.upsert({
+      where: { lessonId_studentId_date: { lessonId: m.lessonId, studentId: m.studentId, date } },
+      create: { lessonId: m.lessonId, studentId: m.studentId, date, present: true, excused: false },
+      update: { present: true, excused: false },
+    }),
+    prisma.makeup.update({ where: { id }, data: { status: "DONE" } }),
+  ]);
+
+  await recalcAttendance([m.studentId]);
+  await logAudit("UPDATE", "Отработка", `${m.student.name} · проведена`);
+  revalidatePath("/makeups");
+  revalidatePath("/payroll");
+  revalidatePath("/students");
+}
+
+export async function cancelMakeup(id: string) {
+  const m = await prisma.makeup.findUnique({ where: { id }, include: { student: { select: { name: true } } } });
+  if (!m) return;
+  await assertCanMarkLesson(m.lessonId);
+  await prisma.makeup.update({ where: { id }, data: { status: "CANCELLED" } });
+  await logAudit("UPDATE", "Отработка", `${m.student.name} · отменена`);
+  revalidatePath("/makeups");
+}
+
 // ---------- Посещаемость ----------
 // Отмена/восстановление занятия в конкретную дату.
 // При отмене отметки посещаемости за этот день удаляются: занятия не было.
@@ -813,34 +886,7 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
     await prisma.lessonSession.deleteMany({ where: { lessonId, date } });
   }
 
-  // Пересчёт % посещаемости. Пропуск по уважительной причине не считается прогулом
-  // и в знаменатель не входит — иначе болезнь портит показатель так же, как прогул.
-  // Два агрегата на всю группу вместо запроса на каждого ученика.
-  const ids = students.map((s) => s.id);
-  if (ids.length > 0) {
-    const [counted, present] = await Promise.all([
-      prisma.attendance.groupBy({
-        by: ["studentId"],
-        where: { studentId: { in: ids }, NOT: { present: false, excused: true } },
-        _count: { _all: true },
-      }),
-      prisma.attendance.groupBy({
-        by: ["studentId"],
-        where: { studentId: { in: ids }, present: true },
-        _count: { _all: true },
-      }),
-    ]);
-    const totalBy = new Map(counted.map((r) => [r.studentId, r._count._all]));
-    const presentBy = new Map(present.map((r) => [r.studentId, r._count._all]));
-
-    await prisma.$transaction(
-      ids.map((id) => {
-        const total = totalBy.get(id) ?? 0;
-        const pct = total > 0 ? Math.round(((presentBy.get(id) ?? 0) / total) * 100) : null;
-        return prisma.student.update({ where: { id }, data: { attendance: pct } });
-      })
-    );
-  }
+  await recalcAttendance(students.map((s) => s.id));
 
   revalidatePath(`/schedule/${lessonId}`);
   revalidatePath("/schedule");

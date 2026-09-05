@@ -106,6 +106,9 @@ const ru = {
   "portal.sum": "Сумма",
   "portal.noPayments": "Оплат пока нет",
   "portal.autoUpdate": "страница обновляется автоматически",
+  "makeup.title": "Отработки",
+  "makeup.note": "Занятия, пропущенные по уважительной причине, вы можете отработать в назначенный день.",
+  "makeup.missed": "пропуск {date}",
 } as const;
 
 export type MsgKey = keyof typeof ru;
@@ -195,6 +198,9 @@ const kk: Record<MsgKey, string> = {
   "portal.sum": "Сомасы",
   "portal.noPayments": "Төлем әзірге жоқ",
   "portal.autoUpdate": "бет автоматты жаңарып отырады",
+  "makeup.title": "Өтеу сабақтары",
+  "makeup.note": "Себепті қалдырған сабақтарыңызды белгіленген күні өтей аласыз.",
+  "makeup.missed": "{date} қалдырылған",
 };
 
 const DICT: Record<Locale, Record<MsgKey, string>> = { ru, kk };

@@ -122,6 +122,7 @@ model Student {
   grades            Grade[]
   homeworkDone      HomeworkDone[]
   testAttempts      TestAttempt[]
+  makeups           Makeup[]
   createdAt         DateTime       @default(now())
 }
 
@@ -296,6 +297,28 @@ model Lesson {
   room       String          @default("Каб. 1")
   attendance Attendance[]
   sessions   LessonSession[]
+  makeups    Makeup[]
+}
+
+// Отработка: занятие, пропущенное по уважительной причине, проводится в другой день.
+// Когда отработка проведена, появляется отметка посещаемости на дату отработки —
+// поэтому преподаватель получает за неё оплату, как за обычное занятие.
+model Makeup {
+  id         String   @id @default(cuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  missedDate DateTime // дата пропущенного занятия
+  plannedAt  DateTime // на когда назначена отработка
+  status     String   @default("PLANNED") // PLANNED | DONE | CANCELLED
+  note       String?
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@unique([studentId, lessonId, missedDate])
+  @@index([plannedAt])
+  @@index([studentId])
 }
 
 // Проведённое занятие в конкретную дату: тема урока (журнал)
