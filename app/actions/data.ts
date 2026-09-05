@@ -9,7 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
-import { notifyParent, notifyParents, studentIdsOfGroup } from "@/lib/notify";
+import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { recalcAttendance } from "@/lib/attendance";
 import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
@@ -150,6 +150,8 @@ export async function updateSettings(formData: FormData) {
     tplGrade: String(formData.get("tplGrade") ?? "").trim(),
     tplHomework: String(formData.get("tplHomework") ?? "").trim(),
     tplCancel: String(formData.get("tplCancel") ?? "").trim(),
+    notifyStudent: formData.get("notifyStudent") != null,
+    lessonDurationMin: Math.min(600, Math.max(5, int(formData.get("lessonDurationMin")) || 60)),
   };
   await prisma.settings.upsert({ where: { id: "main" }, update: data, create: { id: "main", ...data } });
   await logAudit("UPDATE", "Настройки", "Параметры школы обновлены");
@@ -828,15 +830,15 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
 
   const stC = await getSettings();
   if (cancelled && stC.notifyCancel) {
-    await notifyParents(
-      lesson.group.students.map((s) => s.id),
-      renderTemplate(stC.tplCancel || DEFAULT_TEMPLATES.cancel, {
-        school: stC.schoolName,
-        group: lesson.group.name,
-        date: new Date(dateStr).toLocaleDateString("ru-RU"),
-        reason: str(reason) || "",
-      })
-    );
+    const ids = lesson.group.students.map((s) => s.id);
+    const cancelText = renderTemplate(stC.tplCancel || DEFAULT_TEMPLATES.cancel, {
+      school: stC.schoolName,
+      group: lesson.group.name,
+      date: new Date(dateStr).toLocaleDateString("ru-RU"),
+      reason: str(reason) || "",
+    });
+    await notifyParents(ids, cancelText);
+    if (stC.notifyStudent) await notifyStudentsDirect(ids, cancelText);
   }
   revalidatePath(`/schedule/${lessonId}`);
   revalidatePath("/journal");
@@ -946,15 +948,15 @@ export async function addHomework(groupId: string, formData: FormData) {
   if (stH.notifyHomework) {
     const group = await prisma.group.findUnique({ where: { id: groupId }, select: { name: true } });
     const due = parseDate(formData.get("dueDate"));
-    await notifyParents(
-      await studentIdsOfGroup(groupId),
-      renderTemplate(stH.tplHomework || DEFAULT_TEMPLATES.homework, {
-        school: stH.schoolName,
-        group: group?.name ?? "",
-        title: str(formData.get("title")) || "Домашнее задание",
-        due: due ? `, срок: ${due.toLocaleDateString("ru-RU")}` : "",
-      })
-    );
+    const ids = await studentIdsOfGroup(groupId);
+    const hwText = renderTemplate(stH.tplHomework || DEFAULT_TEMPLATES.homework, {
+      school: stH.schoolName,
+      group: group?.name ?? "",
+      title: str(formData.get("title")) || "Домашнее задание",
+      due: due ? `, срок: ${due.toLocaleDateString("ru-RU")}` : "",
+    });
+    await notifyParents(ids, hwText);
+    if (stH.notifyStudent) await notifyStudentsDirect(ids, hwText);
   }
 
   revalidatePath("/homework");
@@ -1093,17 +1095,16 @@ export async function addGrade(studentId: string, formData: FormData) {
   const st = await getSettings();
   if (st.notifyGrade) {
     const stu = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
-    await notifyParent(
-      studentId,
-      renderTemplate(st.tplGrade || DEFAULT_TEMPLATES.grade, {
+    const gradeText = renderTemplate(st.tplGrade || DEFAULT_TEMPLATES.grade, {
         school: st.schoolName,
         name: stu?.name ?? "",
         topic: str(formData.get("topic")) || "Оценка",
         score,
         max: maxScore,
         pct: Math.round((score / maxScore) * 100),
-      })
-    );
+    });
+    await notifyParent(studentId, gradeText);
+    if (st.notifyStudent) await notifyStudentsDirect([studentId], gradeText);
   }
 
   revalidatePath("/grades");

@@ -120,6 +120,10 @@ export default async function SettingsPage() {
               <input name="tzOffsetHours" type="number" min={-12} max={14} defaultValue={s.tzOffsetHours} />
             </div>
             <div className="field">
+              <label>Длительность занятия, мин</label>
+              <input name="lessonDurationMin" type="number" min={5} max={600} defaultValue={s.lessonDurationMin} />
+            </div>
+            <div className="field">
               <label>Язык для учеников и родителей</label>
               <select name="defaultLocale" defaultValue={s.defaultLocale}>
                 {LOCALES.map((l) => (
@@ -129,7 +133,7 @@ export default async function SettingsPage() {
             </div>
           </div>
           <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>
-            Часовой пояс определяет, когда тест открывается ученику после урока (Алматы — 5). Язык — стартовый для кабинета ученика и портала родителя; каждый может переключить его сам.
+            Часовой пояс определяет, когда тест открывается ученику после урока (Алматы — 5). Длительность занятия используется при выгрузке расписания в календарь. Язык — стартовый для кабинета ученика и портала родителя; каждый может переключить его сам.
           </p>
         </div>
 
@@ -185,10 +189,18 @@ export default async function SettingsPage() {
             <input type="checkbox" name="notifyCancel" defaultChecked={s.notifyCancel} />
             Занятие отменено
           </label>
-          <div className="field">
+          <div className="field" style={{ marginBottom: 14 }}>
             <textarea name="tplCancel" rows={2} defaultValue={s.tplCancel} placeholder={DEFAULT_TEMPLATES.cancel} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
             <span className="mut" style={{ fontSize: 11.5 }}>Плейсхолдеры: {"{school} {group} {date} {reason}"}</span>
           </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)" }}>
+            <input type="checkbox" name="notifyStudent" defaultChecked={s.notifyStudent} />
+            Дублировать эти уведомления самому ученику
+          </label>
+          <p className="mut" style={{ fontSize: 12, margin: "6px 0 0" }}>
+            Уходит в тот Telegram, через который ученик вошёл в кабинет. Кто не входил — ничего не получит.
+          </p>
         </div>
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>

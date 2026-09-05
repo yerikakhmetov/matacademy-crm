@@ -408,6 +408,8 @@ model Settings {
   schoolFeePct   Int   @default(3) // удержание школы из оплаты ученика перед начислением зарплаты, %
   tzOffsetHours  Int   @default(5) // часовой пояс школы относительно UTC (Алматы = 5)
   defaultLocale  String @default("ru") // язык страниц для учеников и родителей: ru | kk
+  notifyStudent  Boolean @default(false) // дублировать уведомления самому ученику в Telegram
+  lessonDurationMin Int  @default(60) // длительность занятия, мин (для выгрузки в календарь)
   notifyGrade    Boolean @default(false) // авто-уведомление родителю о новой оценке
   notifyHomework Boolean @default(false) // авто-уведомление о новом ДЗ
   notifyCancel   Boolean @default(false) // авто-уведомление об отмене занятия

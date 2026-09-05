@@ -30,3 +30,21 @@ export async function studentIdsOfGroup(groupId: string): Promise<string[]> {
   const g = await prisma.group.findUnique({ where: { id: groupId }, select: { students: { select: { id: true } } } });
   return g?.students.map((s) => s.id) ?? [];
 }
+
+// Уведомление самому ученику в его Telegram (id сохраняется при входе в кабинет).
+// Родителю пишем всегда, ученику — только если школа включила дублирование.
+export async function notifyStudentsDirect(studentIds: string[], text: string): Promise<number> {
+  if (studentIds.length === 0 || !text.trim()) return 0;
+  try {
+    const students = await prisma.student.findMany({
+      where: { id: { in: studentIds }, joinTgId: { not: null } },
+      select: { joinTgId: true },
+    });
+    const results = await Promise.allSettled(
+      students.map((s) => sendTelegram(s.joinTgId as string, text))
+    );
+    return results.filter((r) => r.status === "fulfilled" && r.value).length;
+  } catch {
+    return 0;
+  }
+}

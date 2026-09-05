@@ -207,7 +207,15 @@ export default async function CabinetHome() {
       </div>
 
       <div className="card">
-        <div className="card-h"><h3>{t(locale, "cabinet.schedule")}</h3></div>
+        <div className="card-h">
+          <h3>{t(locale, "cabinet.schedule")}</h3>
+          {lessons.length > 0 && (
+            <a className="btn ghost" href="/api/calendar" download="schedule.ics" style={{ padding: "5px 11px", fontSize: 12.5 }}>
+              <Icon name="schedule" size={14} />
+              {t(locale, "cabinet.addToCalendar")}
+            </a>
+          )}
+        </div>
         <div style={{ padding: "6px 0" }}>
           {lessons.length === 0 && <div className="empty">{t(locale, "cabinet.noSchedule")}</div>}
           {lessons.map((l) => {
