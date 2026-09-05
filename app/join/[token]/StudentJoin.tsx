@@ -5,7 +5,7 @@ import { signIn } from "next-auth/react";
 import { Icon } from "@/components/Icon";
 
 // Регистрация/вход ученика в кабинет через Telegram (один тап): привязывает аккаунт и логинит.
-export function StudentJoin({ studentId, botUsername }: { studentId: string; botUsername: string | null }) {
+export function StudentJoin({ joinToken, botUsername }: { joinToken: string; botUsername: string | null }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -19,7 +19,7 @@ export function StudentJoin({ studentId, botUsername }: { studentId: string; bot
   const start = () => {
     setError(null);
     const token = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
-    window.open(`https://t.me/${botUsername}?start=slogin_${studentId}_${token}`, "_blank");
+    window.open(`https://t.me/${botUsername}?start=slogin_${joinToken}_${token}`, "_blank");
     setWaiting(true);
 
     const started = Date.now();

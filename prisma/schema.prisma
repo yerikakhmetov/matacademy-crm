@@ -110,6 +110,8 @@ model Student {
   attendance     Int?          // % посещаемости; null = отметок ещё нет
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы
+  joinToken      String? @unique // токен ссылки-приглашения в кабинет (можно перевыпустить)
+  joinTgId       String? // Telegram id, закрепивший кабинет за собой (защита от чужого входа)
   photoUrl       String? // фото ученика (Vercel Blob)
   userId         String? @unique // аккаунт ученика для входа в кабинет (вход через Telegram)
   user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)

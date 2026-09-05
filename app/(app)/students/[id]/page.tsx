@@ -63,6 +63,13 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
     await prisma.student.update({ where: { id }, data: { portalToken } });
   }
 
+  // Ленивая генерация токена ссылки-приглашения в кабинет
+  let joinToken = student.joinToken;
+  if (!joinToken && editor) {
+    joinToken = crypto.randomUUID().replace(/-/g, "");
+    await prisma.student.update({ where: { id }, data: { joinToken } });
+  }
+
   const st = STUDENT_STATUS[student.status] ?? STUDENT_STATUS.ACTIVE;
   const activeSub = student.subscriptions[0];
 
@@ -298,7 +305,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                 </span>
               </div>
               <div style={{ padding: 18 }}>
-                <StudentCabinetLink id={student.id} linked={!!student.userId} />
+                <StudentCabinetLink studentId={student.id} token={joinToken!} linked={!!student.userId} claimed={!!student.joinTgId} />
               </div>
             </div>
           )}

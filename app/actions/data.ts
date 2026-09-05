@@ -259,6 +259,19 @@ export async function unlinkTelegram(id: string) {
   revalidatePath(`/students/${id}`);
 }
 
+// Перевыпуск ссылки-приглашения в кабинет: старая ссылка перестаёт работать,
+// привязка к Telegram сбрасывается (ученик сможет войти заново по новой ссылке).
+export async function regenerateJoinToken(id: string) {
+  await assertEditor();
+  const student = await prisma.student.update({
+    where: { id },
+    data: { joinToken: newToken(), joinTgId: null },
+    select: { name: true },
+  });
+  await logAudit("UPDATE", "Ученик", `Перевыпущена ссылка в кабинет · ${student.name}`);
+  revalidatePath(`/students/${id}`);
+}
+
 export async function deleteStudent(id: string) {
   await assertEditor();
   const st = await prisma.student.findUnique({ where: { id }, select: { name: true } });

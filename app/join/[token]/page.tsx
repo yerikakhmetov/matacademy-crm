@@ -5,10 +5,10 @@ import { StudentJoin } from "./StudentJoin";
 
 export const dynamic = "force-dynamic";
 
-export default async function JoinPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
   const [student, settings] = await Promise.all([
-    prisma.student.findUnique({ where: { id }, select: { name: true } }),
+    prisma.student.findUnique({ where: { joinToken: token }, select: { name: true } }),
     getSettings(),
   ]);
   const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? null;
@@ -25,7 +25,7 @@ export default async function JoinPage({ params }: { params: Promise<{ id: strin
             <p className="mut" style={{ fontSize: 13.5, margin: "0 0 20px" }}>
               Личный кабинет ученика: <b>{student.name}</b>
             </p>
-            <StudentJoin studentId={id} botUsername={botUsername} />
+            <StudentJoin joinToken={token} botUsername={botUsername} />
             <p className="mut" style={{ fontSize: 11.5, marginTop: 16 }}>
               Вход только через Telegram. Ссылка персональная — не передавайте её другим.
             </p>

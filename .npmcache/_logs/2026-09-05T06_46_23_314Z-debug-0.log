@@ -1,0 +1,12 @@
+0 verbose cli /usr/local/bin/node /usr/local/lib/node_modules/npm/bin/npm-cli.js
+1 info using npm@11.13.0
+2 info using node@v24.16.0
+3 silly config load:file:/usr/local/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/yerikakhmetov/Documents/MatAcademy Offline/.npmrc
+5 silly config load:file:/Users/yerikakhmetov/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm exec tsc --noEmit
+8 verbose argv "exec" "--" "tsc" "--noEmit"
+9 verbose logfile logs-max:10 dir:/Users/yerikakhmetov/Documents/MatAcademy Offline/.npmcache/_logs/2026-09-05T06_46_23_314Z-
+10 verbose logfile /Users/yerikakhmetov/Documents/MatAcademy Offline/.npmcache/_logs/2026-09-05T06_46_23_314Z-debug-0.log
+11 silly logfile done cleaning log files
