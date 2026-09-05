@@ -51,9 +51,9 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
 
   const monthData = monthOpts.map((m, i) => {
     const rec = recMap.get(`${m.year}-${m.month0}`);
-    if (rec) return { name: m.name, id: m.id, base: rec.base, salary: rec.salary, students: null as number | null, lessons: null as number | null, locked: true };
+    if (rec) return { name: m.name, id: m.id, base: rec.base, salary: rec.salary, students: null as number | null, lessons: null as number | null, noFee: 0, locked: true };
     const r = live[i].get(teacherId);
-    return { name: m.name, id: m.id, base: r?.base ?? 0, salary: r?.salary ?? 0, students: r?.students ?? 0, lessons: r?.paidLessons ?? 0, locked: false };
+    return { name: m.name, id: m.id, base: r?.base ?? 0, salary: r?.salary ?? 0, students: r?.students ?? 0, lessons: r?.paidLessons ?? 0, noFee: r?.studentsWithoutFee ?? 0, locked: false };
   });
 
   const cur = monthData.find((m) => m.id === sel.id) ?? monthData[0];
@@ -90,6 +90,12 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
               <dd>{money(cur.base)}</dd>
               <dt>Удержание школы</dt>
               <dd>−{feePct}%</dd>
+              {cur.noFee > 0 && (
+                <>
+                  <dt>Без оплаты</dt>
+                  <dd style={{ color: "var(--bad)" }}>{cur.noFee} уч. — ходили, но оплата за месяц не найдена</dd>
+                </>
+              )}
               <dt>К выплате</dt>
               <dd style={{ fontWeight: 800, color: "var(--ok)" }}>{money(cur.salary)}</dd>
             </dl>
@@ -113,7 +119,8 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        Оплачивается каждое посещение (были или отсутствовали без уважительной причины). Пропуск по уважительной причине не оплачивается.
+        Оплачивается каждое посещение — были или отсутствовали без уважительной причины; пропуск по уважительной
+        причине не оплачивается. Цена одного занятия = месячная доля ученика ÷ число занятий группы в этом месяце по расписанию.
         Расчёт предварительный, пока месяц не зафиксирован администрацией.
       </p>
     </>

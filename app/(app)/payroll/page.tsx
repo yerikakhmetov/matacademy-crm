@@ -46,6 +46,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       t,
       students: rec ? undefined : live.get(t.id)?.students ?? 0,
       lessons: rec ? undefined : live.get(t.id)?.paidLessons ?? 0,
+      noFee: rec ? 0 : live.get(t.id)?.studentsWithoutFee ?? 0,
       base: src?.base ?? 0,
       salary: src?.salary ?? 0,
     };
@@ -87,7 +88,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ t, students, lessons, base, salary }) => (
+              {rows.map(({ t, students, lessons, noFee, base, salary }) => (
                 <tr key={t.id}>
                   <td>
                     <div className="person">
@@ -97,7 +98,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                       <div className="nm" style={{ fontSize: 13.5 }}>{t.name}</div>
                     </div>
                   </td>
-                  <td className="right mut num">{students ?? "—"}</td>
+                  <td className="right mut num">
+                    {students ?? "—"}
+                    {noFee > 0 && (
+                      <span className="chip c-bad" style={{ marginLeft: 6, padding: "1px 6px", fontSize: 10.5 }} title="Ходили на занятия, но месячная доля не найдена — за них ничего не начислено">
+                        <span className="d" />{noFee} без оплаты
+                      </span>
+                    )}
+                  </td>
                   <td className="right mut num">{lessons ?? "—"}</td>
                   <td className="right mut num">{money(base)}</td>
                   <td className="right money num" style={{ color: salary > 0 ? "var(--ok)" : "var(--ink-3)" }}>{money(salary)}</td>
@@ -109,9 +117,11 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        Зарплата = месячная доля ученика по предмету − {feePct}% (доход школы), делённая на «занятий в неделю × 4»,
-        начисляется за каждое оплачиваемое посещение (был или отсутствовал без уважительной причины).
-        За пропуск по уважительной причине за этого ученика в этот день не платят.
+        Зарплата = месячная доля ученика по предмету − {feePct}% (доход школы), делённая на число занятий
+        группы в этом месяце по расписанию. Начисляется за каждое оплачиваемое посещение — был или отсутствовал
+        без уважительной причины; за пропуск по уважительной причине за этого ученика в этот день не платят.
+        За месяц с ученика не начисляется больше его месячной доли.
+        Метка «без оплаты» — ученик ходил, но у него нет ни абонемента, ни оплаты за месяц по этому предмету.
         «Зафиксировать месяц» сохраняет расчёт как есть — прошлые месяцы не меняются задним числом.
       </p>
     </>
