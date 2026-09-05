@@ -714,6 +714,38 @@ export async function deleteLesson(id: string) {
 }
 
 // ---------- Посещаемость ----------
+// Отмена/восстановление занятия в конкретную дату.
+// При отмене отметки посещаемости за этот день удаляются: занятия не было.
+export async function setLessonCancelled(lessonId: string, dateStr: string, cancelled: boolean, reason: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Требуется вход");
+  const date = new Date(dateStr + "T00:00:00.000Z");
+
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    include: { group: { include: { teacher: true, students: { select: { id: true } } } } },
+  });
+  if (!lesson) throw new Error("Занятие не найдено");
+  const ownsLesson = lesson.group.teacher?.userId === session.user.id;
+  if (!(await canEditData(session.user.role)) && !ownsLesson) throw new Error("Недостаточно прав");
+
+  if (cancelled) {
+    await prisma.attendance.deleteMany({ where: { lessonId, date } });
+    await prisma.lessonSession.upsert({
+      where: { lessonId_date: { lessonId, date } },
+      create: { lessonId, date, topic: "", cancelled: true, cancelReason: str(reason) || null },
+      update: { cancelled: true, cancelReason: str(reason) || null },
+    });
+  } else {
+    await prisma.lessonSession.updateMany({ where: { lessonId, date }, data: { cancelled: false, cancelReason: null } });
+  }
+
+  await logAudit("UPDATE", "Занятие", `${lesson.group.name} · ${dateStr} · ${cancelled ? "отменено" : "восстановлено"}`);
+  revalidatePath(`/schedule/${lessonId}`);
+  revalidatePath("/journal");
+  revalidatePath("/payroll");
+}
+
 export async function saveAttendance(lessonId: string, dateStr: string, formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");

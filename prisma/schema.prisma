@@ -301,7 +301,9 @@ model LessonSession {
   lessonId  String
   lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
   date      DateTime // дата конкретного занятия
-  topic     String // тема урока («что проходили»)
+  topic     String   @default("") // тема урока («что проходили»)
+  cancelled Boolean  @default(false) // занятие не состоялось (праздник, болезнь преподавателя)
+  cancelReason String? // почему отменено
   createdAt DateTime @default(now())
 
   @@unique([lessonId, date])

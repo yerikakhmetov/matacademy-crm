@@ -74,7 +74,7 @@ export default async function CabinetHome() {
 
   const topics = groupIds.length
     ? await prisma.lessonSession.findMany({
-        where: { lesson: { groupId: { in: groupIds } } },
+        where: { lesson: { groupId: { in: groupIds } }, cancelled: false, topic: { not: "" } },
         orderBy: { date: "desc" },
         take: 8,
         include: { lesson: { include: { group: { select: { name: true, color: true } } } } },

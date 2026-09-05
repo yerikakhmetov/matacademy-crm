@@ -42,7 +42,7 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
   const allLessonIds = [...lessonToGroup.keys()];
   const ids = [...studentIds];
 
-  const [att, subs, payItems] = await Promise.all([
+  const [att, subs, payItems, cancelled] = await Promise.all([
     allLessonIds.length
       ? prisma.attendance.findMany({
           where: { lessonId: { in: allLessonIds }, date: { gte: monthStart, lt: monthEnd } },
@@ -70,7 +70,22 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
           select: { subjectId: true, amount: true, payment: { select: { studentId: true } } },
         })
       : Promise.resolve([]),
+    // Отменённые занятия не входят в делитель: иначе преподаватель теряет деньги
+    // из-за праздника или отмены, на которые он не влиял.
+    allLessonIds.length
+      ? prisma.lessonSession.findMany({
+          where: { lessonId: { in: allLessonIds }, cancelled: true, date: { gte: monthStart, lt: monthEnd } },
+          select: { lessonId: true },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const cancelledByGroup = new Map<string, number>();
+  for (const c of cancelled) {
+    const gid = lessonToGroup.get(c.lessonId);
+    if (!gid) continue;
+    cancelledByGroup.set(gid, (cancelledByGroup.get(gid) ?? 0) + 1);
+  }
 
   const payable = new Map<string, number>();
   for (const a of att) {
@@ -105,7 +120,10 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
     groups: t.groups.map((g) => ({
       id: g.id,
       subjectId: g.subjectId,
-      scheduledLessons: scheduledLessonsInMonth(year, month0, g.lessons.map((l) => l.dayOfWeek)),
+      scheduledLessons: Math.max(
+        0,
+        scheduledLessonsInMonth(year, month0, g.lessons.map((l) => l.dayOfWeek)) - (cancelledByGroup.get(g.id) ?? 0)
+      ),
       studentIds: g.students.map((s) => s.id),
     })),
   }));

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
+import { isTeacher } from "@/lib/teacher";
 import { DAYS } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
 import { ModalButton } from "@/components/ModalButton";
@@ -44,6 +45,8 @@ export default async function LessonPage({
 
   // Отмечать посещаемость может админ/менеджер или учитель этой группы
   const ownsLesson = lesson.group.teacher?.userId === session?.user?.id;
+  // Преподаватель видит только свои занятия — иначе по прямой ссылке был бы виден чужой состав группы
+  if (isTeacher(session?.user?.role) && !ownsLesson) redirect("/schedule");
   const canMark = editor || ownsLesson;
 
   const date = dateParam || recentDateForDay(lesson.dayOfWeek);
@@ -105,6 +108,8 @@ export default async function LessonPage({
         marked={marked}
         weekday={lesson.dayOfWeek}
         topic={session2?.topic ?? ""}
+        cancelled={!!session2?.cancelled}
+        cancelReason={session2?.cancelReason ?? ""}
       />
     </>
   );
