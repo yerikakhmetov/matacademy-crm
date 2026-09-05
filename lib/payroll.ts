@@ -1,28 +1,15 @@
 import { prisma } from "./prisma";
+import { computePayrollRows, feeKey, isPayableAttendance, payableKey, type PayrollRow, type PayrollTeacher } from "./payroll-calc.ts";
 
-// Единая логика зарплаты преподавателя (по посещаемости).
-//
-// Модель: из месячной доли ученика по предмету удерживается schoolFeePct% (доход школы),
-// остаток делится на (занятий в неделю × 4). Это цена одного занятия одного ученика.
-// Преподаватель получает её за каждое «оплачиваемое» посещение:
-//   присутствовал ИЛИ отсутствовал без уважительной причины.
-// За отсутствие по уважительной причине за этого ученика в этот день не платят.
-
-export type PayrollRow = {
-  teacherId: string;
-  students: number; // сколько учеников принесли оплату в этом месяце
-  paidLessons: number; // оплачиваемых посещений (ученико-занятий)
-  base: number; // начислено до удержания школы, ₸
-  salary: number; // к выплате, ₸
-};
+// Сбор данных из БД для расчёта зарплаты. Сама арифметика — в ./payroll-calc.ts (покрыта тестами).
+export * from "./payroll-calc.ts";
 
 // Месячная зарплата всех преподавателей за (year, month0). feePct — удержание школы, %.
 export async function gatherPayroll(year: number, month0: number, feePct: number): Promise<Map<string, PayrollRow>> {
   const monthStart = new Date(Date.UTC(year, month0, 1));
   const monthEnd = new Date(Date.UTC(year, month0 + 1, 1));
-  const net = Math.max(0, 100 - Math.max(0, feePct)) / 100;
 
-  const teachers = await prisma.teacher.findMany({
+  const teachersDb = await prisma.teacher.findMany({
     select: {
       id: true,
       groups: {
@@ -38,7 +25,7 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
 
   const lessonToGroup = new Map<string, string>();
   const studentIds = new Set<string>();
-  for (const t of teachers) {
+  for (const t of teachersDb) {
     for (const g of t.groups) {
       for (const l of g.lessons) lessonToGroup.set(l.id, g.id);
       for (const s of g.students) studentIds.add(s.id);
@@ -53,13 +40,12 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
         select: { lessonId: true, studentId: true, present: true, excused: true },
       })
     : [];
-  const payable = new Map<string, number>(); // groupId|studentId -> оплачиваемых посещений
+  const payable = new Map<string, number>();
   for (const a of att) {
     const gid = lessonToGroup.get(a.lessonId);
     if (!gid) continue;
-    const pay = a.present || !a.excused; // присутствовал ИЛИ отсутствовал без уважительной
-    if (!pay) continue;
-    const k = gid + "|" + a.studentId;
+    if (!isPayableAttendance(a.present, a.excused)) continue;
+    const k = payableKey(gid, a.studentId);
     payable.set(k, (payable.get(k) ?? 0) + 1);
   }
 
@@ -74,34 +60,25 @@ export async function gatherPayroll(year: number, month0: number, feePct: number
         select: { studentId: true, months: true, items: { select: { subjectId: true, amount: true } } },
       })
     : [];
-  const monthlyFee = new Map<string, number>(); // studentId|subjectId -> ₸/мес
+  const monthlyFee = new Map<string, number>();
   for (const sub of subs) {
     const mm = Math.max(1, sub.months);
     for (const it of sub.items) {
       if (!it.subjectId) continue;
-      const k = sub.studentId + "|" + it.subjectId;
+      const k = feeKey(sub.studentId, it.subjectId);
       monthlyFee.set(k, (monthlyFee.get(k) ?? 0) + it.amount / mm);
     }
   }
 
-  const rows = new Map<string, PayrollRow>();
-  for (const t of teachers) {
-    let gross = 0;
-    let paidLessons = 0;
-    const studs = new Set<string>();
-    for (const g of t.groups) {
-      const divisor = g.lessons.length * 4; // занятий в неделю × 4
-      if (divisor === 0 || !g.subjectId) continue;
-      for (const s of g.students) {
-        const pl = payable.get(g.id + "|" + s.id) ?? 0;
-        if (pl === 0) continue;
-        const fee = monthlyFee.get(s.id + "|" + g.subjectId) ?? 0;
-        gross += (fee / divisor) * pl;
-        paidLessons += pl;
-        studs.add(s.id);
-      }
-    }
-    rows.set(t.id, { teacherId: t.id, students: studs.size, paidLessons, base: Math.round(gross), salary: Math.round(gross * net) });
-  }
-  return rows;
+  const teachers: PayrollTeacher[] = teachersDb.map((t) => ({
+    id: t.id,
+    groups: t.groups.map((g) => ({
+      id: g.id,
+      subjectId: g.subjectId,
+      lessonsPerWeek: g.lessons.length,
+      studentIds: g.students.map((s) => s.id),
+    })),
+  }));
+
+  return computePayrollRows({ teachers, payable, monthlyFee, feePct });
 }
