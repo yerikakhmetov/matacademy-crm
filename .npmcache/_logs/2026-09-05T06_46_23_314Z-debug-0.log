@@ -10,3 +10,9 @@
 9 verbose logfile logs-max:10 dir:/Users/yerikakhmetov/Documents/MatAcademy Offline/.npmcache/_logs/2026-09-05T06_46_23_314Z-
 10 verbose logfile /Users/yerikakhmetov/Documents/MatAcademy Offline/.npmcache/_logs/2026-09-05T06_46_23_314Z-debug-0.log
 11 silly logfile done cleaning log files
+12 verbose cwd /Users/yerikakhmetov/Documents/MatAcademy Offline
+13 verbose os Darwin 25.5.0
+14 verbose node v24.16.0
+15 verbose npm  v11.13.0
+16 verbose exit 2
+17 verbose code 2

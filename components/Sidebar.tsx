@@ -32,6 +32,7 @@ const NAV_FULL: Item[] = [
   { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
   { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
   { href: "/payroll", icon: "money", label: "Зарплата", perm: "payroll" },
+  { href: "/expenses", icon: "money", label: "Расходы", perm: "finance" },
   { section: "Система", adminOnly: true },
   { href: "/stats", icon: "chart", label: "Статистика", adminOnly: true },
   { href: "/users", icon: "students", label: "Пользователи", adminOnly: true },

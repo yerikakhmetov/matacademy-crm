@@ -44,6 +44,14 @@ export default async function ReportsPage() {
     }),
   ]);
   const feePct = (await getSettings()).schoolFeePct;
+  const expensesPeriod = money$
+    ? await prisma.expense.findMany({ where: { date: { gte: since } }, select: { amount: true, date: true } })
+    : [];
+  const expenseByMonth = new Map<string, number>();
+  for (const e of expensesPeriod) {
+    const k = monthKey(e.date);
+    expenseByMonth.set(k, (expenseByMonth.get(k) ?? 0) + e.amount);
+  }
   // Живой фонд зарплаты по каждому месяцу (по посещаемости), только при доступе к финансам
   const liveTotals: number[] = money$
     ? (await Promise.all(months.map((m) => gatherPayroll(m.year, m.month0, feePct)))).map((map) => {
@@ -82,10 +90,12 @@ export default async function ReportsPage() {
     const rev = revByMonth.find((r) => r.label === m.label)?.value ?? 0;
     const mk = `${m.year}-${m.month0}`;
     const payroll = lockedPayroll.has(mk) ? (lockedPayroll.get(mk) ?? 0) : liveTotals[idx];
-    return { label: m.label, rev, payroll, profit: rev - payroll };
+    const expenses = expenseByMonth.get(m.key) ?? 0;
+    return { label: m.label, rev, payroll, expenses, profit: rev - payroll - expenses };
   });
   const totalPayroll = profitRows.reduce((a, r) => a + r.payroll, 0);
-  const totalProfit = totalRev - totalPayroll;
+  const totalExpenses = profitRows.reduce((a, r) => a + r.expenses, 0);
+  const totalProfit = totalRev - totalPayroll - totalExpenses;
 
   // Ученики на контроле (риск): низкая посещаемость, долг или низкие оценки
   const riskStudents = students
@@ -288,6 +298,7 @@ export default async function ReportsPage() {
                   <th>Месяц</th>
                   <th className="right">Доход</th>
                   <th className="right">Зарплата</th>
+                  <th className="right">Расходы</th>
                   <th className="right">Прибыль</th>
                 </tr>
               </thead>
@@ -297,6 +308,7 @@ export default async function ReportsPage() {
                     <td style={{ fontWeight: 600, textTransform: "capitalize" }}>{r.label}</td>
                     <td className="right money num" style={{ color: "var(--ok)" }}>{money(r.rev)}</td>
                     <td className="right money num" style={{ color: "var(--ink-2)" }}>−{money(r.payroll)}</td>
+                    <td className="right money num" style={{ color: "var(--ink-2)" }}>−{money(r.expenses)}</td>
                     <td className="right money num" style={{ color: r.profit >= 0 ? "var(--ok)" : "var(--bad)" }}>{money(r.profit)}</td>
                   </tr>
                 ))}
@@ -304,7 +316,8 @@ export default async function ReportsPage() {
             </table>
           </div>
           <p className="mut" style={{ fontSize: 12, padding: "10px 18px 16px", margin: 0 }}>
-            Зарплата считается по ставкам преподавателей (раздел «Зарплата»). Прибыль = доход − фонд зарплаты.
+            Зарплата считается по посещаемости (раздел «Зарплата»), расходы вносятся в разделе «Расходы».
+            Прибыль = доход − фонд зарплаты − расходы.
           </p>
         </div>
       )}

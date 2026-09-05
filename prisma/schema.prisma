@@ -419,3 +419,17 @@ model PaymentItem {
   @@index([paymentId])
   @@index([subjectId])
 }
+
+// Расходы школы (аренда, коммунальные, реклама…) — чтобы «Отчёты» показывали настоящую прибыль
+model Expense {
+  id        String   @id @default(cuid())
+  category  String   @default("OTHER") // RENT | UTILITIES | ADS | EQUIPMENT | TAX | OTHER
+  title     String
+  amount    Int
+  date      DateTime @default(now())
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}

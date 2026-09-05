@@ -929,6 +929,49 @@ export async function toggleMyHomework(homeworkId: string): Promise<{ done: bool
   return { done };
 }
 
+// ---------- Расходы школы ----------
+function expenseData(formData: FormData) {
+  const title = str(formData.get("title"));
+  if (!title) throw new Error("Укажите, за что расход");
+  const amount = int(formData.get("amount"));
+  if (amount <= 0) throw new Error("Сумма должна быть больше нуля");
+  return {
+    title,
+    amount,
+    category: str(formData.get("category")) || "OTHER",
+    date: parseDate(formData.get("date")) ?? new Date(),
+    note: str(formData.get("note")) || null,
+  };
+}
+
+export async function createExpense(formData: FormData) {
+  await assertEditor("finance");
+  const session = await auth();
+  const data = expenseData(formData);
+  await prisma.expense.create({ data: { ...data, createdBy: session?.user?.name ?? null } });
+  await logAudit("CREATE", "Расход", `${data.title} · ${money(data.amount)}`);
+  revalidatePath("/expenses");
+  revalidatePath("/reports");
+}
+
+export async function updateExpense(id: string, formData: FormData) {
+  await assertEditor("finance");
+  const data = expenseData(formData);
+  await prisma.expense.update({ where: { id }, data });
+  await logAudit("UPDATE", "Расход", `${data.title} · ${money(data.amount)}`);
+  revalidatePath("/expenses");
+  revalidatePath("/reports");
+}
+
+export async function deleteExpense(id: string) {
+  await assertEditor("finance");
+  const e = await prisma.expense.findUnique({ where: { id }, select: { title: true, amount: true } });
+  await prisma.expense.delete({ where: { id } });
+  await logAudit("DELETE", "Расход", e ? `${e.title} · ${money(e.amount)}` : id);
+  revalidatePath("/expenses");
+  revalidatePath("/reports");
+}
+
 // ---------- Оценки ----------
 // Ставить оценку может админ/менеджер или учитель группы ученика.
 async function assertCanGrade(studentId: string) {

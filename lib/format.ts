@@ -98,3 +98,13 @@ export const RATE_TYPE: Record<string, { label: string; unit: string }> = {
   PERCENT: { label: "% от оплат", unit: "%" },
   PERCENT_SUBJECT: { label: "% от дохода по предметам", unit: "%" },
 };
+
+// Категории расходов школы
+export const EXPENSE_CATEGORY: Record<string, string> = {
+  RENT: "Аренда",
+  UTILITIES: "Коммунальные",
+  ADS: "Реклама",
+  EQUIPMENT: "Оборудование",
+  TAX: "Налоги и сборы",
+  OTHER: "Прочее",
+};
