@@ -15,6 +15,7 @@ import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
+import { isLocale } from "@/lib/i18n";
 import bcrypt from "bcryptjs";
 
 async function assertAdmin() {
@@ -141,6 +142,7 @@ export async function updateSettings(formData: FormData) {
     siblingDiscount: Math.min(100, Math.max(0, int(formData.get("siblingDiscount")))),
     schoolFeePct: Math.min(100, Math.max(0, int(formData.get("schoolFeePct")))),
     tzOffsetHours: Math.min(14, Math.max(-12, int(formData.get("tzOffsetHours")))),
+    defaultLocale: isLocale(String(formData.get("defaultLocale"))) ? String(formData.get("defaultLocale")) : "ru",
     notifyGrade: formData.get("notifyGrade") != null,
     notifyHomework: formData.get("notifyHomework") != null,
     notifyCancel: formData.get("notifyCancel") != null,

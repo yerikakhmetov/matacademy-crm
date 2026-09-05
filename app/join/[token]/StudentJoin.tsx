@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Icon } from "@/components/Icon";
+import { t, type Locale } from "@/lib/i18n";
 
 // Регистрация/вход ученика в кабинет через Telegram (один тап): привязывает аккаунт и логинит.
-export function StudentJoin({ joinToken, botUsername }: { joinToken: string; botUsername: string | null }) {
+export function StudentJoin({ joinToken, botUsername, locale }: { joinToken: string; botUsername: string | null; locale: Locale }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -13,7 +14,7 @@ export function StudentJoin({ joinToken, botUsername }: { joinToken: string; bot
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
   if (!botUsername) {
-    return <div className="chip c-bad" style={{ fontSize: 12 }}><span className="d" />Telegram-бот не настроен. Обратитесь к школе.</div>;
+    return <div className="chip c-bad" style={{ fontSize: 12 }}><span className="d" />{t(locale, "join.botNotConfigured")}</div>;
   }
 
   const start = () => {
@@ -27,7 +28,7 @@ export function StudentJoin({ joinToken, botUsername }: { joinToken: string; bot
       if (Date.now() - started > 5 * 60 * 1000) {
         if (timer.current) clearInterval(timer.current);
         setWaiting(false);
-        setError("Время ожидания истекло. Нажмите ещё раз.");
+        setError(t(locale, "join.timeout"));
         return;
       }
       try {
@@ -53,11 +54,11 @@ export function StudentJoin({ joinToken, botUsername }: { joinToken: string; bot
         style={{ background: "#229ED9", boxShadow: "none", width: "100%", justifyContent: "center", padding: 12, fontSize: 15 }}
       >
         <Icon name="phone" size={18} />
-        {waiting ? "Подтвердите в Telegram…" : "Войти через Telegram"}
+        {waiting ? t(locale, "join.confirming") : t(locale, "join.loginTelegram")}
       </button>
       {waiting && (
         <span className="mut" style={{ fontSize: 12, textAlign: "center" }}>
-          Откройте бота и нажмите «Старт» — кабинет откроется автоматически.
+          {t(locale, "join.openBotHint")}
         </span>
       )}
       {error && <span className="chip c-bad" style={{ fontSize: 11.5 }}><span className="d" />{error}</span>}

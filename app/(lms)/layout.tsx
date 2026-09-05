@@ -3,12 +3,16 @@ import { auth } from "@/auth";
 import { getSettings } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
 import { logout } from "@/app/actions/auth";
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 export default async function CabinetLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "STUDENT") redirect("/dashboard");
   const settings = await getSettings();
+  const locale = await getLocale();
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--ground)" }}>
@@ -30,11 +34,12 @@ export default async function CabinetLayout({ children }: { children: React.Reac
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, lineHeight: 1.1 }}>{settings.schoolName}</div>
-          <div className="mut" style={{ fontSize: 11.5 }}>Личный кабинет ученика</div>
+          <div className="mut" style={{ fontSize: 11.5 }}>{t(locale, "lms.studentCabinet")}</div>
         </div>
+        <LocaleSwitcher current={locale} path="/cabinet" />
         <span className="mut" style={{ fontSize: 12.5, fontWeight: 600 }}>{session.user.name}</span>
         <form action={logout}>
-          <button className="icon-btn" title="Выйти" type="submit">
+          <button className="icon-btn" title={t(locale, "common.logout")} type="submit">
             <Icon name="logout" size={16} />
           </button>
         </form>

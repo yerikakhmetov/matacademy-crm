@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getSettings, parseTariffs, tariffsToText, DEFAULT_TEMPLATES, DISCOUNT_MODE_LABEL } from "@/lib/settings";
 import { MANAGER_PERMS, parseDenied } from "@/lib/access";
 import { formatDate } from "@/lib/format";
+import { LOCALES, LOCALE_LABEL } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { updateSettings, createPromo, togglePromo, deletePromo } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
@@ -118,9 +119,17 @@ export default async function SettingsPage() {
               <label>Часовой пояс школы (UTC±)</label>
               <input name="tzOffsetHours" type="number" min={-12} max={14} defaultValue={s.tzOffsetHours} />
             </div>
+            <div className="field">
+              <label>Язык для учеников и родителей</label>
+              <select name="defaultLocale" defaultValue={s.defaultLocale}>
+                {LOCALES.map((l) => (
+                  <option key={l} value={l}>{LOCALE_LABEL[l]}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>
-            Часовой пояс определяет, когда тест открывается ученику после урока. Алматы — 5.
+            Часовой пояс определяет, когда тест открывается ученику после урока (Алматы — 5). Язык — стартовый для кабинета ученика и портала родителя; каждый может переключить его сам.
           </p>
         </div>
 

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toggleMyHomework } from "@/app/actions/data";
 import { Icon } from "@/components/Icon";
+import { t, type Locale } from "@/lib/i18n";
 
 export type CabinetHW = {
   id: string;
@@ -15,7 +16,7 @@ export type CabinetHW = {
 };
 
 // Список ДЗ в кабинете ученика с возможностью отметить «выполнено» (оптимистично).
-export function CabinetHomework({ items }: { items: CabinetHW[] }) {
+export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale: Locale }) {
   const [done, setDone] = useState<Record<string, boolean>>(
     Object.fromEntries(items.map((h) => [h.id, h.done]))
   );
@@ -42,11 +43,11 @@ export function CabinetHomework({ items }: { items: CabinetHW[] }) {
   return (
     <div className="card">
       <div className="card-h">
-        <h3>Домашние задания</h3>
+        <h3>{t(locale, "hw.title")}</h3>
         <span className="chip c-mut"><span className="d" />{items.length}</span>
       </div>
       <div style={{ padding: "6px 0" }}>
-        {items.length === 0 && <div className="empty">Заданий пока нет</div>}
+        {items.length === 0 && <div className="empty">{t(locale, "hw.empty")}</div>}
         {items.map((hw) => {
           const isDone = done[hw.id];
           const overdue = hw.dueTs != null && hw.dueTs < Date.now() && !isDone;
@@ -58,7 +59,7 @@ export function CabinetHomework({ items }: { items: CabinetHW[] }) {
                 onClick={() => toggle(hw.id)}
                 disabled={loading}
                 aria-pressed={isDone}
-                title={isDone ? "Отметить невыполненным" : "Отметить выполненным"}
+                title={isDone ? t(locale, "hw.markUndone") : t(locale, "hw.markDone")}
                 style={{
                   width: 24,
                   height: 24,
@@ -83,11 +84,11 @@ export function CabinetHomework({ items }: { items: CabinetHW[] }) {
                   <div className="mut" style={{ fontSize: 12.5, marginTop: 2, whiteSpace: "pre-wrap" }}>{hw.description}</div>
                 )}
                 <div className="mut" style={{ fontSize: 12, marginTop: 2 }}>
-                  {hw.groupName}{hw.dueLabel ? ` · срок: ${hw.dueLabel}` : ""}
+                  {hw.groupName}{hw.dueLabel ? ` · ${t(locale, "hw.due", { date: hw.dueLabel })}` : ""}
                 </div>
               </div>
               <span className={`chip ${isDone ? "c-ok" : overdue ? "c-bad" : "c-mut"}`}>
-                <span className="d" />{isDone ? "Выполнено" : overdue ? "Просрочено" : "Активно"}
+                <span className="d" />{isDone ? t(locale, "hw.done") : overdue ? t(locale, "hw.overdue") : t(locale, "hw.active")}
               </span>
             </div>
           );

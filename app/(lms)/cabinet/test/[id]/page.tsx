@@ -5,6 +5,8 @@ import { auth } from "@/auth";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen, shuffleForSeed } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 import { submitTestAttempt } from "@/app/actions/data";
 import { formatDate, gradeChipClass } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -43,6 +45,7 @@ export default async function CabinetTest({
 
   const attempt = test.attempts[0] ?? null;
   const tz = (await getSettings()).tzOffsetHours;
+  const locale = await getLocale();
   const open = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz);
 
   const header = (
@@ -54,7 +57,7 @@ export default async function CabinetTest({
           {test.title}
         </h1>
         <p className="mut" style={{ fontSize: 12.5, margin: "2px 0 0" }}>
-          {test.subject?.name ? `${test.subject.name} · ` : ""}{test.questions.length} вопросов · макс. {test.maxScore} баллов
+          {test.subject?.name ? `${test.subject.name} · ` : ""}{t(locale, "test.summary", { n: test.questions.length, max: test.maxScore })}
         </p>
       </div>
     </div>
@@ -70,18 +73,18 @@ export default async function CabinetTest({
         {header}
         <div className="card" style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
           <div>
-            <div className="mut" style={{ fontSize: 12.5 }}>Ваш результат</div>
+            <div className="mut" style={{ fontSize: 12.5 }}>{t(locale, "test.yourResult")}</div>
             <div className="num" style={{ fontSize: 30, fontWeight: 800 }}>{attempt.score}<span className="mut" style={{ fontSize: 16 }}>/{test.maxScore}</span></div>
           </div>
-          <span className={`chip ${gradeChipClass(pct)}`} style={{ marginLeft: "auto" }}><span className="d" />{attempt.correctCount} из {attempt.total} верно</span>
+          <span className={`chip ${gradeChipClass(pct)}`} style={{ marginLeft: "auto" }}><span className="d" />{t(locale, "test.ofCorrect", { correct: attempt.correctCount, total: attempt.total })}</span>
         </div>
 
         {test.allowRetake && (
           <div className="card" style={{ padding: 16, marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
             <p className="mut" style={{ fontSize: 13, margin: 0, flex: 1 }}>
-              Этот тест можно пройти заново — прошлый результат заменится новым.
+              {t(locale, "test.retakeNote")}
             </p>
-            <Link className="btn ghost" href={`/cabinet/test/${test.id}?retake=1`}>Пройти заново</Link>
+            <Link className="btn ghost" href={`/cabinet/test/${test.id}?retake=1`}>{t(locale, "test.retake")}</Link>
           </div>
         )}
 
@@ -91,7 +94,7 @@ export default async function CabinetTest({
           return (
             <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
-                <span className={`chip ${right ? "c-ok" : "c-bad"}`} style={{ flex: "none" }}><span className="d" />{right ? "Верно" : "Ошибка"}</span>
+                <span className={`chip ${right ? "c-ok" : "c-bad"}`} style={{ flex: "none" }}><span className="d" />{right ? t(locale, "test.correct") : t(locale, "test.wrong")}</span>
                 <div style={{ fontWeight: 600 }}>{i + 1}. {q.text}</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -105,7 +108,7 @@ export default async function CabinetTest({
                       <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
                       <span style={{ flex: 1 }}>{opt}</span>
                       {isCorrect && <Icon name="check" size={15} style={{ color: "var(--ok)" }} />}
-                      {isChosen && !isCorrect && <span className="mut" style={{ fontSize: 11.5 }}>ваш ответ</span>}
+                      {isChosen && !isCorrect && <span className="mut" style={{ fontSize: 11.5 }}>{t(locale, "test.yourAnswer")}</span>}
                     </div>
                   );
                 })}
@@ -124,8 +127,8 @@ export default async function CabinetTest({
         {header}
         <div className="card" style={{ padding: 28, textAlign: "center" }}>
           <div style={{ fontSize: 34, marginBottom: 8 }}>🔒</div>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Тест ещё не открыт</div>
-          <p className="mut" style={{ fontSize: 13, margin: 0 }}>Он станет доступен после урока по расписанию ({formatDate(test.date)}).</p>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>{t(locale, "test.notOpenTitle")}</div>
+          <p className="mut" style={{ fontSize: 13, margin: 0 }}>{t(locale, "test.notOpenNote", { date: formatDate(test.date) })}</p>
         </div>
       </div>
     );
@@ -153,10 +156,10 @@ export default async function CabinetTest({
         <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, position: "sticky", bottom: 12 }}>
           <p className="mut" style={{ fontSize: 12, margin: 0, flex: 1 }}>
             {test.allowRetake
-              ? "Тест можно пройти заново — последний результат станет итоговым."
-              : "Тест можно пройти один раз. Проверьте ответы перед отправкой."}
+              ? t(locale, "test.retakeHint")
+              : t(locale, "test.onceHint")}
           </p>
-          <button className="btn" type="submit"><Icon name="check" size={16} />Отправить</button>
+          <button className="btn" type="submit"><Icon name="check" size={16} />{t(locale, "test.submit")}</button>
         </div>
       </form>
     </div>

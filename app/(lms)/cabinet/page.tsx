@@ -10,14 +10,17 @@ import { BarChart } from "@/components/BarChart";
 import { CabinetHomework } from "./CabinetHomework";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
+import { getLocale } from "@/lib/locale";
+import { t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 export default async function CabinetHome() {
   const session = await auth();
+  const locale = await getLocale();
   const studentId = await getStudentIdForUser(session?.user?.id);
   if (!studentId) {
-    return <div className="card"><div className="empty">Профиль ученика не найден. Обратитесь в школу.</div></div>;
+    return <div className="card"><div className="empty">{t(locale, "cabinet.profileNotFound")}</div></div>;
   }
 
   const student = await prisma.student.findUnique({
@@ -58,20 +61,20 @@ export default async function CabinetHome() {
       })
     : [];
   const lessonsByGroup = new Map(student.groups.map((g) => [g.id, g.lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime }))]));
-  const tests = testsRaw.map((t) => {
-    const lessons = lessonsByGroup.get(t.groupId ?? "") ?? [];
-    const attempt = t.attempts[0] ?? null;
+  const tests = testsRaw.map((row) => {
+    const lessons = lessonsByGroup.get(row.groupId ?? "") ?? [];
+    const attempt = row.attempts[0] ?? null;
     return {
-      id: t.id,
-      title: t.title,
-      date: t.date,
-      maxScore: t.maxScore,
-      questions: t._count.questions,
-      subjectName: t.subject?.name ?? null,
-      subjectColor: t.subject?.color ?? "#3A5AE0",
+      id: row.id,
+      title: row.title,
+      date: row.date,
+      maxScore: row.maxScore,
+      questions: row._count.questions,
+      subjectName: row.subject?.name ?? null,
+      subjectColor: row.subject?.color ?? "#3A5AE0",
       attempt,
-      open: isTestOpen(t.date, lessons, new Date(), tz),
-      opensAt: testAvailableAt(t.date, lessons, tz),
+      open: isTestOpen(row.date, lessons, new Date(), tz),
+      opensAt: testAvailableAt(row.date, lessons, tz),
     };
   });
 
@@ -117,7 +120,7 @@ export default async function CabinetHome() {
   const jsDay = now.getDay(); // 0 = вс
   const todayDow = jsDay === 0 ? 7 : jsDay; // 1..6 = Пн..Сб (как в расписании)
   const hour = now.getHours();
-  const greeting = hour < 12 ? "Доброе утро" : hour < 18 ? "Добрый день" : "Добрый вечер";
+  const greeting = hour < 12 ? t(locale, "cabinet.morning") : hour < 18 ? t(locale, "cabinet.day") : t(locale, "cabinet.evening");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -126,33 +129,33 @@ export default async function CabinetHome() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ fontSize: 20 }}>{greeting}, {student.name.split(" ")[0]}!</h1>
           <p className="mut" style={{ fontSize: 13, margin: "2px 0 0" }}>
-            {student.groups.map((g) => g.name).join(", ") || "без группы"}
+            {student.groups.map((g) => g.name).join(", ") || t(locale, "common.noGroup")}
           </p>
         </div>
       </div>
 
       <div className="grid kpis" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
         <div className="card kpi">
-          <div className="klabel"><span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}><Icon name="check" size={16} /></span>Посещаемость</div>
+          <div className="klabel"><span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}><Icon name="check" size={16} /></span>{t(locale, "cabinet.attendance")}</div>
           <div className="kval num" style={{ color: student.attendance == null ? "var(--ink-3)" : scoreColor(student.attendance) }}>{student.attendance == null ? "—" : `${student.attendance}%`}</div>
         </div>
         <div className="card kpi">
-          <div className="klabel"><span className="kico" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}><Icon name="chart" size={16} /></span>Средний балл</div>
+          <div className="klabel"><span className="kico" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}><Icon name="chart" size={16} /></span>{t(locale, "cabinet.avgScore")}</div>
           <div className="kval num" style={{ color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>{avg != null ? `${avg}%` : "—"}</div>
         </div>
       </div>
 
       <div className="card">
-        <div className="card-h"><h3>Расписание</h3></div>
+        <div className="card-h"><h3>{t(locale, "cabinet.schedule")}</h3></div>
         <div style={{ padding: "6px 0" }}>
-          {lessons.length === 0 && <div className="empty">Расписание не задано</div>}
+          {lessons.length === 0 && <div className="empty">{t(locale, "cabinet.noSchedule")}</div>}
           {lessons.map((l) => {
             const today = l.dayOfWeek === todayDow;
             return (
               <div className="list-row" key={l.id} style={today ? { background: "var(--accent-soft)" } : undefined}>
                 <div style={{ width: 40, fontWeight: 700, color: today ? "var(--accent)" : undefined }}>
                   {DAYS[l.dayOfWeek]}
-                  {today && <span className="mut" style={{ display: "block", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>сегодня</span>}
+                  {today && <span className="mut" style={{ display: "block", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em" }}>{t(locale, "common.today")}</span>}
                 </div>
                 <div className="num" style={{ width: 54, fontWeight: 600 }}>{l.startTime}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -172,36 +175,36 @@ export default async function CabinetHome() {
 
       {tests.length > 0 && (
         <div className="card">
-          <div className="card-h"><h3>Тесты</h3><span className="chip c-mut"><span className="d" />{tests.length}</span></div>
+          <div className="card-h"><h3>{t(locale, "cabinet.tests")}</h3><span className="chip c-mut"><span className="d" />{tests.length}</span></div>
           <div style={{ padding: "6px 0" }}>
-            {tests.map((t) => {
-              const pct = t.attempt ? Math.round((t.attempt.score / t.maxScore) * 100) : null;
+            {tests.map((tst) => {
+              const pct = tst.attempt ? Math.round((tst.attempt.score / tst.maxScore) * 100) : null;
               const inner = (
                 <>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7 }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 3, background: t.subjectColor, flex: "none" }} />
-                      {t.title}
+                      <span style={{ width: 9, height: 9, borderRadius: 3, background: tst.subjectColor, flex: "none" }} />
+                      {tst.title}
                     </div>
                     <div className="mut" style={{ fontSize: 12 }}>
-                      {t.subjectName ? `${t.subjectName} · ` : ""}{t.questions} вопр.{t.attempt ? ` · ${t.attempt.correctCount}/${t.attempt.total} верно` : ""}
+                      {tst.subjectName ? `${tst.subjectName} · ` : ""}{tst.questions} {t(locale, "cabinet.questionsShort")}{tst.attempt ? ` · ${tst.attempt.correctCount}/${tst.attempt.total} ${t(locale, "cabinet.correctShort")}` : ""}
                     </div>
                   </div>
-                  {t.attempt ? (
-                    <span className={`chip ${gradeChipClass(pct!)}`}><span className="d" />{t.attempt.score}/{t.maxScore}</span>
-                  ) : t.open ? (
-                    <span className="chip c-ok"><span className="d" />Пройти →</span>
+                  {tst.attempt ? (
+                    <span className={`chip ${gradeChipClass(pct!)}`}><span className="d" />{tst.attempt.score}/{tst.maxScore}</span>
+                  ) : tst.open ? (
+                    <span className="chip c-ok"><span className="d" />{t(locale, "cabinet.take")}</span>
                   ) : (
-                    <span className="chip c-mut"><span className="d" />После урока {formatDate(t.date)}</span>
+                    <span className="chip c-mut"><span className="d" />{t(locale, "cabinet.afterLesson", { date: formatDate(tst.date) })}</span>
                   )}
                 </>
               );
-              return t.attempt || t.open ? (
-                <Link key={t.id} href={`/cabinet/test/${t.id}`} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+              return tst.attempt || tst.open ? (
+                <Link key={tst.id} href={`/cabinet/test/${tst.id}`} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
                   {inner}
                 </Link>
               ) : (
-                <div key={t.id} className="list-row" style={{ opacity: 0.6 }}>{inner}</div>
+                <div key={tst.id} className="list-row" style={{ opacity: 0.6 }}>{inner}</div>
               );
             })}
           </div>
@@ -210,16 +213,16 @@ export default async function CabinetHome() {
 
       {topics.length > 0 && (
         <div className="card">
-          <div className="card-h"><h3>Пройденные темы</h3><span className="chip c-mut"><span className="d" />{topics.length}</span></div>
+          <div className="card-h"><h3>{t(locale, "cabinet.coveredTopics")}</h3><span className="chip c-mut"><span className="d" />{topics.length}</span></div>
           <div style={{ padding: "6px 0" }}>
-            {topics.map((t) => (
-              <div className="list-row" key={t.id}>
-                <div className="num mut" style={{ width: 62, fontSize: 12, fontWeight: 600 }}>{formatDate(t.date)}</div>
+            {topics.map((ls) => (
+              <div className="list-row" key={ls.id}>
+                <div className="num mut" style={{ width: 62, fontSize: 12, fontWeight: 600 }}>{formatDate(ls.date)}</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600 }}>{t.topic}</div>
+                  <div style={{ fontWeight: 600 }}>{ls.topic}</div>
                   <div className="mut" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: 2, background: t.lesson.group.color, flex: "none" }} />
-                    {t.lesson.group.name}
+                    <span style={{ width: 8, height: 8, borderRadius: 2, background: ls.lesson.group.color, flex: "none" }} />
+                    {ls.lesson.group.name}
                   </div>
                 </div>
               </div>
@@ -228,11 +231,11 @@ export default async function CabinetHome() {
         </div>
       )}
 
-      <CabinetHomework items={hwItems} />
+      <CabinetHomework items={hwItems} locale={locale} />
 
       {materials.length > 0 && (
         <div className="card">
-          <div className="card-h"><h3>Материалы</h3><span className="chip c-mut"><span className="d" />{materials.length}</span></div>
+          <div className="card-h"><h3>{t(locale, "cabinet.materials")}</h3><span className="chip c-mut"><span className="d" />{materials.length}</span></div>
           <div style={{ padding: "6px 0" }}>
             {materials.map((m) => (
               <a key={m.id} href={m.fileUrl} target="_blank" rel="noopener noreferrer" className="list-row" style={{ textDecoration: "none" }}>
@@ -251,22 +254,22 @@ export default async function CabinetHome() {
       {progress.length >= 2 && (
         <div className="card">
           <div className="card-h">
-            <h3>Как идут дела</h3>
-            <span className="chip c-mut"><span className="d" />последние {progress.length}</span>
+            <h3>{t(locale, "cabinet.howAreThings")}</h3>
+            <span className="chip c-mut"><span className="d" />{t(locale, "cabinet.lastN", { n: progress.length })}</span>
           </div>
           <div style={{ padding: 18 }}>
             <BarChart data={progress} color="var(--violet)" height={150} formatValue={(n) => `${n}%`} />
             <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
-              Результаты по оценкам в процентах — от старых к новым.
+              {t(locale, "cabinet.progressNote")}
             </p>
           </div>
         </div>
       )}
 
       <div className="card">
-        <div className="card-h"><h3>Оценки</h3></div>
+        <div className="card-h"><h3>{t(locale, "cabinet.grades")}</h3></div>
         <div style={{ padding: "6px 0" }}>
-          {student.grades.length === 0 && <div className="empty">Оценок пока нет</div>}
+          {student.grades.length === 0 && <div className="empty">{t(locale, "cabinet.noGrades")}</div>}
           {student.grades.map((g) => {
             const pct = Math.round((g.score / g.maxScore) * 100);
             return (
@@ -285,12 +288,12 @@ export default async function CabinetHome() {
       {attendance.length > 0 && (
         <div className="card">
           <div className="card-h">
-            <h3>Посещаемость по занятиям</h3>
+            <h3>{t(locale, "cabinet.attendanceByLesson")}</h3>
             <span className="chip c-mut"><span className="d" />{attendance.length}</span>
           </div>
           <div style={{ padding: "6px 0" }}>
             {attendance.map((a) => {
-              const label = a.present ? "Был" : a.excused ? "Уважительная" : "Пропуск";
+              const label = a.present ? t(locale, "cabinet.present") : a.excused ? t(locale, "cabinet.excused") : t(locale, "cabinet.missed");
               const cls = a.present ? "c-ok" : a.excused ? "c-mut" : "c-bad";
               return (
                 <div className="list-row" key={a.id}>
@@ -305,13 +308,13 @@ export default async function CabinetHome() {
             })}
           </div>
           <p className="mut" style={{ fontSize: 11.5, padding: "0 18px 14px", margin: 0 }}>
-            Пропуски по уважительной причине не влияют на процент посещаемости.
+            {t(locale, "cabinet.excusedNote")}
           </p>
         </div>
       )}
 
       <p style={{ textAlign: "center" }}>
-        <Link href="/cabinet" className="mut" style={{ fontSize: 11.5 }}>Обновить</Link>
+        <Link href="/cabinet" className="mut" style={{ fontSize: 11.5 }}>{t(locale, "common.refresh")}</Link>
       </p>
     </div>
   );
