@@ -100,15 +100,22 @@ export default async function CabinetHome() {
       })
     : [];
 
-  const hwItems = homeworks.map((hw) => ({
-    id: hw.id,
-    title: hw.title,
-    description: hw.description,
-    groupName: hw.group.name,
-    dueLabel: hw.dueDate ? formatDate(hw.dueDate) : null,
-    dueTs: hw.dueDate ? new Date(hw.dueDate).getTime() : null,
-    done: hw.completions[0]?.done ?? false,
-  }));
+  const hwItems = homeworks
+    .map((hw) => ({
+      id: hw.id,
+      title: hw.title,
+      description: hw.description,
+      groupName: hw.group.name,
+      dueLabel: hw.dueDate ? formatDate(hw.dueDate) : null,
+      dueTs: hw.dueDate ? new Date(hw.dueDate).getTime() : null,
+      done: hw.completions[0]?.done ?? false,
+    }))
+    // Сначала невыполненные и с ближайшим сроком: раньше список шёл по дате
+    // создания, и задание «на завтра» могло оказаться внизу.
+    .sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      return (a.dueTs ?? Infinity) - (b.dueTs ?? Infinity);
+    });
 
   const avg = student.grades.length
     ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
@@ -123,10 +130,23 @@ export default async function CabinetHome() {
     .map((g) => ({ label: shortDate(new Date(g.date)), value: Math.round((g.score / g.maxScore) * 100) }));
 
   const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const endOfTomorrow = startOfToday + 2 * 24 * 3600 * 1000;
   const jsDay = now.getDay(); // 0 = вс
   const todayDow = jsDay === 0 ? 7 : jsDay; // 1..6 = Пн..Сб (как в расписании)
   const hour = now.getHours();
   const greeting = hour < 12 ? t(locale, "cabinet.morning") : hour < 18 ? t(locale, "cabinet.day") : t(locale, "cabinet.evening");
+
+  // Блок «Сегодня»: то, ради чего кабинет чаще всего и открывают
+  const todayLessons = lessons.filter((l) => l.dayOfWeek === todayDow);
+  const dueSoon = hwItems.filter((h) => !h.done && h.dueTs != null && h.dueTs < endOfTomorrow);
+  const openTests = tests.filter((x) => x.open && !x.attempt);
+  const dueLabelFor = (ts: number) =>
+    ts < startOfToday
+      ? t(locale, "today.overdue")
+      : ts < startOfToday + 24 * 3600 * 1000
+        ? t(locale, "today.dueToday")
+        : t(locale, "today.dueTomorrow");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -137,6 +157,41 @@ export default async function CabinetHome() {
           <p className="mut" style={{ fontSize: 13, margin: "2px 0 0" }}>
             {student.groups.map((g) => g.name).join(", ") || t(locale, "common.noGroup")}
           </p>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
+        <div className="card-h"><h3>{t(locale, "today.title")}</h3></div>
+        <div style={{ padding: "6px 0" }}>
+          {todayLessons.length === 0 && dueSoon.length === 0 && openTests.length === 0 && (
+            <div className="empty">{t(locale, "today.noLessons")}</div>
+          )}
+          {todayLessons.map((l) => (
+            <div className="list-row" key={`t-${l.id}`}>
+              <div className="num" style={{ width: 54, fontWeight: 700 }}>{l.startTime}</div>
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                <span style={{ width: 9, height: 9, borderRadius: 3, background: l.color, flex: "none" }} />
+                <span style={{ fontWeight: 600 }}>{l.groupName}</span>
+                <span className="mut" style={{ fontSize: 12 }}>{l.room}</span>
+              </div>
+            </div>
+          ))}
+          {dueSoon.map((h) => (
+            <div className="list-row" key={`d-${h.id}`}>
+              <span className="chip c-warn" style={{ flex: "none" }}><span className="d" />{t(locale, "today.dueSoon")}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{h.title}</div>
+                <div className="mut" style={{ fontSize: 12 }}>{h.groupName} · {dueLabelFor(h.dueTs as number)}</div>
+              </div>
+            </div>
+          ))}
+          {openTests.map((x) => (
+            <Link className="list-row" key={`x-${x.id}`} href={`/cabinet/test/${x.id}`} style={{ textDecoration: "none", color: "inherit" }}>
+              <span className="chip c-ok" style={{ flex: "none" }}><span className="d" />{t(locale, "today.testsOpen")}</span>
+              <div style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{x.title}</div>
+              <span className="mut" style={{ fontSize: 12 }}>→</span>
+            </Link>
+          ))}
         </div>
       </div>
 

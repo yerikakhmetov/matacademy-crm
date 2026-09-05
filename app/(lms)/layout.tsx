@@ -6,6 +6,7 @@ import { logout } from "@/app/actions/auth";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function CabinetLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -37,6 +38,7 @@ export default async function CabinetLayout({ children }: { children: React.Reac
           <div className="mut" style={{ fontSize: 11.5 }}>{t(locale, "lms.studentCabinet")}</div>
         </div>
         <LocaleSwitcher current={locale} path="/cabinet" />
+        <ThemeToggle title={t(locale, "common.theme")} />
         <span className="mut" style={{ fontSize: 12.5, fontWeight: 600 }}>{session.user.name}</span>
         <form action={logout}>
           <button className="icon-btn" title={t(locale, "common.logout")} type="submit">
