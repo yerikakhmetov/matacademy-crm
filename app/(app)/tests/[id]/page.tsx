@@ -7,6 +7,7 @@ import { isTeacher } from "@/lib/teacher";
 import { formatDate, scoreColor } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { saveTestResults } from "@/app/actions/data";
+import { hardestQuestions, questionStats } from "@/lib/test-stats";
 import { DeleteTestButton } from "./DeleteTestButton";
 import { SaveTestButton } from "./SaveTestButton";
 
@@ -33,6 +34,11 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
       subject: { select: { name: true, color: true, teachers: { select: { userId: true } } } },
       grades: { select: { studentId: true, score: true } },
       questions: { orderBy: { order: "asc" } },
+      attempts: {
+        where: { finished: true },
+        include: { student: { select: { id: true, name: true } } },
+        orderBy: { submittedAt: "desc" },
+      },
     },
   });
   if (!test) notFound();
@@ -44,6 +50,14 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
   const canEditResults = editor || ownsGroup;
 
   const scoreByStudent = new Map(test.grades.map((g) => [g.studentId, g.score]));
+
+  // Разбор онлайн-прохождений: где группа спотыкается
+  const attempts = test.attempts;
+  const stats = questionStats(
+    test.questions.map((q) => ({ correct: q.correct, optionsCount: q.options.length })),
+    attempts.map((a) => ({ answers: a.answers }))
+  );
+  const hard = hardestQuestions(stats, 60);
   const students = test.group?.students ?? [];
   const entered = test.grades.length;
   const avg =
@@ -88,8 +102,17 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
             {test.questions.map((q, qi) => (
               <div key={q.id}>
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                  {qi + 1}. {q.text}
+                <div style={{ fontWeight: 600, marginBottom: 8, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 200 }}>{qi + 1}. {q.text}</span>
+                  {attempts.length > 0 && (
+                    <span
+                      className={`chip ${stats[qi].correctPct >= 80 ? "c-ok" : stats[qi].correctPct >= 60 ? "c-warn" : "c-bad"}`}
+                      style={{ flex: "none" }}
+                    >
+                      <span className="d" />
+                      {stats[qi].correct} из {attempts.length} · {stats[qi].correctPct}%
+                    </span>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   {q.options.map((opt, oi) => {
@@ -110,7 +133,12 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
                         }}
                       >
                         <span style={{ fontWeight: 700, width: 18, flex: "none" }}>{LETTERS[oi]})</span>
-                        <span>{opt}</span>
+                        <span style={{ flex: 1 }}>{opt}</span>
+                        {attempts.length > 0 && (
+                          <span className="mut num" style={{ fontSize: 12, flex: "none" }}>
+                            {stats[qi].byOption[oi] ?? 0}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -119,6 +147,79 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             ))}
           </div>
         </div>
+      )}
+
+      {attempts.length > 0 && (
+        <>
+          {hard.length > 0 && (
+            <div className="card" style={{ padding: 18, marginBottom: 16, borderColor: "var(--warn)" }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--warn)", fontWeight: 700, marginBottom: 8 }}>
+                Разобрать на уроке
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {hard.map((h) => (
+                  <div key={h.index} style={{ display: "flex", gap: 9, alignItems: "baseline" }}>
+                    <span className="chip c-bad" style={{ flex: "none" }}><span className="d" />{h.correctPct}%</span>
+                    <span style={{ fontSize: 13.5 }}>{h.index + 1}. {test.questions[h.index]?.text}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
+                Вопросы, где верно ответили меньше 60% проходивших.
+              </p>
+            </div>
+          )}
+
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="card-h">
+              <h3>Кто как ответил</h3>
+              <span className="chip c-mut"><span className="d" />{attempts.length}</span>
+            </div>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ученик</th>
+                    {test.questions.map((_, qi) => (
+                      <th key={qi} className="right" style={{ width: 28 }}>{qi + 1}</th>
+                    ))}
+                    <th className="right">Балл</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.map((a) => (
+                    <tr key={a.id}>
+                      <td>
+                        <div className="person">
+                          <Avatar name={a.student.name} size={26} radius={8} fontSize={10} />
+                          <div className="nm" style={{ fontSize: 13 }}>{a.student.name}</div>
+                        </div>
+                      </td>
+                      {test.questions.map((q, qi) => {
+                        const choice = a.answers[qi];
+                        const ok = choice === q.correct;
+                        const skipped = choice == null || choice < 0;
+                        return (
+                          <td key={qi} className="right" title={skipped ? "Без ответа" : `Ответ: ${LETTERS[choice] ?? choice}`}>
+                            <span style={{ color: skipped ? "var(--ink-3)" : ok ? "var(--ok)" : "var(--bad)", fontWeight: 700 }}>
+                              {skipped ? "·" : ok ? "✓" : "✕"}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="right num" style={{ fontWeight: 700, color: scoreColor(Math.round((a.score / test.maxScore) * 100)) }}>
+                        {a.score}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mut" style={{ fontSize: 12, padding: "10px 18px 16px", margin: 0 }}>
+              Наведите на клетку, чтобы увидеть выбранный вариант. «·» — вопрос пропущен.
+            </p>
+          </div>
+        </>
       )}
 
       {/* Ввод баллов — только если тест привязан к группе */}
