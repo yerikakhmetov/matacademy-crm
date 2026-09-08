@@ -147,9 +147,14 @@ export default async function DashboardPage() {
         <div className="card">
           <div className="card-h">
             <h3>Последние оплаты</h3>
-            <Link className="link" href="/payments">
-              Все оплаты →
-            </Link>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <Link className="link" href="/payments/daily">
+                По дням
+              </Link>
+              <Link className="link" href="/payments">
+                Все оплаты →
+              </Link>
+            </div>
           </div>
           <div style={{ padding: "6px 0" }}>
             {recentPays.length === 0 && <div className="empty">Пока нет оплат</div>}

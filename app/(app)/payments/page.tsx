@@ -72,11 +72,17 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
           <h1>Оплаты и абонементы</h1>
           <p>Движение средств по школе</p>
         </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <Link className="btn ghost" href="/payments/daily">
+          <Icon name="chart" size={15} />
+          По дням
+        </Link>
         {editor && (
           <ModalButton label="Принять оплату" title="Приём оплаты" icon="money" action={createPayment}>
             <PaymentForm students={students} subjects={subjects} />
           </ModalButton>
         )}
+        </div>
       </div>
 
       <div className="grid kpis" style={{ marginBottom: 16 }}>
