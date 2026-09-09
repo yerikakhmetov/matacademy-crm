@@ -1243,6 +1243,87 @@ export async function importTest(formData: FormData) {
   redirect(`/tests/${test.id}`);
 }
 
+// Обновление вопросов уже существующего теста из того же LaTeX-исходника.
+// Нужно, когда тест импортировали до появления набора формул: пересоздавать его
+// нельзя — вместе с ним ушли бы попытки и оценки учеников.
+export async function refreshTestQuestions(testId: string, formData: FormData) {
+  const test = await prisma.test.findUnique({
+    where: { id: testId },
+    select: { id: true, groupId: true, maxScore: true, title: true, _count: { select: { attempts: true } } },
+  });
+  if (!test) throw new Error("Тест не найден");
+  if (test.groupId) await assertCanManageGroup(test.groupId);
+  else await assertEditor();
+
+  const parsed = parseTestSource(String(formData.get("source") ?? ""));
+  if (parsed.questions.length === 0) {
+    throw new Error("В исходнике не найдено ни одного вопроса. Нужны строки \\item $…$ и \\choices{}{}{}{}.");
+  }
+
+  const existing = await prisma.testQuestion.findMany({
+    where: { testId },
+    orderBy: { order: "asc" },
+    select: { id: true },
+  });
+
+  // Ответы в попытках хранятся по номеру вопроса. Если вопросов станет другое
+  // количество, старые ответы поедут — такое допускаем только пока никто не проходил.
+  if (existing.length > 0 && existing.length !== parsed.questions.length && test._count.attempts > 0) {
+    throw new Error(
+      `В тесте ${existing.length} вопросов, а в исходнике ${parsed.questions.length}. ` +
+        `Тест уже проходили (${test._count.attempts}), поэтому менять их количество нельзя — исправьте исходник.`
+    );
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (existing.length === parsed.questions.length) {
+      // порядок совпадает — обновляем на месте, id вопросов сохраняются
+      for (let i = 0; i < existing.length; i++) {
+        const q = parsed.questions[i];
+        await tx.testQuestion.update({
+          where: { id: existing[i].id },
+          data: { order: i, text: q.text, options: q.options, correct: q.correct, textTex: q.tex, optionsTex: q.optionsTex },
+        });
+      }
+    } else {
+      await tx.testQuestion.deleteMany({ where: { testId } });
+      await tx.testQuestion.createMany({
+        data: parsed.questions.map((q, i) => ({
+          testId, order: i, text: q.text, options: q.options, correct: q.correct,
+          textTex: q.tex, optionsTex: q.optionsTex,
+        })),
+      });
+    }
+  });
+
+  // Верные ответы могли сдвинуться — пересчитываем уже сданные работы,
+  // иначе у ученика останется балл от старой версии вопросов.
+  const fresh = await prisma.testQuestion.findMany({
+    where: { testId }, orderBy: { order: "asc" }, select: { correct: true },
+  });
+  const attempts = await prisma.testAttempt.findMany({
+    where: { testId, finished: true },
+    select: { id: true, studentId: true, answers: true },
+  });
+  for (const a of attempts) {
+    const { total, correctCount, score } = scoreAnswers(fresh, a.answers, test.maxScore);
+    await prisma.testAttempt.update({ where: { id: a.id }, data: { total, correctCount, score } });
+    await prisma.grade.updateMany({
+      where: { testId, studentId: a.studentId },
+      data: { score, maxScore: test.maxScore },
+    });
+  }
+
+  await logAudit(
+    "UPDATE",
+    "Тест",
+    `${test.title} · вопросы обновлены из исходника (${parsed.questions.length})${attempts.length > 0 ? `, пересчитано работ: ${attempts.length}` : ""}`
+  );
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/grades");
+  revalidatePath("/cabinet");
+}
+
 export async function createTest(formData: FormData) {
   const groupId = str(formData.get("groupId")) || null;
   const subjectId = str(formData.get("subjectId")) || null;

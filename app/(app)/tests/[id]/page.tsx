@@ -6,10 +6,12 @@ import { canEditData } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { formatDate, scoreColor } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
-import { saveTestResults } from "@/app/actions/data";
+import { ModalButton } from "@/components/ModalButton";
+import { saveTestResults, refreshTestQuestions } from "@/app/actions/data";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
 import { DeleteTestButton } from "./DeleteTestButton";
 import { SaveTestButton } from "./SaveTestButton";
+import { RefreshQuestionsForm } from "./RefreshQuestionsForm";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +88,21 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
-        {(editor || ownsGroup || teachesSubject) && <DeleteTestButton id={test.id} title={test.title} />}
+        {(editor || ownsGroup || teachesSubject) && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <ModalButton
+              label="Обновить вопросы"
+              title={`Вопросы из исходника · ${test.title}`}
+              icon="export"
+              buttonClass="btn ghost"
+              action={refreshTestQuestions.bind(null, test.id)}
+              submitLabel="Обновить"
+            >
+              <RefreshQuestionsForm current={test.questions.length} attempts={test.attempts.length} />
+            </ModalButton>
+            <DeleteTestButton id={test.id} title={test.title} />
+          </div>
+        )}
       </div>
 
       {/* Вопросы теста */}
