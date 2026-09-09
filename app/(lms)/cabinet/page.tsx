@@ -123,7 +123,15 @@ export default async function CabinetHome() {
     ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
     : null;
   const lessons = student.groups
-    .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.name, color: g.color, teacherName: g.teacher?.name ?? null })))
+    .flatMap((g) =>
+      g.lessons.map((l) => ({
+        ...l,
+        groupName: g.name,
+        color: g.color,
+        teacherName: g.teacher?.name ?? null,
+        startsOn: g.startDate, // группа ещё не начала — занятия впереди, а не сегодня
+      }))
+    )
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
 
   const shortDate = (d: Date) => `${d.getUTCDate()}.${d.getUTCMonth() + 1}`;
@@ -140,7 +148,8 @@ export default async function CabinetHome() {
   const greeting = hour < 12 ? t(locale, "cabinet.morning") : hour < 18 ? t(locale, "cabinet.day") : t(locale, "cabinet.evening");
 
   // Блок «Сегодня»: то, ради чего кабинет чаще всего и открывают
-  const todayLessons = lessons.filter((l) => l.dayOfWeek === todayDow);
+  const started = (l: { startsOn: Date | null }) => l.startsOn == null || l.startsOn.getTime() <= now.getTime();
+  const todayLessons = lessons.filter((l) => l.dayOfWeek === todayDow && started(l));
   const dueSoon = hwItems.filter((h) => !h.done && h.dueTs != null && h.dueTs < endOfTomorrow);
   const openTests = tests.filter((x) => x.open && !x.attempt);
   const dueLabelFor = (ts: number) =>
@@ -221,7 +230,7 @@ export default async function CabinetHome() {
         <div style={{ padding: "6px 0" }}>
           {lessons.length === 0 && <div className="empty">{t(locale, "cabinet.noSchedule")}</div>}
           {lessons.map((l) => {
-            const today = l.dayOfWeek === todayDow;
+            const today = l.dayOfWeek === todayDow && started(l);
             return (
               <div className="list-row" key={l.id} style={today ? { background: "var(--accent-soft)" } : undefined}>
                 <div style={{ width: 40, fontWeight: 700, color: today ? "var(--accent)" : undefined }}>
@@ -237,6 +246,11 @@ export default async function CabinetHome() {
                   <div className="mut" style={{ fontSize: 12 }}>
                     {l.room}{l.teacherName ? ` · ${l.teacherName}` : ""}
                   </div>
+                  {!started(l) && l.startsOn && (
+                    <div style={{ fontSize: 11.5, marginTop: 2, color: "var(--warn)", fontWeight: 600 }}>
+                      {t(locale, "cabinet.startsOn", { date: formatDate(l.startsOn) })}
+                    </div>
+                  )}
                 </div>
               </div>
             );

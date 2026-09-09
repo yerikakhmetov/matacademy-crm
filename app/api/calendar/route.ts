@@ -17,7 +17,7 @@ export async function GET() {
   const [student, settings] = await Promise.all([
     prisma.student.findUnique({
       where: { id: studentId },
-      select: { groups: { select: { name: true, lessons: { select: { id: true, dayOfWeek: true, startTime: true, room: true } } } } },
+      select: { groups: { select: { name: true, startDate: true, lessons: { select: { id: true, dayOfWeek: true, startTime: true, room: true } } } } },
     }),
     getSettings(),
   ]);
@@ -31,6 +31,7 @@ export async function GET() {
       dayOfWeek: l.dayOfWeek,
       startTime: l.startTime,
       durationMin: settings.lessonDurationMin,
+      startsOn: g.startDate,
     }))
   );
 

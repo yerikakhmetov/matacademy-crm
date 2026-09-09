@@ -29,20 +29,36 @@ export const payableKey = (groupId: string, studentId: string) => `${groupId}|${
 export const feeKey = (studentId: string, subjectId: string) => `${studentId}|${subjectId}`;
 
 // Сколько раз день недели (1=Пн … 7=Вс) встречается в месяце.
-export function weekdayOccurrences(year: number, month0: number, dayOfWeek: number): number {
+// startDate — день, с которого группа начала заниматься: занятия до него
+// не проводились, поэтому в счёт не идут (иначе делитель зарплаты завышен,
+// и первый месяц новой группы недоплачивается преподавателю).
+export function weekdayOccurrences(
+  year: number,
+  month0: number,
+  dayOfWeek: number,
+  startDate?: Date | null
+): number {
+  const from = startDate
+    ? Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate())
+    : null;
   let count = 0;
   const d = new Date(Date.UTC(year, month0, 1));
   while (d.getUTCMonth() === month0) {
     const js = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
-    if (js === dayOfWeek) count++;
+    if (js === dayOfWeek && (from === null || d.getTime() >= from)) count++;
     d.setUTCDate(d.getUTCDate() + 1);
   }
   return count;
 }
 
 // Сколько занятий у группы в этом месяце по расписанию.
-export function scheduledLessonsInMonth(year: number, month0: number, dayOfWeeks: number[]): number {
-  return dayOfWeeks.reduce((a, dow) => a + weekdayOccurrences(year, month0, dow), 0);
+export function scheduledLessonsInMonth(
+  year: number,
+  month0: number,
+  dayOfWeeks: number[],
+  startDate?: Date | null
+): number {
+  return dayOfWeeks.reduce((a, dow) => a + weekdayOccurrences(year, month0, dow, startDate), 0);
 }
 
 export type PayrollTeacher = {

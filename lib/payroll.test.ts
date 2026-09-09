@@ -134,3 +134,41 @@ test("scheduledLessonsInMonth: 3 занятия в неделю дают 12-15 �
   const n = scheduledLessonsInMonth(2026, 8, [1, 3, 5]);
   assert.ok(n >= 12 && n <= 15, `ожидали 12-15, получили ${n}`);
 });
+
+// --- Дата начала группы ---
+// Сентябрь 2026: 1-е — вторник. Среды: 2, 9, 16, 23, 30.
+test("до даты начала занятий по расписанию нет", () => {
+  assert.equal(weekdayOccurrences(2026, 8, 3), 5, "всего 5 сред в сентябре 2026");
+  // группа М-1 стартует 9 сентября — первая среда (2-е) не считается
+  assert.equal(weekdayOccurrences(2026, 8, 3, new Date(Date.UTC(2026, 8, 9))), 4);
+});
+
+test("дата начала попадает ровно на день занятия — этот день считается", () => {
+  const start = new Date(Date.UTC(2026, 8, 9)); // среда
+  assert.equal(weekdayOccurrences(2026, 8, 3, start), 4, "9-е входит в счёт");
+});
+
+test("группа стартует в следующем месяце — в этом занятий нет", () => {
+  const start = new Date(Date.UTC(2026, 9, 1));
+  assert.equal(scheduledLessonsInMonth(2026, 8, [1, 3, 5], start), 0);
+});
+
+test("группа началась раньше месяца — считаем весь месяц", () => {
+  const start = new Date(Date.UTC(2025, 0, 15));
+  assert.equal(
+    scheduledLessonsInMonth(2026, 8, [1, 3, 5], start),
+    scheduledLessonsInMonth(2026, 8, [1, 3, 5]),
+    "старая группа считается как раньше"
+  );
+});
+
+test("без даты начала поведение прежнее", () => {
+  assert.equal(scheduledLessonsInMonth(2026, 8, [1, 3, 5], null), scheduledLessonsInMonth(2026, 8, [1, 3, 5]));
+});
+
+test("первый месяц новой группы: делитель меньше, значит занятие дороже", () => {
+  const full = scheduledLessonsInMonth(2026, 8, [1, 3, 5]); // 13 занятий
+  const partial = scheduledLessonsInMonth(2026, 8, [1, 3, 5], new Date(Date.UTC(2026, 8, 9)));
+  assert.ok(partial < full, "часть месяца группа ещё не занималась");
+  assert.equal(partial, 10);
+});

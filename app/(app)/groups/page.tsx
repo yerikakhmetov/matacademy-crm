@@ -6,7 +6,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
 import { DeleteGroupButton } from "./DeleteGroupButton";
 import { createGroup, updateGroup } from "@/app/actions/data";
-import { DAYS } from "@/lib/format";
+import { DAYS, formatDate } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +57,8 @@ export default async function GroupsPage() {
           );
           // если все занятия в одно время — пишем его один раз, иначе у каждого дня своё
           const sameTime = slots.length > 0 && slots.every((l) => l.startTime === slots[0].startTime);
+          // группа ещё не начала заниматься — это важнее расписания, показываем отдельно
+          const notStarted = g.startDate != null && g.startDate.getTime() > Date.now();
           const scheduleText = sameTime
             ? `${slots.map((l) => DAYS[l.dayOfWeek]).join(" · ")} · ${slots[0].startTime}`
             : slots.map((l) => `${DAYS[l.dayOfWeek]} ${l.startTime}`).join(" · ");
@@ -76,6 +78,14 @@ export default async function GroupsPage() {
                     {g.level}
                     {scheduleText ? `${g.level ? " · " : ""}${scheduleText}` : ""}
                   </div>
+                  {notStarted && g.startDate && (
+                    <div style={{ marginTop: 5 }}>
+                      <span className="chip c-warn">
+                        <span className="d" />
+                        Начинает {formatDate(g.startDate)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="gtag" style={{ background: g.color }}>
                   {g.name[0]}

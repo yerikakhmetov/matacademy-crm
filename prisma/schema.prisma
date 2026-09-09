@@ -84,6 +84,9 @@ model Group {
   level     String    @default("")
   capacity  Int       @default(12)
   color     String    @default("#3A5AE0")
+  // С какой даты группа начинает заниматься. До неё занятий по расписанию нет:
+  // они не идут в журнал, в календарь и в делитель зарплаты. null = давно идёт.
+  startDate DateTime?
   teacherId String?
   teacher   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   subjectId String?

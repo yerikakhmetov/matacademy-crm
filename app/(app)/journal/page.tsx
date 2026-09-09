@@ -73,8 +73,13 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   // Все занятия-даты группы в этом месяце
   type Occ = { lessonId: string; date: Date; iso: string; day: number; time: string };
   const occurrences: Occ[] = [];
+  // до даты начала группы занятий не было — их не должно быть и в журнале
+  const startsAt = group.startDate
+    ? Date.UTC(group.startDate.getUTCFullYear(), group.startDate.getUTCMonth(), group.startDate.getUTCDate())
+    : null;
   for (const l of group.lessons) {
     for (const d of datesInMonth(year, month0, l.dayOfWeek)) {
+      if (startsAt !== null && d.getTime() < startsAt) continue;
       occurrences.push({ lessonId: l.id, date: d, iso: d.toISOString().slice(0, 10), day: d.getUTCDate(), time: l.startTime });
     }
   }

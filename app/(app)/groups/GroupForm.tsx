@@ -6,8 +6,15 @@ const COLORS = ["#3A5AE0", "#7048E8", "#0C8599", "#2F9E44", "#E8590C", "#C2255C"
 type Subject = { id: string; name: string };
 type Values = {
   name?: string; level?: string; capacity?: number; color?: string;
-  teacherId?: string | null; subjectId?: string | null; schedule?: SlotRow[];
+  teacherId?: string | null; subjectId?: string | null; startDate?: Date | string | null; schedule?: SlotRow[];
 };
+
+// <input type="date"> понимает только YYYY-MM-DD
+function dateValue(d: Date | string | null | undefined): string {
+  if (!d) return "";
+  const dt = typeof d === "string" ? new Date(d) : d;
+  return isNaN(dt.getTime()) ? "" : dt.toISOString().slice(0, 10);
+}
 
 export function GroupForm({
   teachers,
@@ -59,6 +66,14 @@ export function GroupForm({
             ))}
           </select>
         </div>
+      </div>
+      <div className="field">
+        <label>Занятия начинаются с</label>
+        <input name="startDate" type="date" defaultValue={dateValue(values?.startDate)} />
+        <p className="mut" style={{ fontSize: 12, marginTop: 4 }}>
+          До этой даты занятий по расписанию нет: они не попадут в журнал, в календарь ученика и в расчёт зарплаты.
+          Пусто — группа занимается давно.
+        </p>
       </div>
       <GroupSchedule rooms={rooms} value={values?.schedule} />
       <div className="field">

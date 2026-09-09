@@ -36,6 +36,7 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
         select: {
           id: true,
           subjectId: true,
+          startDate: true,
           students: { select: { id: true } },
           lessons: { select: { id: true, dayOfWeek: true } },
         },
@@ -157,7 +158,8 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
         subjectId: g.subjectId,
         scheduledLessons: Math.max(
           0,
-          scheduledLessonsInMonth(year, month0, g.lessons.map((l) => l.dayOfWeek)) - (cancelledByGroup.get(g.id) ?? 0)
+          scheduledLessonsInMonth(year, month0, g.lessons.map((l) => l.dayOfWeek), g.startDate) -
+            (cancelledByGroup.get(g.id) ?? 0)
         ),
         studentIds: g.students.map((s) => s.id),
       })),

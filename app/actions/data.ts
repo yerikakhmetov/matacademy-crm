@@ -348,12 +348,15 @@ export async function createGroup(formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
+      // дата хранится UTC-полуночью — так же, как считаются занятия месяца
+      startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
     },
   });
   await syncGroupSchedule(group.id, formData.get("schedule"));
   await logAudit("CREATE", "Группа", str(formData.get("name")));
   revalidatePath("/groups");
   revalidatePath("/schedule");
+  revalidatePath("/journal");
 }
 
 export async function updateGroup(id: string, formData: FormData) {
@@ -367,6 +370,8 @@ export async function updateGroup(id: string, formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
+      // дата хранится UTC-полуночью — так же, как считаются занятия месяца
+      startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
     },
   });
   const plan = await syncGroupSchedule(id, formData.get("schedule"));
@@ -378,6 +383,7 @@ export async function updateGroup(id: string, formData: FormData) {
   );
   revalidatePath("/groups");
   revalidatePath("/schedule");
+  revalidatePath("/journal");
 }
 
 export async function deleteGroup(id: string) {

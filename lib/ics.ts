@@ -9,6 +9,7 @@ export type IcsEvent = {
   dayOfWeek: number; // 1 = Пн … 7 = Вс
   startTime: string; // "16:00"
   durationMin: number;
+  startsOn?: Date | null; // группа начинает заниматься с этой даты
 };
 
 const BYDAY = ["", "MO", "TU", "WE", "TH", "FR", "SA", "SU"];
@@ -47,7 +48,9 @@ export function buildIcs(
   ];
 
   for (const e of events) {
-    const day = nextOccurrence(from, e.dayOfWeek);
+    // первое занятие не раньше даты старта группы
+    const base = e.startsOn && e.startsOn.getTime() > from.getTime() ? e.startsOn : from;
+    const day = nextOccurrence(base, e.dayOfWeek);
     const [hh, mi] = e.startTime.split(":").map((x) => parseInt(x, 10));
     const start = new Date(
       Date.UTC(

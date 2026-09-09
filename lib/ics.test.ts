@@ -45,3 +45,23 @@ test("buildIcs без событий возвращает пустой, но в�
   assert.ok(ics.includes("BEGIN:VCALENDAR"));
   assert.equal((ics.match(/BEGIN:VEVENT/g) || []).length, 0);
 });
+
+test("первое занятие не раньше даты старта группы", () => {
+  const NOW2 = new Date("2026-09-01T00:00:00Z"); // вторник
+  const ics = buildIcs(
+    [
+      {
+        uid: "l1",
+        summary: "М-1",
+        location: "Каб. 3",
+        dayOfWeek: 3, // среда
+        startTime: "14:30",
+        durationMin: 60,
+        startsOn: new Date("2026-09-09T00:00:00Z"),
+      },
+    ],
+    { name: "МатАкадемия", tzOffsetHours: 5, from: NOW2, now: NOW2 }
+  );
+  // без даты старта первой была бы среда 2 сентября
+  assert.ok(ics.includes("DTSTART:20260909T093000Z"), ics);
+});
