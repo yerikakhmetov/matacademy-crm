@@ -77,10 +77,12 @@ export default async function SettingsPage() {
             <textarea name="discounts" defaultValue={s.discounts} rows={4} placeholder={"Брат/сестра | 10\nМногодетная семья | 15\nРекомендация | 5"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
-            Скидка за несколько предметов — <b>кол-во предметов | процент</b> (от указанного количества). Например: <code>2 | 10</code>, <code>3 | 15</code>
+            Скидка за несколько предметов — <b>кол-во предметов | процент или цена пакета</b> (от указанного количества).
+            Процент: <code>2 | 10%</code>. Фиксированная цена пакета за месяц: <code>4 | 60000</code> — тогда 4 предмета стоят ровно
+            60 000 ₸, а сумма делится между предметами пропорционально их цене по прайсу.
           </p>
           <div className="field" style={{ marginBottom: 16 }}>
-            <textarea name="multiDiscount" defaultValue={s.multiDiscount} rows={3} placeholder={"2 | 10\n3 | 15"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
+            <textarea name="multiDiscount" defaultValue={s.multiDiscount} rows={3} placeholder={"2 | 10%\n3 | 15%\n4 | 60000"} style={{ fontFamily: "var(--font-manrope)", resize: "vertical" }} />
           </div>
           <div className="grid2">
             <div className="field">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { multiPercentFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
+import { multiTierFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
 
 type Subject = { id: string; name: string; price: number; color: string };
 
@@ -41,16 +41,29 @@ export function SubscriptionForm({
   const calc = useMemo(() => {
     const chosen = picked.map((id) => subjects.find((s) => s.id === id)!).filter(Boolean);
     const discountPct = discounts.find((d) => d.name === discountName)?.percent ?? 0;
-    const multiPct = multiPercentFor(chosen.length, tiers);
+    const tier = multiTierFor(chosen.length, tiers);
+    const packagePrice = tier?.fixed ?? null;
+    const multiTierPct = packagePrice != null ? 0 : (tier?.percent ?? 0);
     const pricing = computePricing({
       subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
       months,
-      discountParts: [discountPct, multiPct, personalPct, siblingPct, promoPct],
+      discountParts: [discountPct, multiTierPct, personalPct, siblingPct, promoPct],
       mode,
+      packagePrice,
     });
+    const multiPct = packagePrice != null ? pricing.packagePct : multiTierPct;
     const colorById = new Map(chosen.map((s) => [s.id, s.color]));
     const rows = pricing.items.map((it) => ({ id: it.id, name: it.name, color: colorById.get(it.id) ?? "#999", b: it.base, amount: it.amount }));
-    return { base: pricing.base, total: pricing.total, discountPct, multiPct, totalPct: pricing.totalPct, rows, saved: pricing.base - pricing.total };
+    return {
+      base: pricing.base,
+      total: pricing.total,
+      discountPct,
+      multiPct,
+      packagePrice: pricing.packagePrice,
+      totalPct: pricing.totalPct,
+      rows,
+      saved: pricing.base - pricing.total,
+    };
   }, [picked, months, discountName, subjects, discounts, tiers, mode, personalPct, siblingPct, promoPct]);
 
   if (!hasSubjects) {
@@ -172,11 +185,19 @@ export function SubscriptionForm({
                 <span>База ({months} мес)</span>
                 <span className="num">{fmt(calc.base)}</span>
               </div>
-              {calc.multiPct > 0 && (
+              {calc.packagePrice != null ? (
+                // цена пакета задана суммой — показываем её, а не округлённый процент
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--violet)" }}>
-                  <span>Несколько предметов</span>
-                  <span className="num">−{calc.multiPct}%</span>
+                  <span>Пакет · {calc.rows.length} предмета</span>
+                  <span className="num">{fmt(calc.packagePrice)}</span>
                 </div>
+              ) : (
+                calc.multiPct > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--violet)" }}>
+                    <span>Несколько предметов</span>
+                    <span className="num">−{calc.multiPct}%</span>
+                  </div>
+                )
               )}
               {calc.discountPct > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, color: "var(--accent)" }}>

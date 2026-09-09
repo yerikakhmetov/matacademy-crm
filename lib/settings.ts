@@ -3,7 +3,7 @@ import type { Discount, MultiTier } from "./pricing";
 
 // Чистая математика прайсинга живёт в lib/pricing.ts (без prisma, доступна и на клиенте).
 // Реэкспорт для обратной совместимости со старыми импортами из "@/lib/settings".
-export { multiPercentFor, splitByPrice, computePricing, combineDiscounts, isDiscountMode, DISCOUNT_MODE_LABEL } from "./pricing";
+export { multiPercentFor, multiTierFor, parseMultiTiers, splitByPrice, computePricing, combineDiscounts, isDiscountMode, DISCOUNT_MODE_LABEL } from "./pricing";
 export type { Discount, MultiTier, DiscountMode } from "./pricing";
 
 export type Tariff = { plan: string; months: number; price: number };
@@ -89,20 +89,9 @@ export function discountsToText(list: Discount[]): string {
 }
 
 // "Кол-во предметов | процент" построчно
-export function parseMultiTiers(text: string): MultiTier[] {
-  const out: MultiTier[] = [];
-  for (const line of (text ?? "").split("\n")) {
-    const parts = line.split("|").map((x) => x.trim());
-    if (parts.length < 2) continue;
-    const count = parseInt(parts[0].replace(/[^\d]/g, ""), 10);
-    const percent = parseInt(parts[1].replace(/[^\d]/g, ""), 10);
-    if (isNaN(count) || isNaN(percent) || count < 2 || percent <= 0) continue;
-    out.push({ count, percent: Math.min(percent, 100) });
-  }
-  // по возрастанию количества
-  return out.sort((a, b) => a.count - b.count);
-}
 
 export function multiTiersToText(list: MultiTier[]): string {
-  return list.map((t) => `${t.count} | ${t.percent}`).join("\n");
+  // фиксированную цену пакета пишем числом, процент — со знаком %,
+  // чтобы обратный разбор не спутал одно с другим
+  return list.map((t) => `${t.count} | ${t.fixed != null ? t.fixed : `${t.percent}%`}`).join("\n");
 }

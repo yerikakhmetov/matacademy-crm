@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
@@ -626,7 +626,11 @@ export async function createSubscription(studentId: string, formData: FormData) 
     const disc = parseDiscounts(settings.discounts).find((d) => d.name === discName);
     discountName = disc ? disc.name : null;
     discountPct = disc ? disc.percent : 0;
-    multiPct = multiPercentFor(chosen.length, parseMultiTiers(settings.multiDiscount));
+    // Порог за количество предметов: либо процент, либо фиксированная цена пакета.
+    const tier = multiTierFor(chosen.length, parseMultiTiers(settings.multiDiscount));
+    const packagePrice = tier?.fixed ?? null;
+    // если пакет задан ценой, процентной мульти-скидки быть не должно — иначе двойной счёт
+    const multiTierPct = packagePrice != null ? 0 : (tier?.percent ?? 0);
 
     // Персональная скидка ученика и авто-скидка «брат/сестра» (по телефону родителя)
     const student = await prisma.student.findUnique({ where: { id: studentId }, select: { personalDiscount: true, parentPhone: true } });
@@ -655,9 +659,12 @@ export async function createSubscription(studentId: string, formData: FormData) 
     const pricing = computePricing({
       subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
       months,
-      discountParts: [discountPct, multiPct, personalPct, siblingPct, promoPct],
+      discountParts: [discountPct, multiTierPct, personalPct, siblingPct, promoPct],
       mode,
+      packagePrice,
     });
+    // в абонементе храним эффективный процент — чтобы отчёты читались одинаково
+    multiPct = packagePrice != null ? pricing.packagePct : multiTierPct;
     basePrice = pricing.base;
     price = pricing.total;
     plan = chosen.map((s) => s.name).join(" + ");

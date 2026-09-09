@@ -2,7 +2,11 @@
 // и на сервере (actions). Здесь только расчёты; парсинг настроек — в lib/settings.ts.
 
 export type Discount = { name: string; percent: number };
-export type MultiTier = { count: number; percent: number };
+// Скидка за N предметов задаётся ЛИБО процентом, ЛИБО фиксированной ценой пакета
+// за месяц (fixed). Фиксированная цена нужна, когда «4 предмета = 60 000 ₸»:
+// процентом такую цену точно не выразить — она зависит от набора предметов
+// и всё равно теряется на округлении процента до целого.
+export type MultiTier = { count: number; percent: number; fixed?: number };
 
 // Как объединяются несколько скидок (спец, мульти-предмет, персональная, брат/сестра, промокод):
 //   add — складываются (10% + 10% = 20%), с потолком 100%
@@ -20,11 +24,38 @@ export function isDiscountMode(v: string | null | undefined): v is DiscountMode 
   return v === "add" || v === "max" || v === "mul";
 }
 
-// Скидка за N предметов: берём наибольший подходящий порог.
+// Разбор настройки «скидки за несколько предметов» построчно.
+export function parseMultiTiers(text: string): MultiTier[] {
+  const out: MultiTier[] = [];
+  for (const line of (text ?? "").split("\n")) {
+    const parts = line.split("|").map((x) => x.trim());
+    if (parts.length < 2) continue;
+    const count = parseInt(parts[0].replace(/[^\d]/g, ""), 10);
+    const raw = parts[1];
+    const value = parseInt(raw.replace(/[^\d]/g, ""), 10);
+    if (isNaN(count) || isNaN(value) || count < 2 || value <= 0) continue;
+    // «4 | 60000» — фиксированная цена пакета за месяц, «4 | 25» или «4 | 25%» — процент.
+    // Процент больше 100 не бывает, поэтому большое число читаем как цену.
+    const isFixed = !raw.includes("%") && value > 100;
+    out.push(isFixed ? { count, percent: 0, fixed: value } : { count, percent: Math.min(value, 100) });
+  }
+  // по возрастанию количества
+  return out.sort((a, b) => a.count - b.count);
+}
+
+// Подходящий порог за N предметов: берём наибольший, который уже достигнут.
+export function multiTierFor(count: number, tiers: MultiTier[]): MultiTier | null {
+  let hit: MultiTier | null = null;
+  for (const t of [...tiers].sort((a, b) => a.count - b.count)) if (count >= t.count) hit = t;
+  return hit;
+}
+
+// Скидка за N предметов в процентах. У порога с фиксированной ценой процента нет —
+// он задаёт итог напрямую, поэтому здесь 0, чтобы скидка не сложилась дважды.
 export function multiPercentFor(count: number, tiers: MultiTier[]): number {
-  let pct = 0;
-  for (const t of [...tiers].sort((a, b) => a.count - b.count)) if (count >= t.count) pct = t.percent;
-  return pct;
+  const t = multiTierFor(count, tiers);
+  if (!t || t.fixed != null) return 0;
+  return t.percent;
 }
 
 // Объединить несколько процентных скидок в один эффективный процент (0..100).
@@ -65,17 +96,32 @@ export function splitByPrice(
 
 // Расчёт цены комбо-абонемента за весь срок с разбивкой по предметам (доля предмета).
 // discountParts — все применяемые скидки в процентах; mode — правило их объединения.
+// packagePrice — фиксированная цена пакета ЗА МЕСЯЦ (порог «4 предмета = 60 000»);
+// если она задана, она заменяет собой скидку за количество предметов, а личные
+// скидки, «брат/сестра» и промокод считаются уже от неё.
+//
+// Доля каждого предмета — пропорционально его цене по прайсу. Так скидка ложится
+// на все предметы одинаковым процентом и не переносит деньги между преподавателями:
+// предмет, который в прайсе дороже за занятие, остаётся дороже и в пакете.
 export function computePricing(opts: {
   subjects: { id: string; name: string; price: number }[]; // цена за месяц
   months: number;
   discountParts: number[];
   mode: DiscountMode;
+  packagePrice?: number | null;
 }) {
   const months = Math.max(1, opts.months);
   const items = opts.subjects.map((s) => ({ id: s.id, name: s.name, base: Math.max(0, s.price) * months }));
   const base = items.reduce((a, i) => a + i.base, 0);
+
+  // цена пакета не должна оказаться выше прайса — иначе «скидка» дорожает абонемент
+  const pkg = opts.packagePrice != null && opts.packagePrice >= 0 ? Math.min(opts.packagePrice * months, base) : null;
+  const afterPackage = pkg ?? base;
+  const packagePct = pkg != null && base > 0 ? Math.round(((base - pkg) / base) * 100) : 0;
+
   const totalPct = combineDiscounts(opts.discountParts, opts.mode);
-  const total = Math.round((base * (100 - totalPct)) / 100);
+  const total = Math.round((afterPackage * (100 - totalPct)) / 100);
+
   const withAmounts: { id: string; name: string; base: number; amount: number }[] = [];
   let acc = 0;
   items.forEach((it, i) => {
@@ -87,5 +133,5 @@ export function computePricing(opts: {
     }
     withAmounts.push({ ...it, amount });
   });
-  return { base, total, totalPct, items: withAmounts };
+  return { base, total, totalPct, packagePct, packagePrice: pkg, items: withAmounts };
 }
