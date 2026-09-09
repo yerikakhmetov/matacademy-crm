@@ -16,6 +16,7 @@ import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
+import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
 import { isLocale } from "@/lib/i18n";
 import bcrypt from "bcryptjs";
 
@@ -308,9 +309,38 @@ export async function deleteStudent(id: string) {
 }
 
 // ---------- Группы ----------
+// Приводим занятия группы к тому, что задали в форме расписания.
+// Занятия по возможности обновляем, а не пересоздаём: удаление Lesson
+// каскадом уносит посещаемость, темы уроков и отработки.
+async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null) {
+  if (raw === null) return; // форма без блока расписания — расписание не трогаем
+  const rooms = parseList((await getSettings()).rooms);
+  const desired = parseSlots(raw, rooms[0] ?? "Каб. 1");
+  const existing = await prisma.lesson.findMany({
+    where: { groupId },
+    select: { id: true, dayOfWeek: true, startTime: true, room: true },
+    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+  });
+  const plan = planScheduleSync(existing, desired);
+
+  for (const u of plan.update) {
+    await prisma.lesson.update({
+      where: { id: u.id },
+      data: { dayOfWeek: u.dayOfWeek, startTime: u.startTime, room: u.room },
+    });
+  }
+  if (plan.create.length > 0) {
+    await prisma.lesson.createMany({ data: plan.create.map((c) => ({ groupId, ...c })) });
+  }
+  if (plan.remove.length > 0) {
+    await prisma.lesson.deleteMany({ where: { id: { in: plan.remove } } });
+  }
+  return plan;
+}
+
 export async function createGroup(formData: FormData) {
   await assertEditor();
-  await prisma.group.create({
+  const group = await prisma.group.create({
     data: {
       name: str(formData.get("name")),
       level: str(formData.get("level")),
@@ -320,8 +350,10 @@ export async function createGroup(formData: FormData) {
       subjectId: str(formData.get("subjectId")) || null,
     },
   });
+  await syncGroupSchedule(group.id, formData.get("schedule"));
   await logAudit("CREATE", "Группа", str(formData.get("name")));
   revalidatePath("/groups");
+  revalidatePath("/schedule");
 }
 
 export async function updateGroup(id: string, formData: FormData) {
@@ -337,7 +369,13 @@ export async function updateGroup(id: string, formData: FormData) {
       subjectId: str(formData.get("subjectId")) || null,
     },
   });
-  await logAudit("UPDATE", "Группа", str(formData.get("name")));
+  const plan = await syncGroupSchedule(id, formData.get("schedule"));
+  const changed = plan ? plan.create.length + plan.update.length + plan.remove.length : 0;
+  await logAudit(
+    "UPDATE",
+    "Группа",
+    changed > 0 ? `${str(formData.get("name"))} · расписание изменено` : str(formData.get("name"))
+  );
   revalidatePath("/groups");
   revalidatePath("/schedule");
 }

@@ -7,6 +7,7 @@ import { GroupForm } from "./GroupForm";
 import { DeleteGroupButton } from "./DeleteGroupButton";
 import { createGroup, updateGroup } from "@/app/actions/data";
 import { DAYS } from "@/lib/format";
+import { getSettings, parseList } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function GroupsPage() {
     prisma.teacher.findMany({ orderBy: { name: "asc" } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
+  const rooms = parseList((await getSettings()).rooms);
 
   const avgFill =
     groups.length > 0 ? Math.round(groups.reduce((a, g) => a + g._count.students / g.capacity, 0) / groups.length * 100) : 0;
@@ -40,7 +42,7 @@ export default async function GroupsPage() {
         </div>
         {editor && (
           <ModalButton label="Новая группа" title="Новая группа" action={createGroup}>
-            <GroupForm teachers={teachers} subjects={subjects} />
+            <GroupForm teachers={teachers} subjects={subjects} rooms={rooms} />
           </ModalButton>
         )}
       </div>
@@ -50,11 +52,14 @@ export default async function GroupsPage() {
           const enrolled = g._count.students;
           const pct = Math.min(100, Math.round((enrolled / g.capacity) * 100));
           const full = enrolled >= g.capacity;
-          const scheduleText = g.lessons
-            .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
-            .map((l) => DAYS[l.dayOfWeek])
-            .join(" · ");
-          const firstTime = g.lessons[0]?.startTime;
+          const slots = [...g.lessons].sort(
+            (a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)
+          );
+          // если все занятия в одно время — пишем его один раз, иначе у каждого дня своё
+          const sameTime = slots.length > 0 && slots.every((l) => l.startTime === slots[0].startTime);
+          const scheduleText = sameTime
+            ? `${slots.map((l) => DAYS[l.dayOfWeek]).join(" · ")} · ${slots[0].startTime}`
+            : slots.map((l) => `${DAYS[l.dayOfWeek]} ${l.startTime}`).join(" · ");
           return (
             <div className="card gcard" key={g.id}>
               <div className="gtop">
@@ -69,8 +74,7 @@ export default async function GroupsPage() {
                   </div>
                   <div className="gsub">
                     {g.level}
-                    {scheduleText ? ` · ${scheduleText}` : ""}
-                    {firstTime ? ` · ${firstTime}` : ""}
+                    {scheduleText ? `${g.level ? " · " : ""}${scheduleText}` : ""}
                   </div>
                 </div>
                 <div className="gtag" style={{ background: g.color }}>
@@ -109,7 +113,12 @@ export default async function GroupsPage() {
                     buttonClass="btn ghost"
                     action={updateGroup.bind(null, g.id)}
                   >
-                    <GroupForm teachers={teachers} subjects={subjects} values={g} />
+                    <GroupForm
+                      teachers={teachers}
+                      subjects={subjects}
+                      rooms={rooms}
+                      values={{ ...g, schedule: slots.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, room: l.room })) }}
+                    />
                   </ModalButton>
                   <DeleteGroupButton id={g.id} name={g.name} hasStudents={enrolled > 0} />
                 </div>

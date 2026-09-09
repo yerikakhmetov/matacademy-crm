@@ -1,11 +1,25 @@
 import type { Teacher } from "@prisma/client";
+import { GroupSchedule, type SlotRow } from "./GroupSchedule";
 
 const COLORS = ["#3A5AE0", "#7048E8", "#0C8599", "#2F9E44", "#E8590C", "#C2255C"];
 
 type Subject = { id: string; name: string };
-type Values = { name?: string; level?: string; capacity?: number; color?: string; teacherId?: string | null; subjectId?: string | null };
+type Values = {
+  name?: string; level?: string; capacity?: number; color?: string;
+  teacherId?: string | null; subjectId?: string | null; schedule?: SlotRow[];
+};
 
-export function GroupForm({ teachers, subjects = [], values }: { teachers: Teacher[]; subjects?: Subject[]; values?: Values }) {
+export function GroupForm({
+  teachers,
+  subjects = [],
+  rooms = [],
+  values,
+}: {
+  teachers: Teacher[];
+  subjects?: Subject[];
+  rooms?: string[];
+  values?: Values;
+}) {
   return (
     <>
       <div className="field">
@@ -46,6 +60,7 @@ export function GroupForm({ teachers, subjects = [], values }: { teachers: Teach
           </select>
         </div>
       </div>
+      <GroupSchedule rooms={rooms} value={values?.schedule} />
       <div className="field">
         <label>Цвет</label>
         <select name="color" defaultValue={values?.color ?? COLORS[0]}>
