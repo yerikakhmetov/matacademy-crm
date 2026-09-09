@@ -16,6 +16,7 @@ import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
+import { parseTestSource } from "@/lib/test-import";
 import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
 import { isLocale } from "@/lib/i18n";
 import bcrypt from "bcryptjs";
@@ -1200,6 +1201,46 @@ export async function deleteGrade(id: string) {
 }
 
 // ---------- Тесты ----------
+// Импорт теста из LaTeX-исходника: разбираем тем же модулем, что и предпросмотр в форме,
+// поэтому преподаватель получает ровно то, что видел перед сохранением.
+export async function importTest(formData: FormData) {
+  const groupId = str(formData.get("groupId")) || null;
+  const subjectId = str(formData.get("subjectId")) || null;
+  if (groupId) await assertCanManageGroup(groupId);
+  else await assertEditor();
+
+  const parsed = parseTestSource(String(formData.get("source") ?? ""));
+  if (parsed.questions.length === 0) {
+    throw new Error("В исходнике не найдено ни одного вопроса. Нужны строки \\item $…$ и \\choices{}{}{}{}.");
+  }
+
+  const title = str(formData.get("title")) || parsed.title || "Импортированный тест";
+  const limit = int(formData.get("timeLimitMin"));
+  const test = await prisma.test.create({
+    data: {
+      title,
+      groupId,
+      subjectId,
+      // балл за тест = число вопросов: один вопрос — один балл
+      maxScore: parsed.questions.length,
+      date: parseDate(formData.get("date")) ?? new Date(),
+      shuffle: formData.get("shuffle") != null,
+      timeLimitMin: limit > 0 ? limit : null,
+      questions: {
+        create: parsed.questions.map((q, i) => ({
+          order: i,
+          text: q.text,
+          options: q.options,
+          correct: q.correct,
+        })),
+      },
+    },
+  });
+  await logAudit("CREATE", "Тест", `${test.title} · импорт, вопросов: ${parsed.questions.length}`);
+  revalidatePath("/tests");
+  redirect(`/tests/${test.id}`);
+}
+
 export async function createTest(formData: FormData) {
   const groupId = str(formData.get("groupId")) || null;
   const subjectId = str(formData.get("subjectId")) || null;

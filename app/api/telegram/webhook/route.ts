@@ -35,15 +35,37 @@ export async function POST(req: NextRequest) {
     const payload = text.split(/\s+/)[1] ?? "";
     const fromId = msg?.from?.id ? String(msg.from.id) : chat;
 
-    // Вход преподавателя по одноразовому токену: /start login_<token>
+    // Вход по одноразовому токену со страницы входа: /start login_<token>
     if (payload.startsWith("login_")) {
       const token = payload.slice("login_".length);
-      const user = await prisma.user.findUnique({ where: { telegramUserId: fromId } });
-      if (user) {
-        await prisma.loginToken.upsert({ where: { token }, create: { token, userId: user.id }, update: { userId: user.id } });
+      // Преподаватель/админ: Telegram записан прямо в учётной записи.
+      let userId = (await prisma.user.findUnique({ where: { telegramUserId: fromId }, select: { id: true } }))?.id ?? null;
+
+      // Ученик: его Telegram хранится в Student.joinTgId — в User он не пишется,
+      // чтобы не конфликтовать с преподавателем, вошедшим с того же Telegram.
+      if (!userId) {
+        const linked = await prisma.student.findMany({
+          where: { joinTgId: fromId, userId: { not: null } },
+          select: { userId: true, name: true },
+        });
+        if (linked.length === 1) {
+          userId = linked[0].userId;
+        } else if (linked.length > 1) {
+          // Один Telegram на нескольких детей — по кнопке не понять, чей кабинет открывать.
+          await sendTelegram(
+            chat,
+            `⚠️ К этому Telegram привязано несколько кабинетов (${linked.map((l) => l.name).join(", ")}). ` +
+              `Откройте кабинет по личной ссылке ученика — кнопка на странице входа для этого не подходит.`
+          );
+          return Response.json({ ok: true });
+        }
+      }
+
+      if (userId) {
+        await prisma.loginToken.upsert({ where: { token }, create: { token, userId }, update: { userId } });
         await sendTelegram(chat, `✅ Вход подтверждён! Вернитесь на страницу входа — вы уже входите.`);
       } else {
-        await sendTelegram(chat, `⚠️ Ваш Telegram не привязан к учётной записи. Попросите администратора отправить вам ссылку «Вход по Telegram» из карточки преподавателя.`);
+        await sendTelegram(chat, `⚠️ Ваш Telegram не привязан к учётной записи. Преподавателю нужна ссылка «Вход по Telegram» из карточки, ученику — личная ссылка на кабинет от школы.`);
       }
       return Response.json({ ok: true });
     }

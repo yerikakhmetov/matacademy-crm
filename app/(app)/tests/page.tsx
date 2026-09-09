@@ -6,7 +6,8 @@ import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
 import { formatDate, scoreColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { TestForm } from "./TestForm";
-import { createTest } from "@/app/actions/data";
+import { ImportForm } from "./ImportForm";
+import { createTest, importTest } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
@@ -48,9 +49,21 @@ export default async function TestsPage() {
           <p>{tests.length} тестов · вопросы и ввод баллов группы</p>
         </div>
         {canCreate && (
-          <ModalButton label="Новый тест" title="Новый тест" action={createTest} submitLabel="Создать">
-            <TestForm groups={groups} subjects={subjects} />
-          </ModalButton>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <ModalButton
+              label="Импорт из LaTeX"
+              title="Импорт теста"
+              icon="export"
+              buttonClass="btn ghost"
+              action={importTest}
+              submitLabel="Создать тест"
+            >
+              <ImportForm groups={groups} subjects={subjects} />
+            </ModalButton>
+            <ModalButton label="Новый тест" title="Новый тест" action={createTest} submitLabel="Создать">
+              <TestForm groups={groups} subjects={subjects} />
+            </ModalButton>
+          </div>
         )}
       </div>
 

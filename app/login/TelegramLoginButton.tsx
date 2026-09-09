@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { Icon } from "@/components/Icon";
 
-// Вход преподавателя через бота: открывает бота с одноразовым токеном и ждёт подтверждения.
+// Вход через бота: открывает бота с одноразовым токеном и ждёт подтверждения.
+// Работает и для преподавателя, и для ученика, чей кабинет уже привязан к Telegram.
 export function TelegramLoginButton({ botUsername }: { botUsername: string }) {
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export function TelegramLoginButton({ botUsername }: { botUsername: string }) {
 
   return (
     <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--line-2)", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-      <span className="mut" style={{ fontSize: 12 }}>Преподаватели входят через Telegram</span>
+      <span className="mut" style={{ fontSize: 12 }}>Преподаватели и ученики входят через Telegram</span>
       <button
         type="button"
         onClick={start}
