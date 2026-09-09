@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
@@ -119,6 +120,10 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
     return { present, marked, excused, pct: marked ? Math.round((present / marked) * 100) : null };
   }
 
+  // занятие считается отмеченным, если по нему есть хоть одна запись
+  const markedOcc = new Set(records.map((r) => `${r.lessonId}|${r.date.toISOString().slice(0, 10)}`));
+  const unmarked = occurrences.filter((o) => !markedOcc.has(`${o.lessonId}|${o.iso}`)).length;
+
   const counted = records.filter((r) => r.present || !r.excused);
   const totalPresent = records.filter((r) => r.present).length;
   const groupPct = counted.length ? Math.round((totalPresent / counted.length) * 100) : null;
@@ -146,6 +151,15 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
 
       <JournalFilters groups={groups} months={monthOpts} groupId={groupId} month={month} />
 
+      {occurrences.length > 0 && (
+        <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+          Нажмите на клетку или на число сверху — откроется это занятие, там отмечается посещаемость.
+          {unmarked > 0 && (
+            <span style={{ color: "var(--warn)", fontWeight: 600 }}> Не отмечено занятий: {unmarked}.</span>
+          )}
+        </p>
+      )}
+
       <div className="card">
         {occurrences.length === 0 ? (
           <div className="empty">В этом месяце у группы нет занятий по расписанию</div>
@@ -157,11 +171,26 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
               <thead>
                 <tr>
                   <th className="jsticky">Ученик</th>
-                  {occurrences.map((o, i) => (
-                    <th key={i} style={{ textAlign: "center", minWidth: 40 }}>
-                      {o.day}
-                    </th>
-                  ))}
+                  {occurrences.map((o, i) => {
+                    const done = markedOcc.has(`${o.lessonId}|${o.iso}`);
+                    return (
+                      <th key={i} style={{ textAlign: "center", minWidth: 40 }}>
+                        <Link
+                          href={`/schedule/${o.lessonId}?date=${o.iso}`}
+                          title={done ? `Открыть занятие ${o.day} · ${o.time}` : `Занятие ${o.day} · ${o.time} ещё не отмечено`}
+                          style={{
+                            color: done ? "inherit" : "var(--warn)",
+                            textDecoration: "none",
+                            fontWeight: done ? 600 : 800,
+                            display: "block",
+                          }}
+                        >
+                          {o.day}
+                          {!done && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>•</span>}
+                        </Link>
+                      </th>
+                    );
+                  })}
                   <th style={{ textAlign: "right" }}>Итог</th>
                 </tr>
               </thead>
@@ -184,15 +213,22 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                         const v = recMap.get(`${o.lessonId}|${o.iso}|${s.id}`);
                         return (
                           <td key={i} style={{ textAlign: "center", padding: "8px 6px" }}>
-                            {v === undefined ? (
-                              <span className="jcell jnone">·</span>
-                            ) : v === "present" ? (
-                              <span className="jcell jyes">✓</span>
-                            ) : v === "excused" ? (
-                              <span className="jcell jnone" title="Уважительная причина — не считается прогулом">У</span>
-                            ) : (
-                              <span className="jcell jno">✕</span>
-                            )}
+                            {/* клетка ведёт на само занятие — отсюда отметку и правят */}
+                            <Link
+                              href={`/schedule/${o.lessonId}?date=${o.iso}`}
+                              title={`${s.name} · ${o.day} ${MONTH_NAMES[month0]} · открыть занятие`}
+                              style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                            >
+                              {v === undefined ? (
+                                <span className="jcell jnone">·</span>
+                              ) : v === "present" ? (
+                                <span className="jcell jyes">✓</span>
+                              ) : v === "excused" ? (
+                                <span className="jcell jnone">У</span>
+                              ) : (
+                                <span className="jcell jno">✕</span>
+                              )}
+                            </Link>
                           </td>
                         );
                       })}
