@@ -10,6 +10,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { LessonForm } from "../LessonForm";
 import { AttendanceForm } from "./AttendanceForm";
 import { DeleteLessonButton } from "./DeleteLessonButton";
+import { LessonMaterials } from "./LessonMaterials";
 import { updateLesson } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,15 @@ export default async function LessonPage({
   const dateObj = new Date(date + "T00:00:00.000Z");
   const [records, session2] = await Promise.all([
     prisma.attendance.findMany({ where: { lessonId: id, date: dateObj } }),
-    prisma.lessonSession.findUnique({ where: { lessonId_date: { lessonId: id, date: dateObj } } }),
+    prisma.lessonSession.findUnique({
+      where: { lessonId_date: { lessonId: id, date: dateObj } },
+      include: {
+        materials: {
+          orderBy: { createdAt: "asc" },
+          select: { id: true, title: true, fileUrl: true, fileName: true, uploadedBy: true },
+        },
+      },
+    }),
   ]);
   const recMap = new Map(records.map((r) => [r.studentId, r]));
   const students = lesson.group.students.map((s) => {
@@ -111,6 +120,10 @@ export default async function LessonPage({
         cancelled={!!session2?.cancelled}
         cancelReason={session2?.cancelReason ?? ""}
       />
+
+      <div style={{ marginTop: 16 }}>
+        <LessonMaterials lessonId={lesson.id} date={date} items={session2?.materials ?? []} canEdit={canMark} />
+      </div>
     </>
   );
 }

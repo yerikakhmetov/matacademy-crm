@@ -120,6 +120,7 @@ export async function deleteMaterial(id: string) {
   await prisma.material.delete({ where: { id } });
   await logAudit("DELETE", "Материал", m.title);
   revalidatePath("/materials");
+  revalidatePath("/schedule");
 }
 
 // ---------- Настройки школы ----------
@@ -938,7 +939,19 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
       update: { topic },
     });
   } else {
-    await prisma.lessonSession.deleteMany({ where: { lessonId, date } });
+    // Тему стёрли. Запись занятия можно убрать, только если на ней ничего не висит:
+    // к ней могут быть привязаны материалы, а отмена занятия хранится тут же.
+    const existing = await prisma.lessonSession.findUnique({
+      where: { lessonId_date: { lessonId, date } },
+      select: { id: true, cancelled: true, _count: { select: { materials: true } } },
+    });
+    if (existing) {
+      if (existing.cancelled || existing._count.materials > 0) {
+        await prisma.lessonSession.update({ where: { id: existing.id }, data: { topic: "" } });
+      } else {
+        await prisma.lessonSession.delete({ where: { id: existing.id } });
+      }
+    }
   }
 
   await recalcAttendance(students.map((s) => s.id));

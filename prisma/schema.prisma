@@ -73,8 +73,12 @@ model Material {
   fileType  String   @default("")
   uploadedBy String?
   createdAt DateTime @default(now())
+  // Материал конкретного занятия («что проходили»). null = материал группы вообще.
+  lessonSessionId String?
+  lessonSession   LessonSession? @relation(fields: [lessonSessionId], references: [id], onDelete: SetNull)
 
   @@index([groupId])
+  @@index([lessonSessionId])
 }
 
 // Учебные группы
@@ -343,6 +347,7 @@ model LessonSession {
   topic     String   @default("") // тема урока («что проходили»)
   cancelled Boolean  @default(false) // занятие не состоялось (праздник, болезнь преподавателя)
   cancelReason String? // почему отменено
+  materials Material[] // материалы, разобранные на этом занятии
   createdAt DateTime @default(now())
 
   @@unique([lessonId, date])

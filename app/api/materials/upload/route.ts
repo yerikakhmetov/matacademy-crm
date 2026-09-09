@@ -18,12 +18,40 @@ export async function POST(request: Request): Promise<NextResponse> {
   const form = await request.formData();
   const file = form.get("file");
   const title = String(form.get("title") ?? "").trim();
-  const groupId = String(form.get("groupId") ?? "").trim() || null;
+  // Материал занятия: приходит id занятия и дата — тогда файл привязывается
+  // к конкретному дню, а группа берётся у самого занятия.
+  const lessonId = String(form.get("lessonId") ?? "").trim();
+  const dateStr = String(form.get("date") ?? "").trim();
+  let groupId = String(form.get("groupId") ?? "").trim() || null;
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
   if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: "Файл больше 20 МБ" }, { status: 400 });
 
-  // права: админ/менеджер, либо преподаватель для своей группы
-  if (!(await canEditData(session.user.role))) {
+  let lessonSessionId: string | null = null;
+  if (lessonId) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return NextResponse.json({ error: "Неверная дата занятия" }, { status: 400 });
+    }
+    const lesson = await prisma.lesson.findUnique({
+      where: { id: lessonId },
+      select: { groupId: true, group: { select: { teacher: { select: { userId: true } } } } },
+    });
+    if (!lesson) return NextResponse.json({ error: "Занятие не найдено" }, { status: 404 });
+    const owns = lesson.group.teacher?.userId === session.user.id;
+    if (!(await canEditData(session.user.role)) && !owns) {
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+    }
+    groupId = lesson.groupId;
+    const date = new Date(dateStr + "T00:00:00.000Z");
+    // запись занятия может ещё не существовать — тема могла быть не заполнена
+    const ls = await prisma.lessonSession.upsert({
+      where: { lessonId_date: { lessonId, date } },
+      create: { lessonId, date, topic: "" },
+      update: {},
+      select: { id: true },
+    });
+    lessonSessionId = ls.id;
+  } else if (!(await canEditData(session.user.role))) {
+    // права: админ/менеджер, либо преподаватель для своей группы
     let ok = false;
     if (session.user.role === "TEACHER" && groupId) {
       const g = await prisma.group.findUnique({ where: { id: groupId }, select: { teacher: { select: { userId: true } } } });
@@ -47,6 +75,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         fileName: file.name,
         fileType: file.type || "",
         uploadedBy: session.user.name ?? null,
+        lessonSessionId,
       },
     });
     return NextResponse.json({ ok: true });
