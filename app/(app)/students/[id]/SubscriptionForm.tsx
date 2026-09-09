@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { multiTierFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
 
-type Subject = { id: string; name: string; price: number; color: string };
+type Subject = { id: string; name: string; price: number; lessonsPerMonth: number; color: string };
 
 const fmt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
 
@@ -45,7 +45,7 @@ export function SubscriptionForm({
     const packagePrice = tier?.fixed ?? null;
     const multiTierPct = packagePrice != null ? 0 : (tier?.percent ?? 0);
     const pricing = computePricing({
-      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
+      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price, lessonsPerMonth: s.lessonsPerMonth })),
       months,
       discountParts: [discountPct, multiTierPct, personalPct, siblingPct, promoPct],
       mode,

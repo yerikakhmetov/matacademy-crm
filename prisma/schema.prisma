@@ -237,6 +237,9 @@ model Subject {
   id        String             @id @default(cuid())
   name      String
   price     Int                @default(0) // базовая цена за месяц
+  // Сколько занятий в месяц входит в цену: выборные — 12, обязательные — 8.
+  // По этому числу делится платёж между предметами. 0 = не задано.
+  lessonsPerMonth Int            @default(0)
   color     String             @default("#3A5AE0")
   active    Boolean            @default(true)
   createdAt DateTime           @default(now())

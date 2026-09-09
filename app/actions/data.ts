@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitAmount, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
@@ -561,6 +561,7 @@ export async function createSubject(formData: FormData) {
     data: {
       name,
       price: int(formData.get("price")),
+      lessonsPerMonth: Math.max(0, int(formData.get("lessonsPerMonth"))),
       color: str(formData.get("color")) || "#3A5AE0",
       active: formData.get("active") != null,
     },
@@ -577,6 +578,7 @@ export async function updateSubject(id: string, formData: FormData) {
     data: {
       name,
       price: int(formData.get("price")),
+      lessonsPerMonth: Math.max(0, int(formData.get("lessonsPerMonth"))),
       color: str(formData.get("color")) || "#3A5AE0",
       active: formData.get("active") != null,
     },
@@ -657,7 +659,7 @@ export async function createSubscription(studentId: string, formData: FormData) 
 
     const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
     const pricing = computePricing({
-      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price })),
+      subjects: chosen.map((s) => ({ id: s.id, name: s.name, price: s.price, lessonsPerMonth: s.lessonsPerMonth })),
       months,
       discountParts: [discountPct, multiTierPct, personalPct, siblingPct, promoPct],
       mode,
@@ -1452,13 +1454,17 @@ export async function createPayment(formData: FormData) {
   const amount = int(formData.get("amount"));
   const status = str(formData.get("status")) || "PAID";
 
-  // Разбивка платежа по выбранным предметам (пропорционально базовой цене предмета)
+  // Разбивка платежа по выбранным предметам — пропорционально числу занятий,
+  // теми же весами, что и доли абонемента (см. splitWeights в lib/pricing.ts)
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
   let payItems: { subjectId: string; subjectName: string; amount: number }[] = [];
   if (subjectIds.length > 0) {
-    const subs = await prisma.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, name: true, price: true } });
+    const subs = await prisma.subject.findMany({
+      where: { id: { in: subjectIds } },
+      select: { id: true, name: true, price: true, lessonsPerMonth: true },
+    });
     const chosen = subjectIds.map((id) => subs.find((s) => s.id === id)).filter(Boolean) as typeof subs;
-    payItems = splitByPrice(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
+    payItems = splitAmount(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
   }
 
   const method = str(formData.get("method")) || null;

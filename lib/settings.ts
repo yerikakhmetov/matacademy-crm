@@ -3,7 +3,7 @@ import type { Discount, MultiTier } from "./pricing";
 
 // Чистая математика прайсинга живёт в lib/pricing.ts (без prisma, доступна и на клиенте).
 // Реэкспорт для обратной совместимости со старыми импортами из "@/lib/settings".
-export { multiPercentFor, multiTierFor, parseMultiTiers, splitByPrice, computePricing, combineDiscounts, isDiscountMode, DISCOUNT_MODE_LABEL } from "./pricing";
+export { multiPercentFor, multiTierFor, parseMultiTiers, splitAmount, splitWeights, computePricing, combineDiscounts, isDiscountMode, DISCOUNT_MODE_LABEL } from "./pricing";
 export type { Discount, MultiTier, DiscountMode } from "./pricing";
 
 export type Tariff = { plan: string; months: number; price: number };

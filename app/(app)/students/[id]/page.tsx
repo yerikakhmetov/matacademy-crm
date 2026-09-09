@@ -43,7 +43,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
 
   const [settings, activeSubjects] = await Promise.all([
     getSettings(),
-    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, color: true } }),
+    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, lessonsPerMonth: true, color: true } }),
   ]);
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);

@@ -70,15 +70,29 @@ export function combineDiscounts(parts: number[], mode: DiscountMode): number {
   return Math.min(100, ps.reduce((a, b) => a + b, 0));
 }
 
-// Пропорциональное деление суммы между предметами по их базовой цене.
-// Если у всех цена 0 — поровну. Последнему предмету — остаток (сумма всегда сходится).
-export function splitByPrice(
+// Предмет прайса: цена за месяц и сколько занятий в эту цену входит
+// (выборные — 12, обязательные — 8).
+export type PriceSubject = { id: string; name: string; price: number; lessonsPerMonth?: number };
+
+// Веса, по которым сумма делится между предметами — ЧИСЛО ЗАНЯТИЙ.
+// Школа продаёт занятия, поэтому занятие стоит одинаково в любом предмете.
+// Если хотя бы у одного предмета занятия не заданы, делить по ним нельзя —
+// такой предмет получил бы ноль, поэтому откатываемся на цену прайса.
+export function splitWeights(subjects: PriceSubject[]): number[] {
+  const lessons = subjects.map((s) => Math.max(0, s.lessonsPerMonth ?? 0));
+  if (lessons.length > 0 && lessons.every((l) => l > 0)) return lessons;
+  return subjects.map((s) => Math.max(0, s.price));
+}
+
+// Деление суммы между предметами по весам. Если все веса нулевые — поровну.
+// Последнему предмету — остаток, чтобы доли всегда сходились к сумме.
+export function splitAmount(
   amount: number,
-  subjects: { id: string; name: string; price: number }[]
+  subjects: PriceSubject[]
 ): { id: string; name: string; amount: number }[] {
   const n = subjects.length;
   if (n === 0) return [];
-  const weights = subjects.map((s) => Math.max(0, s.price));
+  const weights = splitWeights(subjects);
   const totalW = weights.reduce((a, b) => a + b, 0);
   const out: { id: string; name: string; amount: number }[] = [];
   let acc = 0;
@@ -100,11 +114,11 @@ export function splitByPrice(
 // если она задана, она заменяет собой скидку за количество предметов, а личные
 // скидки, «брат/сестра» и промокод считаются уже от неё.
 //
-// Доля каждого предмета — пропорционально его цене по прайсу. Так скидка ложится
-// на все предметы одинаковым процентом и не переносит деньги между преподавателями:
-// предмет, который в прайсе дороже за занятие, остаётся дороже и в пакете.
+// Доля каждого предмета — пропорционально числу занятий: занятие стоит одинаково
+// в любом предмете, поэтому преподаватель получает за проведённое занятие столько же,
+// какой бы предмет он ни вёл. Занятия не заданы — откат на цену прайса (splitWeights).
 export function computePricing(opts: {
-  subjects: { id: string; name: string; price: number }[]; // цена за месяц
+  subjects: PriceSubject[]; // цена за месяц + занятий в месяц
   months: number;
   discountParts: number[];
   mode: DiscountMode;
@@ -122,16 +136,7 @@ export function computePricing(opts: {
   const totalPct = combineDiscounts(opts.discountParts, opts.mode);
   const total = Math.round((afterPackage * (100 - totalPct)) / 100);
 
-  const withAmounts: { id: string; name: string; base: number; amount: number }[] = [];
-  let acc = 0;
-  items.forEach((it, i) => {
-    let amount: number;
-    if (i === items.length - 1) amount = total - acc;
-    else {
-      amount = base > 0 ? Math.round((total * it.base) / base) : 0;
-      acc += amount;
-    }
-    withAmounts.push({ ...it, amount });
-  });
+  const shares = splitAmount(total, opts.subjects);
+  const withAmounts = items.map((it, i) => ({ ...it, amount: shares[i].amount }));
   return { base, total, totalPct, packagePct, packagePrice: pkg, items: withAmounts };
 }

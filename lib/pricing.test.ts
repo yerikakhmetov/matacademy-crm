@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { combineDiscounts, computePricing, multiPercentFor, multiTierFor, parseMultiTiers, splitByPrice } from "./pricing.ts";
+import { combineDiscounts, computePricing, multiPercentFor, multiTierFor, parseMultiTiers, splitAmount, splitWeights } from "./pricing.ts";
 
 
 test("combineDiscounts: без скидок", () => {
@@ -73,8 +73,8 @@ test("computePricing: months меньше 1 считается как 1", () => 
   assert.equal(r.base, 1000);
 });
 
-test("splitByPrice: делит пропорционально и сходится к сумме", () => {
-  const rows = splitByPrice(10000, [
+test("splitAmount: делит пропорционально и сходится к сумме", () => {
+  const rows = splitAmount(10000, [
     { id: "a", name: "A", price: 3000 },
     { id: "b", name: "B", price: 1000 },
   ]);
@@ -82,8 +82,8 @@ test("splitByPrice: делит пропорционально и сходитс�
   assert.equal(rows.reduce((a, r) => a + r.amount, 0), 10000);
 });
 
-test("splitByPrice: при нулевых ценах — поровну", () => {
-  const rows = splitByPrice(999, [
+test("splitAmount: при нулевых весах — поровну", () => {
+  const rows = splitAmount(999, [
     { id: "a", name: "A", price: 0 },
     { id: "b", name: "B", price: 0 },
   ]);
@@ -96,10 +96,10 @@ test("splitByPrice: при нулевых ценах — поровну", () => 
 const ELECTIVE = 24000;
 const REQUIRED = 18000;
 const FOUR = [
-  { id: "a", name: "Физика", price: ELECTIVE },
-  { id: "b", name: "Химия", price: ELECTIVE },
-  { id: "c", name: "Мат. грамотность", price: REQUIRED },
-  { id: "d", name: "История Казахстана", price: REQUIRED },
+  { id: "a", name: "Физика", price: ELECTIVE, lessonsPerMonth: 12 },
+  { id: "b", name: "Химия", price: ELECTIVE, lessonsPerMonth: 12 },
+  { id: "c", name: "Мат. грамотность", price: REQUIRED, lessonsPerMonth: 8 },
+  { id: "d", name: "История Казахстана", price: REQUIRED, lessonsPerMonth: 8 },
 ];
 
 test("фиксированная цена пакета выражается точно, процентом — нет", () => {
@@ -113,20 +113,46 @@ test("фиксированная цена пакета выражается то
   assert.equal(r.packagePct, 29, "для отчётов округляем, но на цену это не влияет");
 });
 
-test("доли предметов делятся пропорционально прайсу и сходятся к 60 000", () => {
+test("доли предметов делятся по числу занятий и сходятся к 60 000", () => {
+  // 12 + 12 + 8 + 8 = 40 занятий, 60 000 / 40 = 1 500 ₸ за занятие
   const r = computePricing({ subjects: FOUR, months: 1, discountParts: [], mode: "add", packagePrice: 60000 });
   const by = Object.fromEntries(r.items.map((i) => [i.name, i.amount]));
-  assert.equal(by["Физика"], 17143);
-  assert.equal(by["Химия"], 17143);
-  assert.equal(by["Мат. грамотность"], 12857);
-  assert.equal(by["История Казахстана"], 12857);
+  assert.equal(by["Физика"], 18000);
+  assert.equal(by["Химия"], 18000);
+  assert.equal(by["Мат. грамотность"], 12000);
+  assert.equal(by["История Казахстана"], 12000);
   assert.equal(r.items.reduce((a, i) => a + i.amount, 0), 60000, "сумма долей равна цене пакета");
 });
 
-test("скидка ложится на все предметы одинаковым процентом", () => {
+test("занятие стоит одинаково в любом предмете", () => {
   const r = computePricing({ subjects: FOUR, months: 1, discountParts: [], mode: "add", packagePrice: 60000 });
-  const ratios = r.items.map((i) => i.amount / i.base);
-  for (const x of ratios) assert.ok(Math.abs(x - ratios[0]) < 0.001, "ни один предмет не скинут сильнее другого");
+  const perLesson = r.items.map((i, idx) => i.amount / FOUR[idx].lessonsPerMonth);
+  for (const x of perLesson) assert.equal(x, 1500);
+});
+
+test("занятия не заданы — откат на цену прайса", () => {
+  const noLessons = FOUR.map((s) => ({ id: s.id, name: s.name, price: s.price }));
+  assert.deepEqual(splitWeights(noLessons), [24000, 24000, 18000, 18000]);
+  const r = computePricing({ subjects: noLessons, months: 1, discountParts: [], mode: "add", packagePrice: 60000 });
+  const by = Object.fromEntries(r.items.map((i) => [i.name, i.amount]));
+  assert.equal(by["Физика"], 17143);
+  assert.equal(by["Мат. грамотность"], 12857);
+});
+
+test("занятия заданы не у всех — делим по прайсу, иначе предмет получит ноль", () => {
+  const mixed = [
+    { id: "a", name: "Физика", price: ELECTIVE, lessonsPerMonth: 12 },
+    { id: "c", name: "Мат. грамотность", price: REQUIRED, lessonsPerMonth: 0 },
+  ];
+  assert.deepEqual(splitWeights(mixed), [24000, 18000]);
+  const rows = splitAmount(42000, mixed);
+  assert.equal(rows[0].amount, 24000);
+  assert.equal(rows[1].amount, 18000);
+});
+
+test("платёж делится теми же весами, что и абонемент", () => {
+  const rows = splitAmount(60000, FOUR);
+  assert.deepEqual(rows.map((r) => r.amount), [18000, 18000, 12000, 12000]);
 });
 
 test("личная скидка и промокод считаются уже от цены пакета", () => {
