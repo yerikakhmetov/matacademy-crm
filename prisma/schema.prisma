@@ -235,6 +235,11 @@ model TestQuestion {
   text    String
   options String[] // варианты ответов
   correct Int      @default(0) // индекс правильного варианта (0-based)
+  // Исходник в LaTeX (если вопрос импортирован). text/options остаются читаемым
+  // текстом — он нужен для списков, аналитики и как запасной вариант, если формула
+  // не разберётся. Пусто = обычный текстовый вопрос, набранный руками.
+  textTex    String?
+  optionsTex String[] @default([])
 
   @@index([testId])
 }

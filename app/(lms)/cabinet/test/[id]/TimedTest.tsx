@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { finishTestAttempt, saveTestAnswer } from "@/app/actions/data";
+import { Formula } from "@/components/Formula";
 import { Icon } from "@/components/Icon";
 import { t, type Locale } from "@/lib/i18n";
 
-export type TimedQuestion = { id: string; index: number; text: string; options: string[] };
+export type TimedQuestion = { id: string; index: number; textHtml: string; optionsHtml: string[] };
 
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
@@ -110,9 +111,9 @@ export function TimedTest({
 
       {questions.map((q, shown) => (
         <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 10 }}>{shown + 1}. {q.text}</div>
+          <div style={{ fontWeight: 600, marginBottom: 10 }}>{shown + 1}. <Formula html={q.textHtml} /></div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {q.options.map((opt, oi) => {
+            {q.optionsHtml.map((optHtml, oi) => {
               const active = answers[q.index] === oi;
               return (
                 <label
@@ -135,7 +136,7 @@ export function TimedTest({
                     onChange={() => choose(q.index, oi)}
                   />
                   <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
-                  <span style={{ flex: 1 }}>{opt}</span>
+                  <span style={{ flex: 1 }}><Formula html={optHtml} /></span>
                 </label>
               );
             })}

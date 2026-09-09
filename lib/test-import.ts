@@ -6,7 +6,13 @@
 //   \choices{A}{B}{C}{D}
 // и таблица ответов после слова «Жауаптары» / «Ответы»: «1. B & 2. A & …»
 
-export type ParsedQuestion = { text: string; options: string[]; correct: number };
+export type ParsedQuestion = {
+  text: string; // читаемый текст: «3/10 + 4/10 =»
+  options: string[];
+  correct: number;
+  tex: string; // исходник формулы — из него набирается вид у ученика
+  optionsTex: string[];
+};
 export type ParseResult = { title: string; questions: ParsedQuestion[]; warnings: string[] };
 
 const LETTERS = "ABCD";
@@ -104,11 +110,13 @@ export function parseTestSource(src: string): ParseResult {
     const n = questions.length + 1;
     let i = m.index + m[0].length;
     const options: string[] = [];
+    const optionsTex: string[] = [];
     try {
       for (let c = 0; c < 4; c++) {
         while (src[i] === " " || src[i] === "\n") i++;
         const [raw, next] = readBraces(src, i);
         i = next;
+        optionsTex.push(raw.trim());
         options.push(latexToText(raw));
       }
     } catch {
@@ -124,7 +132,7 @@ export function parseTestSource(src: string): ParseResult {
     if (correct === undefined) {
       warnings.push(`Вопрос ${n}: в таблице ответов его нет — отмечен вариант A, проверьте вручную`);
     }
-    questions.push({ text: `${text} =`, options, correct: correct ?? 0 });
+    questions.push({ text: `${text} =`, options, correct: correct ?? 0, tex: m[1].trim(), optionsTex });
     itemRe.lastIndex = i;
   }
 

@@ -1232,6 +1232,8 @@ export async function importTest(formData: FormData) {
           text: q.text,
           options: q.options,
           correct: q.correct,
+          textTex: q.tex,
+          optionsTex: q.optionsTex,
         })),
       },
     },

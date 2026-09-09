@@ -97,3 +97,20 @@ test("заголовок берётся из тела документа, а н�
 \end{document}`;
   assert.equal(parseTestSource(src).title, "БӨЛШЕКТЕРГЕ АМАЛДАР");
 });
+
+test("исходник формулы сохраняется рядом с читаемым текстом", () => {
+  const src = String.raw`\begin{document}
+\item $\dfrac{3}{10}+\dfrac{4}{10}=$
+\choices{\dfrac{1}{10}}{\dfrac{7}{10}}{\dfrac{3}{5}}{\dfrac{4}{5}}
+Жауаптары
+1. B`;
+  const q = parseTestSource(src).questions[0];
+  assert.equal(q.text, "3/10 + 4/10 =", "читаемый текст — запасной вариант");
+  assert.equal(q.tex, String.raw`\dfrac{3}{10}+\dfrac{4}{10}=`, "исходник — из него набирается формула");
+  assert.deepEqual(q.optionsTex, [
+    String.raw`\dfrac{1}{10}`,
+    String.raw`\dfrac{7}{10}`,
+    String.raw`\dfrac{3}{5}`,
+    String.raw`\dfrac{4}{5}`,
+  ]);
+});

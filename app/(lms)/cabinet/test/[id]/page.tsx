@@ -8,6 +8,8 @@ import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
 import { finishTestAttempt, startTestAttempt, submitTestAttempt } from "@/app/actions/data";
+import { Formula } from "@/components/Formula";
+import { renderQuestion } from "@/lib/math-render";
 import { TimedTest } from "./TimedTest";
 import { formatDate, gradeChipClass } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -106,7 +108,7 @@ export default async function CabinetTest({
             <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
                 <span className={`chip ${right ? "c-ok" : "c-bad"}`} style={{ flex: "none" }}><span className="d" />{right ? t(locale, "test.correct") : t(locale, "test.wrong")}</span>
-                <div style={{ fontWeight: 600 }}>{i + 1}. {q.text}</div>
+                <div style={{ fontWeight: 600 }}>{i + 1}. <Formula html={renderQuestion(q).textHtml} /></div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {q.options.map((opt, oi) => {
@@ -117,7 +119,7 @@ export default async function CabinetTest({
                   return (
                     <div key={oi} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 11px", borderRadius: 9, border: `1.5px solid ${bd}`, background: bg }}>
                       <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
-                      <span style={{ flex: 1 }}>{opt}</span>
+                      <span style={{ flex: 1 }}><Formula html={renderQuestion(q).optionsHtml[oi]} /></span>
                       {isCorrect && <Icon name="check" size={15} style={{ color: "var(--ok)" }} />}
                       {isChosen && !isCorrect && <span className="mut" style={{ fontSize: 11.5 }}>{t(locale, "test.yourAnswer")}</span>}
                     </div>
@@ -178,7 +180,10 @@ export default async function CabinetTest({
           locale={locale}
           deadlineIso={deadline!.toISOString()}
           initialAnswers={test.questions.map((_, i) => attempt.answers[i] ?? -1)}
-          questions={ordered.map(({ q, i }) => ({ id: q.id, index: i, text: q.text, options: q.options }))}
+          questions={ordered.map(({ q, i }) => {
+            const r = renderQuestion(q);
+            return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml };
+          })}
         />
       </div>
     );
@@ -191,13 +196,13 @@ export default async function CabinetTest({
       <form action={submitTestAttempt.bind(null, test.id)}>
         {(test.shuffle ? shuffleForSeed(test.questions, `${test.id}|${studentId}`) : test.questions).map((q, i) => (
           <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, marginBottom: 10 }}>{i + 1}. {q.text}</div>
+            <div style={{ fontWeight: 600, marginBottom: 10 }}>{i + 1}. <Formula html={renderQuestion(q).textHtml} /></div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {q.options.map((opt, oi) => (
                 <label key={oi} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1.5px solid var(--line-2)", cursor: "pointer" }}>
                   <input type="radio" name={`q_${q.id}`} value={oi} />
                   <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
-                  <span style={{ flex: 1 }}>{opt}</span>
+                  <span style={{ flex: 1 }}><Formula html={renderQuestion(q).optionsHtml[oi]} /></span>
                 </label>
               ))}
             </div>

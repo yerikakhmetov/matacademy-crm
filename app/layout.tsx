@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Onest } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css"; // набор формул в тестах
 
 const manrope = Manrope({
   subsets: ["latin", "cyrillic"],
