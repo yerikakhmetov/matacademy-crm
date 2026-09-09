@@ -10,7 +10,7 @@ import { createUser, updateUser } from "@/app/actions/data";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_CLASS: Record<string, string> = { ADMIN: "c-bad", MANAGER: "c-acc", TEACHER: "c-vio" };
+const ROLE_CLASS: Record<string, string> = { ADMIN: "c-bad", MANAGER: "c-acc", CURATOR: "c-warn", TEACHER: "c-vio" };
 
 export default async function UsersPage() {
   const session = await auth();

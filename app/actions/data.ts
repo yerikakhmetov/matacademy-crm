@@ -15,6 +15,7 @@ import { recalcAttendance } from "@/lib/attendance";
 import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
+import { isCuratorOfGroup } from "@/lib/curator";
 import { isTestOpen } from "@/lib/tests";
 import { parseTestSource } from "@/lib/test-import";
 import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
@@ -350,6 +351,7 @@ export async function createGroup(formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
+      curatorId: str(formData.get("curatorId")) || null,
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
       startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
     },
@@ -372,6 +374,7 @@ export async function updateGroup(id: string, formData: FormData) {
       color: str(formData.get("color")) || "#3A5AE0",
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
+      curatorId: str(formData.get("curatorId")) || null,
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
       startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
     },
@@ -911,9 +914,10 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
   });
   if (!lesson) throw new Error("Занятие не найдено");
 
-  // Отмечать может админ/менеджер ИЛИ учитель, ведущий эту группу
+  // Отмечать может админ/менеджер, учитель этой группы ИЛИ её куратор
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
-  if (!await canEditData(session.user.role) && !ownsLesson) throw new Error("Недостаточно прав");
+  const curates = await isCuratorOfGroup(session.user.id, lesson.groupId);
+  if (!(await canEditData(session.user.role)) && !ownsLesson && !curates) throw new Error("Недостаточно прав");
 
   const students = lesson.group.students;
 

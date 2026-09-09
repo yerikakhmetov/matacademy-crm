@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
+import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { initials, avatarColor, scoreColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { GradeForm } from "./GradeForm";
@@ -17,9 +18,12 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
   const teacher = isTeacher(session?.user?.role);
   const canManage = await canEditData(session?.user?.role) || teacher;
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const curator = isCurator(session?.user?.role);
+  // куратор видит только закреплённые за ним группы
+  const curGroupIds = curator ? await curatorGroupIds(session?.user?.id) : [];
 
   const groups = await prisma.group.findMany({
-    where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
+    where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });

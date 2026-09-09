@@ -1,6 +1,8 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { isCurator } from "@/lib/curator";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { initials, avatarColor, STUDENT_STATUS } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -13,6 +15,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
   const { q = "" } = await searchParams;
   const term = q.trim();
   const session = await auth();
+  if (isCurator(session?.user?.role)) redirect("/schedule"); // не входит в роль куратора
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
   const groupScope = teacher ? { teacherId: myTeacherId ?? "__none__" } : {};

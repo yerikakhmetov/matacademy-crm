@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
+import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { scoreColor, STUDENT_STATUS } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 
@@ -11,9 +12,12 @@ export default async function MyStudentsPage() {
   const session = await auth();
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const curator = isCurator(session?.user?.role);
+  // куратор видит только закреплённые за ним группы
+  const curGroupIds = curator ? await curatorGroupIds(session?.user?.id) : [];
 
   const groups = await prisma.group.findMany({
-    where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
+    where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
     orderBy: { name: "asc" },
     include: {
       students: {

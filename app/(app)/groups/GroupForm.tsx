@@ -6,7 +6,8 @@ const COLORS = ["#3A5AE0", "#7048E8", "#0C8599", "#2F9E44", "#E8590C", "#C2255C"
 type Subject = { id: string; name: string };
 type Values = {
   name?: string; level?: string; capacity?: number; color?: string;
-  teacherId?: string | null; subjectId?: string | null; startDate?: Date | string | null; schedule?: SlotRow[];
+  teacherId?: string | null; subjectId?: string | null; curatorId?: string | null;
+  startDate?: Date | string | null; schedule?: SlotRow[];
 };
 
 // <input type="date"> понимает только YYYY-MM-DD
@@ -19,11 +20,13 @@ function dateValue(d: Date | string | null | undefined): string {
 export function GroupForm({
   teachers,
   subjects = [],
+  curators = [],
   rooms = [],
   values,
 }: {
   teachers: Teacher[];
   subjects?: Subject[];
+  curators?: { id: string; name: string }[];
   rooms?: string[];
   values?: Values;
 }) {
@@ -66,6 +69,18 @@ export function GroupForm({
             ))}
           </select>
         </div>
+      </div>
+      <div className="field">
+        <label>Куратор</label>
+        <select name="curatorId" defaultValue={values?.curatorId ?? ""}>
+          <option value="">Не назначен</option>
+          {curators.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <p className="mut" style={{ fontSize: 12, marginTop: 4 }}>
+          Куратор видит эту группу, её расписание и журнал и отмечает посещаемость. Занятия не ведёт.
+        </p>
       </div>
       <div className="field">
         <label>Занятия начинаются с</label>

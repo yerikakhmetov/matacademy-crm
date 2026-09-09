@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { isCurator } from "@/lib/curator";
 import { canEditData } from "@/lib/access";
 import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
 import { formatDate, initials, avatarColor, DAYS } from "@/lib/format";
@@ -11,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function MakeupsPage() {
   const session = await auth();
+  if (isCurator(session?.user?.role)) redirect("/schedule"); // не входит в роль куратора
   const teacher = isTeacher(session?.user?.role);
   const editor = await canEditData(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;

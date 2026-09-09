@@ -56,6 +56,17 @@ const NAV_TEACHER: Item[] = [
   { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 
+// Куратор: свои группы, их расписание и журнал. Денег и лидов не видит.
+const NAV_CURATOR: Item[] = [
+  { section: "Куратор" },
+  { href: "/schedule", icon: "schedule", label: "Расписание" },
+  { href: "/journal", icon: "check", label: "Журнал" },
+  { href: "/my-students", icon: "students", label: "Мои ученики" },
+  { href: "/groups", icon: "groups", label: "Мои группы" },
+  { href: "/grades", icon: "chart", label: "Успеваемость" },
+  { href: "/homework", icon: "book", label: "Домашние задания" },
+];
+
 export function Sidebar({
   user,
   counts,
@@ -66,7 +77,7 @@ export function Sidebar({
   denied?: string[];
 }) {
   const pathname = usePathname();
-  const nav = (user.role === "TEACHER" ? NAV_TEACHER : NAV_FULL).filter(
+  const nav = (user.role === "TEACHER" ? NAV_TEACHER : user.role === "CURATOR" ? NAV_CURATOR : NAV_FULL).filter(
     (i) =>
       (!("adminOnly" in i && i.adminOnly) || user.role === "ADMIN") &&
       // скрыть модули, запрещённые менеджеру

@@ -2,7 +2,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { netRevenue } from "@/lib/revenue";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { isTeacher } from "@/lib/teacher";
+import { isCurator } from "@/lib/curator";
 import { getAccess } from "@/lib/access";
 import { Icon } from "@/components/Icon";
 import { money, initials, avatarColor, LEAD_STAGES } from "@/lib/format";
@@ -18,6 +20,8 @@ function monthStart() {
 
 export default async function DashboardPage() {
   const session = await auth();
+  // На дашборде вся школа: ученики, лиды, занятия всех групп — куратору это не по роли
+  if (isCurator(session?.user?.role)) redirect("/schedule");
   if (isTeacher(session?.user?.role) && session?.user?.id) {
     return <TeacherDashboard userId={session.user.id} name={session.user.name} />;
   }

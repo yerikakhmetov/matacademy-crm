@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
+import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { LessonForm } from "./LessonForm";
@@ -16,7 +17,10 @@ export default async function SchedulePage() {
   const editor = await canEditData(session?.user?.role);
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
-  const groupWhere = teacher ? { teacherId: myTeacherId ?? "__none__" } : {};
+  const curator = isCurator(session?.user?.role);
+  // куратор видит расписание только своих групп
+  const curGroupIds = curator ? await curatorGroupIds(session?.user?.id) : [];
+  const groupWhere = groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds });
 
   const [lessons, groups] = await Promise.all([
     prisma.lesson.findMany({ where: { group: groupWhere }, include: { group: { include: { teacher: true } } } }),

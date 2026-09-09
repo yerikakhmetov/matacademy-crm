@@ -19,10 +19,11 @@ model User {
   name           String
   email          String   @unique
   passwordHash   String
-  role           String   @default("MANAGER") // ADMIN | MANAGER | TEACHER | STUDENT
+  role           String   @default("MANAGER") // ADMIN | MANAGER | CURATOR | TEACHER | STUDENT
   telegramUserId String?  @unique // id пользователя Telegram (для входа через Telegram)
   teacher        Teacher?
   student        Student?
+  curatedGroups  Group[]  @relation("GroupCurator")
   createdAt      DateTime @default(now())
 }
 
@@ -93,6 +94,9 @@ model Group {
   startDate DateTime?
   teacherId String?
   teacher   Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  // Куратор группы: следит за посещаемостью и журналом, но не ведёт занятия.
+  curatorId String?
+  curator   User?     @relation("GroupCurator", fields: [curatorId], references: [id], onDelete: SetNull)
   subjectId String?
   subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   students  Student[]

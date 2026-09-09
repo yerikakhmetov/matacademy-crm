@@ -20,6 +20,7 @@ export function AttendanceForm({
   date,
   students,
   editor,
+  canCancel,
   marked,
   weekday,
   topic,
@@ -30,6 +31,8 @@ export function AttendanceForm({
   date: string;
   students: S[];
   editor: boolean;
+  /** отмена занятия влияет на зарплату, поэтому доступна не всем, кто отмечает посещаемость */
+  canCancel: boolean;
   marked: boolean;
   weekday: number;
   topic: string;
@@ -93,7 +96,7 @@ export function AttendanceForm({
             <p className="mut" style={{ fontSize: 12, margin: "0 0 16px" }}>
               Этот день не входит в расчёт зарплаты, отметки посещаемости за него удалены.
             </p>
-            {editor && (
+            {canCancel && (
               <button className="btn ghost" type="button" onClick={restoreLesson} disabled={pending}>
                 {pending ? "Восстанавливаем…" : "Восстановить занятие"}
               </button>
@@ -170,9 +173,11 @@ export function AttendanceForm({
               <button className="btn ghost" type="button" onClick={allPresent} disabled={pending} title="Отметить всех присутствующими">
                 Все пришли
               </button>
-              <button className="btn ghost" type="button" onClick={cancelLesson} disabled={pending} style={{ color: "var(--bad)" }}>
-                Занятие не состоялось
-              </button>
+              {canCancel && (
+                <button className="btn ghost" type="button" onClick={cancelLesson} disabled={pending} style={{ color: "var(--bad)" }}>
+                  Занятие не состоялось
+                </button>
+              )}
               <button className="btn" type="submit" disabled={pending}>
                 <Icon name="check" size={16} />
                 {pending ? "Сохраняем…" : "Сохранить отметки"}

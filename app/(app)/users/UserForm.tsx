@@ -18,7 +18,7 @@ export function UserForm({ values, isEdit }: { values?: Values; isEdit?: boolean
       <div className="field">
         <label>Роль</label>
         <select name="role" defaultValue={values?.role ?? "MANAGER"}>
-          {(["ADMIN", "MANAGER", "TEACHER"] as const).map((r) => (
+          {(["ADMIN", "MANAGER", "CURATOR", "TEACHER"] as const).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABEL[r]}
             </option>

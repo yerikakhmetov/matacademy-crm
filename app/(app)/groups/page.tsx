@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
+import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
 import { DeleteGroupButton } from "./DeleteGroupButton";
@@ -16,10 +17,13 @@ export default async function GroupsPage() {
   const editor = await canEditData(session?.user?.role);
   const teacher = isTeacher(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const curator = isCurator(session?.user?.role);
+  // куратор видит только закреплённые за ним группы
+  const curGroupIds = curator ? await curatorGroupIds(session?.user?.id) : [];
 
   const [groups, teachers, subjects] = await Promise.all([
     prisma.group.findMany({
-      where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
+      where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
       include: { teacher: true, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: true },
       orderBy: { createdAt: "asc" },
     }),
@@ -27,6 +31,10 @@ export default async function GroupsPage() {
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const rooms = parseList((await getSettings()).rooms);
+  // назначать куратора может только тот, кто редактирует данные
+  const curators = editor
+    ? await prisma.user.findMany({ where: { role: "CURATOR" }, orderBy: { name: "asc" }, select: { id: true, name: true } })
+    : [];
 
   const avgFill =
     groups.length > 0 ? Math.round(groups.reduce((a, g) => a + g._count.students / g.capacity, 0) / groups.length * 100) : 0;
@@ -42,7 +50,7 @@ export default async function GroupsPage() {
         </div>
         {editor && (
           <ModalButton label="Новая группа" title="Новая группа" action={createGroup}>
-            <GroupForm teachers={teachers} subjects={subjects} rooms={rooms} />
+            <GroupForm teachers={teachers} subjects={subjects} rooms={rooms} curators={curators} />
           </ModalButton>
         )}
       </div>
@@ -127,6 +135,7 @@ export default async function GroupsPage() {
                       teachers={teachers}
                       subjects={subjects}
                       rooms={rooms}
+                      curators={curators}
                       values={{ ...g, schedule: slots.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, room: l.room })) }}
                     />
                   </ModalButton>

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
+import { isCurator } from "@/lib/curator";
 import { DAYS } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
 import { ModalButton } from "@/components/ModalButton";
@@ -46,9 +47,12 @@ export default async function LessonPage({
 
   // Отмечать посещаемость может админ/менеджер или учитель этой группы
   const ownsLesson = lesson.group.teacher?.userId === session?.user?.id;
+  // Куратор ведёт эту группу — значит, отмечает её посещаемость
+  const curatesLesson = isCurator(session?.user?.role) && lesson.group.curatorId === session?.user?.id;
   // Преподаватель видит только свои занятия — иначе по прямой ссылке был бы виден чужой состав группы
   if (isTeacher(session?.user?.role) && !ownsLesson) redirect("/schedule");
-  const canMark = editor || ownsLesson;
+  if (isCurator(session?.user?.role) && !curatesLesson) redirect("/schedule");
+  const canMark = editor || ownsLesson || curatesLesson;
 
   const date = dateParam || recentDateForDay(lesson.dayOfWeek);
   const dateObj = new Date(date + "T00:00:00.000Z");
@@ -114,6 +118,7 @@ export default async function LessonPage({
         date={date}
         students={students}
         editor={canMark}
+        canCancel={editor || ownsLesson}
         marked={marked}
         weekday={lesson.dayOfWeek}
         topic={session2?.topic ?? ""}
