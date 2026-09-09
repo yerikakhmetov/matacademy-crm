@@ -7,7 +7,7 @@ import { auth } from "@/auth";
 import { canEditData, MANAGER_PERMS, getAccess, type PermKey } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { tariffsFromText, getSettings, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
+import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiPercentFor, computePricing, splitByPrice, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
