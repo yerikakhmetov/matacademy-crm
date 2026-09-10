@@ -70,6 +70,36 @@ export async function POST(req: NextRequest) {
       return Response.json({ ok: true });
     }
 
+    // Привязка Telegram к учётной записи по одноразовому коду: /start tgbind_<token>
+    // Так входят администратор, менеджер и куратор — у них нет карточки преподавателя.
+    if (payload.startsWith("tgbind_")) {
+      const token = payload.slice("tgbind_".length);
+      const user = token
+        ? await prisma.user.findUnique({ where: { tgBindToken: token }, select: { id: true, name: true, tgBindIssued: true } })
+        : null;
+      const fresh = user?.tgBindIssued && Date.now() - user.tgBindIssued.getTime() <= 30 * 60 * 1000;
+      if (!user || !fresh) {
+        await sendTelegram(chat, `⚠️ Код привязки недействителен или устарел. Попросите администратора выдать новый.`);
+        return Response.json({ ok: true });
+      }
+      // Один Telegram — одна учётная запись, иначе вход по кнопке стал бы неоднозначным.
+      const taken = await prisma.user.findUnique({ where: { telegramUserId: fromId }, select: { id: true, name: true } });
+      if (taken && taken.id !== user.id) {
+        await sendTelegram(
+          chat,
+          `⚠️ Этот Telegram уже привязан к учётной записи «${taken.name}». Сначала отвяжите его там.`
+        );
+        return Response.json({ ok: true });
+      }
+      await prisma.user.update({
+        where: { id: user.id },
+        // код одноразовый: гасим сразу, чтобы ссылка не сработала второй раз
+        data: { telegramUserId: fromId, tgBindToken: null, tgBindIssued: null },
+      });
+      await sendTelegram(chat, `✅ Готово, ${user.name}! Теперь входите кнопкой «Войти через Telegram» на странице входа.`);
+      return Response.json({ ok: true });
+    }
+
     // Привязка входа преподавателя: /start teacherlogin_<teacherId>
     if (payload.startsWith("teacherlogin_")) {
       const teacherId = payload.slice("teacherlogin_".length);

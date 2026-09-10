@@ -5,6 +5,7 @@ import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials, avatarColor, formatDate } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { UserForm } from "./UserForm";
+import { UserTelegram } from "./UserTelegram";
 import { DeleteUserButton } from "./DeleteUserButton";
 import { createUser, updateUser } from "@/app/actions/data";
 
@@ -17,9 +18,10 @@ export default async function UsersPage() {
   if (session?.user?.role !== "ADMIN") redirect("/dashboard");
   const meId = session.user.id;
 
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? null;
   const users = await prisma.user.findMany({
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, email: true, role: true, telegramUserId: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, telegramUserId: true, tgBindToken: true, createdAt: true },
   });
 
   return (
@@ -71,11 +73,12 @@ export default async function UsersPage() {
                       </span>
                     </td>
                     <td>
-                      {u.telegramUserId ? (
-                        <span className="chip c-teal" style={{ fontSize: 11 }}><span className="d" />Telegram</span>
-                      ) : (
-                        <span className="mut" style={{ fontSize: 12 }}>email/пароль</span>
-                      )}
+                      <UserTelegram
+                        userId={u.id}
+                        linked={!!u.telegramUserId}
+                        token={u.tgBindToken}
+                        botUsername={botUsername}
+                      />
                     </td>
                     <td className="mut">{formatDate(u.createdAt)}</td>
                     <td className="right">

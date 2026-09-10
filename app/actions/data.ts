@@ -44,6 +44,34 @@ export async function createUser(formData: FormData) {
   revalidatePath("/users");
 }
 
+// Код действителен полчаса: ссылка привязки — это фактически вход в аккаунт,
+// поэтому она не должна жить в переписке вечно.
+export const TG_BIND_TTL_MIN = 30;
+
+// Выдать одноразовый код привязки Telegram к учётной записи.
+export async function issueTelegramBind(userId: string) {
+  await assertAdmin();
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { tgBindToken: newToken(), tgBindIssued: new Date() },
+    select: { name: true },
+  });
+  await logAudit("UPDATE", "Пользователь", `Выдан код привязки Telegram · ${user.name}`);
+  revalidatePath("/users");
+}
+
+// Отвязать Telegram: вход по кнопке для этой учётной записи перестаёт работать.
+export async function unbindTelegram(userId: string) {
+  await assertAdmin();
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { telegramUserId: null, tgBindToken: null, tgBindIssued: null },
+    select: { name: true },
+  });
+  await logAudit("UPDATE", "Пользователь", `Telegram отвязан · ${user.name}`);
+  revalidatePath("/users");
+}
+
 export async function updateUser(id: string, formData: FormData) {
   await assertAdmin();
   const name = String(formData.get("name") ?? "").trim();
