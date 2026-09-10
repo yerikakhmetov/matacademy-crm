@@ -7,6 +7,7 @@ import { LOCALES, LOCALE_LABEL } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { updateSettings, createPromo, togglePromo, deletePromo } from "@/app/actions/data";
 import { SaveButton } from "./SaveButton";
+import { NormalizePhonesButton } from "./NormalizePhonesButton";
 import { ClearDataButton } from "./ClearDataButton";
 
 export const dynamic = "force-dynamic";
@@ -305,6 +306,19 @@ export default async function SettingsPage() {
         <a className="btn ghost" href="/api/export/backup" download>
           Скачать резервную копию
         </a>
+      </div>
+
+      <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+          Телефоны
+        </div>
+        <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
+          Новые номера сохраняются в виде <b>+7 (XXX) XXX-XX-XX</b> сами. Эта кнопка приводит к нему уже
+          накопленные записи учеников, родителей, преподавателей и лидов. Иностранные и незаконченные
+          номера остаются как есть. Заодно начинает срабатывать скидка «брат/сестра»: родитель ищется
+          по точному совпадению номера.
+        </p>
+        <NormalizePhonesButton />
       </div>
 
       <div className="card" style={{ padding: 22, marginTop: 24, maxWidth: 720, borderColor: "var(--bad)" }}>

@@ -69,6 +69,55 @@ export async function unbindTelegram(userId: string) {
   revalidatePath("/users");
 }
 
+// Разовое обслуживание: привести уже накопленные телефоны к виду +7 (XXX) XXX-XX-XX.
+// Новые записи сохраняются приведёнными сами, а старые лежат кто как — из-за
+// этого, в частности, не срабатывала скидка «брат/сестра» (родитель ищется
+// по точному совпадению parentPhone).
+export async function normalizeAllPhones(): Promise<{ changed: number; checked: number }> {
+  await assertAdmin();
+
+  const [students, teachers, leads] = await Promise.all([
+    prisma.student.findMany({ select: { id: true, phone: true, parentPhone: true } }),
+    prisma.teacher.findMany({ select: { id: true, phone: true } }),
+    prisma.lead.findMany({ select: { id: true, phone: true } }),
+  ]);
+
+  let changed = 0;
+  const checked = students.length * 2 + teachers.length + leads.length;
+
+  for (const st of students) {
+    const phone = normalizePhoneOrNull(st.phone);
+    const parentPhone = normalizePhoneOrNull(st.parentPhone);
+    const data: { phone?: string | null; parentPhone?: string | null } = {};
+    if (phone !== st.phone) data.phone = phone;
+    if (parentPhone !== st.parentPhone) data.parentPhone = parentPhone;
+    if (Object.keys(data).length > 0) {
+      await prisma.student.update({ where: { id: st.id }, data });
+      changed += Object.keys(data).length;
+    }
+  }
+  for (const t of teachers) {
+    const phone = normalizePhoneOrNull(t.phone);
+    if (phone !== t.phone) {
+      await prisma.teacher.update({ where: { id: t.id }, data: { phone } });
+      changed++;
+    }
+  }
+  for (const l of leads) {
+    const phone = normalizePhoneOrNull(l.phone);
+    if (phone !== l.phone) {
+      await prisma.lead.update({ where: { id: l.id }, data: { phone } });
+      changed++;
+    }
+  }
+
+  await logAudit("UPDATE", "Настройки", `Телефоны приведены к единому виду · исправлено ${changed}`);
+  revalidatePath("/students");
+  revalidatePath("/teachers");
+  revalidatePath("/leads");
+  return { changed, checked };
+}
+
 export async function updateUser(id: string, formData: FormData) {
   await assertAdmin();
   const name = String(formData.get("name") ?? "").trim();
