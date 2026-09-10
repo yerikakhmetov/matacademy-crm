@@ -17,6 +17,7 @@ import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isCuratorOfGroup } from "@/lib/curator";
 import { isTestOpen } from "@/lib/tests";
+import { normalizePhoneOrNull } from "@/lib/phone";
 import { parseTestSource } from "@/lib/test-import";
 import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
 import { isLocale } from "@/lib/i18n";
@@ -260,9 +261,9 @@ export async function createStudent(formData: FormData) {
     data: {
       name: str(formData.get("name")),
       grade: str(formData.get("grade")) || null,
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       parentName: str(formData.get("parentName")) || null,
-      parentPhone: str(formData.get("parentPhone")) || null,
+      parentPhone: normalizePhoneOrNull(str(formData.get("parentPhone"))),
       groups: { connect: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
       personalDiscount: Math.min(100, Math.max(0, int(formData.get("personalDiscount")))),
@@ -283,9 +284,9 @@ export async function updateStudent(id: string, formData: FormData) {
     data: {
       name: str(formData.get("name")),
       grade: str(formData.get("grade")) || null,
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       parentName: str(formData.get("parentName")) || null,
-      parentPhone: str(formData.get("parentPhone")) || null,
+      parentPhone: normalizePhoneOrNull(str(formData.get("parentPhone"))),
       groups: { set: formData.getAll("groups").map((v) => String(v)).filter(Boolean).map((id) => ({ id })) },
       status: str(formData.get("status")) || "ACTIVE",
       personalDiscount: Math.min(100, Math.max(0, int(formData.get("personalDiscount")))),
@@ -433,7 +434,7 @@ export async function createTeacher(formData: FormData) {
     data: {
       name: str(formData.get("name")),
       specialty: str(formData.get("specialty")),
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       color: str(formData.get("color")) || "#3A5AE0",
       subjects: subjectIds.length ? { connect: subjectIds.map((id) => ({ id })) } : undefined,
     },
@@ -450,7 +451,7 @@ export async function updateTeacher(id: string, formData: FormData) {
     data: {
       name: str(formData.get("name")),
       specialty: str(formData.get("specialty")),
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       color: str(formData.get("color")) || "#3A5AE0",
       subjects: { set: subjectIds.map((id) => ({ id })) },
     },
@@ -478,7 +479,7 @@ export async function createLead(formData: FormData) {
     data: {
       name: str(formData.get("name")),
       childName: str(formData.get("childName")) || null,
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       grade: str(formData.get("grade")) || null,
       subject: str(formData.get("subject")) || null,
       source: str(formData.get("source")) || null,
@@ -507,7 +508,7 @@ export async function updateLead(id: string, formData: FormData) {
     data: {
       name: str(formData.get("name")),
       childName: str(formData.get("childName")) || null,
-      phone: str(formData.get("phone")) || null,
+      phone: normalizePhoneOrNull(str(formData.get("phone"))),
       grade: str(formData.get("grade")) || null,
       subject: str(formData.get("subject")) || null,
       source: str(formData.get("source")) || null,
