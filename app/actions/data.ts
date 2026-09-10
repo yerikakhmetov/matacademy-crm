@@ -44,10 +44,6 @@ export async function createUser(formData: FormData) {
   revalidatePath("/users");
 }
 
-// Код действителен полчаса: ссылка привязки — это фактически вход в аккаунт,
-// поэтому она не должна жить в переписке вечно.
-export const TG_BIND_TTL_MIN = 30;
-
 // Выдать одноразовый код привязки Telegram к учётной записи.
 export async function issueTelegramBind(userId: string) {
   await assertAdmin();

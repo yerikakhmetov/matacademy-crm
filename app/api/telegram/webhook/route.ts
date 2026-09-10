@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
       const user = token
         ? await prisma.user.findUnique({ where: { tgBindToken: token }, select: { id: true, name: true, tgBindIssued: true } })
         : null;
+      // код живёт 30 минут: ссылка привязки — фактически вход в аккаунт
       const fresh = user?.tgBindIssued && Date.now() - user.tgBindIssued.getTime() <= 30 * 60 * 1000;
       if (!user || !fresh) {
         await sendTelegram(chat, `⚠️ Код привязки недействителен или устарел. Попросите администратора выдать новый.`);
