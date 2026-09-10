@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
+import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
 import { DeleteGroupButton } from "./DeleteGroupButton";
@@ -75,7 +77,9 @@ export default async function GroupsPage() {
               <div className="gtop">
                 <div>
                   <div className="gname" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {g.name}
+                    <Link href={`/groups/${g.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+                      {g.name}
+                    </Link>
                     {g.subject && (
                       <span className="chip" style={{ padding: "1px 8px", fontSize: 10.5, background: `${g.subject.color}22`, color: g.subject.color }}>
                         {g.subject.name}
@@ -122,8 +126,14 @@ export default async function GroupsPage() {
                   <span style={{ width: `${pct}%`, background: full ? "var(--bad)" : g.color }} />
                 </div>
               </div>
+              <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--line-2)", paddingTop: 12, marginTop: 2 }}>
+                <Link className="btn ghost" href={`/groups/${g.id}`} style={{ flex: 1, justifyContent: "center" }}>
+                  <Icon name="students" size={15} />
+                  Ученики и телефоны
+                </Link>
+              </div>
               {editor && (
-                <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--line-2)", paddingTop: 12, marginTop: 2 }}>
+                <div style={{ display: "flex", gap: 8, paddingTop: 2 }}>
                   <ModalButton
                     label="Редактировать"
                     title={`Группа · ${g.name}`}
