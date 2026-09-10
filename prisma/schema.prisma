@@ -21,6 +21,10 @@ model User {
   passwordHash   String
   role           String   @default("MANAGER") // ADMIN | MANAGER | CURATOR | TEACHER | STUDENT
   telegramUserId String?  @unique // id пользователя Telegram (для входа через Telegram)
+  // Одноразовый код привязки Telegram к учётной записи. В ссылке случайный код,
+  // а не id пользователя: утёкшая ссылка с id — это захват аккаунта.
+  tgBindToken    String?   @unique
+  tgBindIssued   DateTime?
   teacher        Teacher?
   student        Student?
   curatedGroups  Group[]  @relation("GroupCurator")
