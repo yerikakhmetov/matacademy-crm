@@ -33,14 +33,14 @@ const ru = {
 
   // страница-приглашение
   "join.cabinetOf": "Личный кабинет ученика: {name}",
-  "join.onlyTelegram": "Вход только через Telegram. Ссылка персональная — не передавайте её другим.",
+  "join.onlyTelegram": "Вход только через Telegram — приложение должно быть установлено на телефоне. Ссылка персональная, не передавайте её другим.",
   "join.invalidLink": "Ссылка недействительна. Попросите у школы новую ссылку-приглашение.",
   "join.botNotConfigured": "Telegram-бот не настроен. Обратитесь к школе.",
   "join.loginTelegram": "Войти через Telegram",
   "join.confirming": "Подтвердите в Telegram…",
   "join.timeout": "Время ожидания истекло. Нажмите ещё раз.",
   "join.openBotHint": "Откройте бота и нажмите «Старт» — кабинет откроется автоматически.",
-  "join.notOpening": "Telegram не открылся? Скопируйте ссылку",
+  "join.notOpening": "Telegram не открылся? Проверьте, установлено ли приложение, или скопируйте ссылку",
 
   // кабинет
   "lms.studentCabinet": "Личный кабинет ученика",
@@ -154,14 +154,14 @@ const kk: Record<MsgKey, string> = {
   "today.overdue": "мерзімі өтті",
 
   "join.cabinetOf": "Оқушының жеке кабинеті: {name}",
-  "join.onlyTelegram": "Кіру тек Telegram арқылы. Сілтеме жеке — оны басқаға бермеңіз.",
+  "join.onlyTelegram": "Кіру тек Telegram арқылы — қосымша телефонға орнатылған болуы керек. Сілтеме жеке, оны басқаға бермеңіз.",
   "join.invalidLink": "Сілтеме жарамсыз. Мектептен жаңа шақыру сілтемесін сұраңыз.",
   "join.botNotConfigured": "Telegram-бот бапталмаған. Мектепке хабарласыңыз.",
   "join.loginTelegram": "Telegram арқылы кіру",
   "join.confirming": "Telegram-да растаңыз…",
   "join.timeout": "Күту уақыты бітті. Қайта басыңыз.",
   "join.openBotHint": "Ботты ашып, «Старт» батырмасын басыңыз — кабинет өзі ашылады.",
-  "join.notOpening": "Telegram ашылмады ма? Сілтемені көшіріп алыңыз",
+  "join.notOpening": "Telegram ашылмады ма? Қосымша орнатылған ба, тексеріңіз немесе сілтемені көшіріңіз",
 
   "lms.studentCabinet": "Оқушының жеке кабинеті",
   "cabinet.profileNotFound": "Оқушы профилі табылмады. Мектепке хабарласыңыз.",
