@@ -1324,6 +1324,24 @@ export async function importTest(formData: FormData) {
 // Обновление вопросов уже существующего теста из того же LaTeX-исходника.
 // Нужно, когда тест импортировали до появления набора формул: пересоздавать его
 // нельзя — вместе с ним ушли бы попытки и оценки учеников.
+// Открыть доступ к тесту прямо сейчас или вернуть его к расписанию.
+// Тест часто заводят уже после урока — тогда правило «после урока в день теста»
+// держит его закрытым, и открыть иначе было нельзя.
+export async function setTestAccess(testId: string, open: boolean) {
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  if (!test) throw new Error("Тест не найден");
+  if (test.groupId) await assertCanManageGroup(test.groupId);
+  else await assertEditor();
+
+  await prisma.test.update({
+    where: { id: testId },
+    data: { availableFrom: open ? new Date() : null },
+  });
+  await logAudit("UPDATE", "Тест", `${test.title} · ${open ? "доступ открыт вручную" : "доступ по расписанию"}`);
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/cabinet");
+}
+
 export async function refreshTestQuestions(testId: string, formData: FormData) {
   const test = await prisma.test.findUnique({
     where: { id: testId },
@@ -1489,7 +1507,7 @@ async function assertCanTakeTest(testId: string) {
   if (!inGroup) throw new Error("Тест не для вашей группы");
 
   const tz = (await getSettings()).tzOffsetHours;
-  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz)) throw new Error("Тест ещё не открыт");
+  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz, test.availableFrom)) throw new Error("Тест ещё не открыт");
 
   return { studentId, test };
 }
@@ -1586,7 +1604,7 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
 
   // Тест открывается только после времени урока по расписанию
   const tz = (await getSettings()).tzOffsetHours;
-  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz)) throw new Error("Тест ещё не открыт");
+  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz, test.availableFrom)) throw new Error("Тест ещё не открыт");
 
   // Одна попытка, если преподаватель не разрешил проходить заново
   const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });

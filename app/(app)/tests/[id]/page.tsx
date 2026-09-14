@@ -9,9 +9,12 @@ import { Avatar } from "@/components/Avatar";
 import { ModalButton } from "@/components/ModalButton";
 import { saveTestResults, refreshTestQuestions } from "@/app/actions/data";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
+import { isTestOpen } from "@/lib/tests";
+import { getSettings } from "@/lib/settings";
 import { DeleteTestButton } from "./DeleteTestButton";
 import { SaveTestButton } from "./SaveTestButton";
 import { RefreshQuestionsForm } from "./RefreshQuestionsForm";
+import { TestAccessButton } from "./TestAccessButton";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +33,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
       group: {
         include: {
           teacher: { select: { userId: true } },
+          lessons: { select: { dayOfWeek: true, startTime: true } },
           students: { orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true } },
         },
       },
@@ -64,6 +68,9 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
   const entered = test.grades.length;
   const avg =
     entered > 0 ? Math.round(test.grades.reduce((a, g) => a + (g.score / test.maxScore) * 100, 0) / entered) : null;
+
+  const tz = (await getSettings()).tzOffsetHours;
+  const testOpen = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz, test.availableFrom);
 
   return (
     <>
@@ -104,6 +111,19 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+
+      {(editor || ownsGroup || teachesSubject) && test.groupId && (
+        <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 10 }}>
+            Доступ ученикам
+          </div>
+          <TestAccessButton testId={test.id} manual={test.availableFrom != null} open={testOpen} />
+          <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
+            По умолчанию тест открывается после урока в день теста. Если он заведён для прошедшего урока,
+            откройте доступ вручную — ученики увидят его сразу.
+          </p>
+        </div>
+      )}
 
       {/* Вопросы теста */}
       {test.questions.length > 0 && (

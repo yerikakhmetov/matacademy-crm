@@ -49,7 +49,7 @@ export default async function CabinetTest({
   const attempt = test.attempts[0] ?? null;
   const tz = (await getSettings()).tzOffsetHours;
   const locale = await getLocale();
-  const open = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz);
+  const open = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz, test.availableFrom);
 
   const header = (
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>

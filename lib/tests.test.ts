@@ -77,3 +77,47 @@ test("shuffleForSeed: не портит исходный массив и раб�
   assert.deepEqual(items, copy);
   assert.deepEqual(shuffleForSeed([], "seed"), []);
 });
+
+// --- Ручное открытие доступа ---
+const LESSONS = [{ dayOfWeek: 3, startTime: "14:30" }]; // среда, 14:30
+const WED = new Date("2026-09-09T00:00:00Z"); // среда
+
+test("по расписанию тест закрыт до конца урока и открыт после", () => {
+  assert.equal(isTestOpen(WED, LESSONS, new Date("2026-09-09T08:00:00Z"), 5), false, "13:00 по школе — рано");
+  assert.equal(isTestOpen(WED, LESSONS, new Date("2026-09-09T10:00:00Z"), 5), true, "15:00 по школе — можно");
+});
+
+test("выставленный вручную момент главнее расписания", () => {
+  const now = new Date("2026-09-09T08:00:00Z"); // урок ещё не прошёл
+  assert.equal(isTestOpen(WED, LESSONS, now, 5), false);
+  assert.equal(
+    isTestOpen(WED, LESSONS, now, 5, new Date("2026-09-09T07:00:00Z")),
+    true,
+    "открыли раньше урока — тест доступен"
+  );
+});
+
+test("тест для прошедшего урока открывается сразу", () => {
+  // тест завели сегодня, а урок был на прошлой неделе: по расписанию он ждал бы
+  // следующей среды, вручную открывается немедленно
+  const today = new Date("2026-09-14T06:00:00Z"); // понедельник
+  assert.equal(isTestOpen(today, LESSONS, today, 5), true, "в день без урока — с начала дня");
+  const tomorrowLesson = new Date("2026-09-16T00:00:00Z"); // среда
+  assert.equal(isTestOpen(tomorrowLesson, LESSONS, today, 5), false);
+  assert.equal(isTestOpen(tomorrowLesson, LESSONS, today, 5, today), true);
+});
+
+test("момент открытия в будущем держит тест закрытым", () => {
+  const now = new Date("2026-09-09T10:00:00Z"); // по расписанию уже открыт
+  assert.equal(isTestOpen(WED, LESSONS, now, 5), true);
+  assert.equal(
+    isTestOpen(WED, LESSONS, now, 5, new Date("2026-09-20T00:00:00Z")),
+    false,
+    "вручную отложили — расписание не перебивает"
+  );
+});
+
+test("testAvailableAt возвращает выставленный момент как есть", () => {
+  const at = new Date("2026-09-09T07:00:00Z");
+  assert.equal(testAvailableAt(WED, LESSONS, 5, at).getTime(), at.getTime());
+});

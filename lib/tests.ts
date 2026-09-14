@@ -4,11 +4,17 @@ export const DEFAULT_TZ_OFFSET_HOURS = 5;
 
 // Момент (UTC), с которого тест открыт: дата теста + время самого позднего урока
 // группы в этот день недели. Если урока в этот день нет — начало дня теста.
+//
+// availableFrom — момент, выставленный преподавателем вручную. Он главнее
+// расписания: тест могли завести для прошедшего урока, и тогда правило
+// «после урока в день теста» держало бы его закрытым.
 export function testAvailableAt(
   date: Date,
   lessons: { dayOfWeek: number; startTime: string }[],
-  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS
+  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS,
+  availableFrom?: Date | null
 ): Date {
+  if (availableFrom) return availableFrom;
   const d = new Date(date);
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth();
@@ -34,9 +40,10 @@ export function isTestOpen(
   date: Date,
   lessons: { dayOfWeek: number; startTime: string }[],
   now: Date = new Date(),
-  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS
+  tzOffsetHours: number = DEFAULT_TZ_OFFSET_HOURS,
+  availableFrom?: Date | null
 ): boolean {
-  return now.getTime() >= testAvailableAt(date, lessons, tzOffsetHours).getTime();
+  return now.getTime() >= testAvailableAt(date, lessons, tzOffsetHours, availableFrom).getTime();
 }
 
 // Детерминированное перемешивание вопросов: у каждого ученика свой порядок,

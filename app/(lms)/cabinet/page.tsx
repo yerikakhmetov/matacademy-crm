@@ -73,8 +73,8 @@ export default async function CabinetHome() {
       subjectName: row.subject?.name ?? null,
       subjectColor: row.subject?.color ?? "#3A5AE0",
       attempt,
-      open: isTestOpen(row.date, lessons, new Date(), tz),
-      opensAt: testAvailableAt(row.date, lessons, tz),
+      open: isTestOpen(row.date, lessons, new Date(), tz, row.availableFrom),
+      opensAt: testAvailableAt(row.date, lessons, tz, row.availableFrom),
     };
   });
 
