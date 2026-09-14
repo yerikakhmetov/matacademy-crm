@@ -3,28 +3,28 @@ import assert from "node:assert/strict";
 import { latexToText, parseAnswerKey, parseTestSource } from "./test-import.ts";
 
 test("простая дробь читается как 3/10", () => {
-  assert.equal(latexToText("\\dfrac{3}{10}+\\dfrac{4}{10}="), "3/10 + 4/10");
+  assert.equal(latexToText("\\dfrac{3}{10}+\\dfrac{4}{10}="), "3/10 + 4/10 =");
 });
 
 test("смешанное число не склеивается с дробью", () => {
-  assert.equal(latexToText("3\\dfrac{1}{6}+\\dfrac{2}{6}="), "3 1/6 + 2/6");
+  assert.equal(latexToText("3\\dfrac{1}{6}+\\dfrac{2}{6}="), "3 1/6 + 2/6 =");
 });
 
 test("вложенная дробь берётся в скобки, иначе смысл меняется", () => {
-  assert.equal(latexToText("\\dfrac{1}{1+\\dfrac{1}{2}}="), "1/(1 + 1/2)");
-  assert.equal(latexToText("\\dfrac{2}{1+\\dfrac{1}{2+\\dfrac{1}{3}}}="), "2/(1 + 1/(2 + 1/3))");
+  assert.equal(latexToText("\\dfrac{1}{1+\\dfrac{1}{2}}="), "1/(1 + 1/2) =");
+  assert.equal(latexToText("\\dfrac{2}{1+\\dfrac{1}{2+\\dfrac{1}{3}}}="), "2/(1 + 1/(2 + 1/3)) =");
 });
 
 test("скобки, умножение и деление", () => {
   assert.equal(
     latexToText("\\left(\\dfrac{5}{8}+\\dfrac{1}{4}\\right)\\cdot\\dfrac{16}{7}="),
-    "(5/8 + 1/4) · 16/7"
+    "(5/8 + 1/4) · 16/7 ="
   );
-  assert.equal(latexToText("\\dfrac{5}{12}:\\dfrac{5}{6}="), "5/12 : 5/6");
+  assert.equal(latexToText("\\dfrac{5}{12}:\\dfrac{5}{6}="), "5/12 : 5/6 =");
 });
 
 test("периодическая дробь остаётся как есть", () => {
-  assert.equal(latexToText("0,4(6)="), "0,4(6)");
+  assert.equal(latexToText("0,4(6)="), "0,4(6) =");
 });
 
 test("таблица ответов разбирается из строк вида «1. B & 2. A»", () => {
@@ -158,4 +158,15 @@ test("кривая формула пропускает один вопрос, а
 1. A & 2. B`);
   assert.equal(r.questions.length, 1, "первый вопрос уцелел");
   assert.ok(r.warnings.some((w) => w.includes("Вопрос 2")), r.warnings.join("; "));
+});
+
+test("словесная часть условия не теряется в запасном тексте", () => {
+  assert.equal(
+    latexToText(String.raw`\text{Есептеңіз: } 47^2-33^2`),
+    "Есептеңіз: 47^2 − 33^2"
+  );
+  assert.equal(
+    latexToText(String.raw`\text{Егер } x+\frac{1}{x}=3\text{ болса: } x^2`),
+    "Егер x + 1/x = 3 болса: x^2"
+  );
 });

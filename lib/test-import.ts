@@ -71,6 +71,16 @@ export function latexToText(src: string, top = true): string {
         frac = `${lead} ${frac}`;
       }
       out.push(frac);
+    } else if (src.startsWith("\\text", i) || src.startsWith("\\mathrm", i)) {
+      // \text{Есептеңіз: } — словесная часть условия. В наборе её показывает
+      // KaTeX, а в запасном тексте оставляем просто слова, без разметки.
+      i += src.startsWith("\\text", i) ? 5 : 7;
+      while (src[i] === " ") i++;
+      if (src[i] === "{") {
+        const [inner, next] = readBraces(src, i);
+        i = next;
+        out.push(inner);
+      }
     } else if (src.startsWith("\\left(", i)) { out.push("("); i += 6; }
     else if (src.startsWith("\\right)", i)) { out.push(")"); i += 7; }
     else if (src.startsWith("\\left[", i)) { out.push("["); i += 6; }
@@ -81,7 +91,7 @@ export function latexToText(src: string, top = true): string {
     else if (src[i] === ":") { out.push(" : "); i++; }
     else if (src[i] === "+") { out.push(" + "); i++; }
     else if (src[i] === "-") { out.push(" − "); i++; }
-    else if (src[i] === "=") { i++; }
+    else if (src[i] === "=") { out.push(" = "); i++; }
     else if (src[i] === "$") { i++; }
     else { out.push(src[i]); i++; }
   }
@@ -154,7 +164,9 @@ export function parseTestSource(src: string): ParseResult {
     if (correct === undefined) {
       warnings.push(`Вопрос ${n}: в таблице ответов его нет — отмечен вариант A, проверьте вручную`);
     }
-    questions.push({ text: `${text} =`, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
+    // «=» уже мог быть в условии (уравнение, «Егер …»); дописываем только если его нет
+    const shown = text.includes("=") ? text : `${text} =`;
+    questions.push({ text: shown, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
     itemRe.lastIndex = i;
   }
 
