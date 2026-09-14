@@ -40,6 +40,7 @@ const ru = {
   "join.confirming": "Подтвердите в Telegram…",
   "join.timeout": "Время ожидания истекло. Нажмите ещё раз.",
   "join.openBotHint": "Откройте бота и нажмите «Старт» — кабинет откроется автоматически.",
+  "join.notOpening": "Telegram не открылся? Скопируйте ссылку",
 
   // кабинет
   "lms.studentCabinet": "Личный кабинет ученика",
@@ -160,6 +161,7 @@ const kk: Record<MsgKey, string> = {
   "join.confirming": "Telegram-да растаңыз…",
   "join.timeout": "Күту уақыты бітті. Қайта басыңыз.",
   "join.openBotHint": "Ботты ашып, «Старт» батырмасын басыңыз — кабинет өзі ашылады.",
+  "join.notOpening": "Telegram ашылмады ма? Сілтемені көшіріп алыңыз",
 
   "lms.studentCabinet": "Оқушының жеке кабинеті",
   "cabinet.profileNotFound": "Оқушы профилі табылмады. Мектепке хабарласыңыз.",
