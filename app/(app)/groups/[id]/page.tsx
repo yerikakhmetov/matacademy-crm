@@ -7,7 +7,7 @@ import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { isCurator } from "@/lib/curator";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
-import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
+import { DAYS, STUDENT_STATUS, formatDate, money, subStatus } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,24 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
         select: {
           id: true, name: true, phone: true, grade: true, status: true,
           parentName: true, parentPhone: true, attendance: true, balance: true, photoUrl: true,
+          // до какого числа оплачено — по действующему абонементу
+          subscriptions: {
+            where: { status: "ACTIVE" },
+            orderBy: { endDate: "desc" },
+            take: 1,
+            select: { endDate: true, plan: true },
+          },
+          // когда реально приносили деньги: движение, а не дата счёта
+          payments: {
+            select: {
+              txs: {
+                where: { kind: "PAYMENT" },
+                orderBy: { date: "desc" },
+                take: 1,
+                select: { date: true, amount: true },
+              },
+            },
+          },
         },
       },
     },
@@ -50,6 +68,10 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
   const enrolled = group.students.length;
   const pct = Math.min(100, Math.round((enrolled / group.capacity) * 100));
   const debtors = group.students.filter((s) => s.balance < 0);
+  // «оплатил» — есть действующий абонемент и нет непогашенного остатка по счетам
+  const paid = group.students.filter(
+    (s) => s.balance >= 0 && s.subscriptions.some((x) => !x.endDate || x.endDate.getTime() >= Date.now())
+  );
 
   const sameTime = group.lessons.length > 0 && group.lessons.every((l) => l.startTime === group.lessons[0].startTime);
   const scheduleText = group.lessons.length === 0
@@ -122,6 +144,16 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
         {showMoney && (
           <div className="card kpi">
             <div className="klabel">
+              <span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}><Icon name="money" size={16} /></span>
+              Оплатили
+            </div>
+            <div className="kval num">{paid.length}/{enrolled}</div>
+            <div className="ktrend">действующий абонемент</div>
+          </div>
+        )}
+        {showMoney && (
+          <div className="card kpi">
+            <div className="klabel">
               <span className="kico" style={{ background: "var(--bad-soft)", color: "var(--bad)" }}><Icon name="alert" size={16} /></span>
               Должники
             </div>
@@ -146,19 +178,26 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                 <th>Телефон родителя</th>
                 <th className="right">Посещ.</th>
                 <th>Статус</th>
-                {showMoney && <th className="right">Баланс</th>}
+                {showMoney && <th>Оплата</th>}
+                {showMoney && <th>Последний платёж</th>}
               </tr>
             </thead>
             <tbody>
               {enrolled === 0 && (
                 <tr>
-                  <td colSpan={showMoney ? 7 : 6}>
+                  <td colSpan={showMoney ? 8 : 6}>
                     <div className="empty">В группе пока нет учеников</div>
                   </td>
                 </tr>
               )}
               {group.students.map((s) => {
                 const st = STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE;
+                const sub = s.subscriptions[0] ?? null;
+                const subSt = sub ? subStatus(sub.endDate) : null;
+                // последний приход денег среди всех счетов ученика
+                const lastPay = s.payments
+                  .flatMap((p) => p.txs)
+                  .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null;
                 return (
                   <tr key={s.id}>
                     <td>
@@ -184,9 +223,31 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                       <span className={`chip ${st.cls}`}><span className="d" />{st.label}</span>
                     </td>
                     {showMoney && (
-                      <td className="right money num" style={{ color: s.balance < 0 ? "var(--bad)" : "var(--ink-3)" }}>
-                        {s.balance < 0 ? money(s.balance) : "0 ₸"}
-                      </td>
+                      <>
+                        <td>
+                          {s.balance < 0 ? (
+                            // долг важнее срока: по нему и звонят родителям
+                            <span className="chip c-bad"><span className="d" />Долг {money(-s.balance)}</span>
+                          ) : sub ? (
+                            <span className={`chip ${subSt!.cls}`}>
+                              <span className="d" />
+                              {sub.endDate ? `до ${formatDate(sub.endDate)}` : subSt!.label}
+                            </span>
+                          ) : (
+                            <span className="chip c-mut"><span className="d" />Нет абонемента</span>
+                          )}
+                        </td>
+                        <td className="mut">
+                          {lastPay ? (
+                            <>
+                              <span className="num" style={{ fontWeight: 600, color: "var(--ok)" }}>{money(lastPay.amount)}</span>
+                              <span style={{ marginLeft: 6 }}>{formatDate(lastPay.date)}</span>
+                            </>
+                          ) : (
+                            "оплат не было"
+                          )}
+                        </td>
+                      </>
                     )}
                   </tr>
                 );
