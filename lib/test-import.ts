@@ -17,6 +17,11 @@ export type ParseResult = { title: string; questions: ParsedQuestion[]; warnings
 
 const LETTERS = "ABCD";
 
+// \\displaystyle влияет только на вёрстку в LaTeX, в тексте и в наборе он лишний
+function stripDisplay(s: string): string {
+  return s.replace(/\\displaystyle\s*/g, "").replace(/\s+/g, " ").trim();
+}
+
 // Содержимое {...}, начиная с позиции i (s[i] === "{"). Возвращает текст и позицию за скобкой.
 function readBraces(s: string, i: number): [string, number] {
   let depth = 0;
@@ -30,6 +35,14 @@ function readBraces(s: string, i: number): [string, number] {
   throw new Error("Незакрытая скобка в исходнике");
 }
 
+// Аргумент дроби: обычно {…}, но в LaTeX допустима и короткая запись
+// \\frac14 — тогда аргумент это один символ.
+function readFracArg(s: string, i: number): [string, number] {
+  if (s[i] === "{") return readBraces(s, i);
+  if (i < s.length) return [s[i], i + 1];
+  throw new Error("Дробь без аргумента");
+}
+
 // LaTeX-формула → читаемый текст: 3/10, смешанные «3 1/6», вложенные дроби в скобках.
 export function latexToText(src: string, top = true): string {
   const out: string[] = [];
@@ -38,10 +51,10 @@ export function latexToText(src: string, top = true): string {
     if (src.startsWith("\\dfrac", i) || src.startsWith("\\frac", i)) {
       i += src.startsWith("\\dfrac", i) ? 6 : 5;
       while (src[i] === " ") i++;
-      const [a, i1] = readBraces(src, i);
+      const [a, i1] = readFracArg(src, i);
       i = i1;
       while (src[i] === " ") i++;
-      const [b, i2] = readBraces(src, i);
+      const [b, i2] = readFracArg(src, i);
       i = i2;
       let A = latexToText(a, false);
       let B = latexToText(b, false);
@@ -81,7 +94,8 @@ export function parseAnswerKey(src: string): Map<number, number> {
   const m = /(Жауаптар[ыи]?|Ответы|Answers)/i.exec(src);
   const tail = m ? src.slice(m.index) : "";
   const map = new Map<number, number>();
-  for (const hit of tail.matchAll(/(\d+)\s*[.)]\s*([A-DА-Г])/gi)) {
+  // «1. B», «1) B» и табличное «1 & A» — в LaTeX ключ часто рисуют таблицей
+  for (const hit of tail.matchAll(/(\d+)\s*[.)&]\s*([A-DА-Г])\b/gi)) {
     const letter = hit[2].toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C").replace("Г", "D");
     const idx = LETTERS.indexOf(letter);
     if (idx >= 0) map.set(Number(hit[1]), idx);
@@ -104,7 +118,9 @@ export function parseTestSource(src: string): ParseResult {
   const questions: ParsedQuestion[] = [];
 
   // \item $...$ … \choices{}{}{}{}
-  const itemRe = /\\item\s+\$([\s\S]*?)\$[\s\S]*?\\choices/g;
+  // Условие в $…$, затем варианты: \\choices{}{}{}{} или \\opts{}{}{}{} —
+  // преподаватели пользуются обеими заготовками.
+  const itemRe = /\\item\b[\s\S]*?\$([\s\S]*?)\$[\s\S]*?\\(?:choices|opts)\s*/g;
   let m: RegExpExecArray | null;
   while ((m = itemRe.exec(src)) !== null) {
     const n = questions.length + 1;
@@ -116,14 +132,20 @@ export function parseTestSource(src: string): ParseResult {
         while (src[i] === " " || src[i] === "\n") i++;
         const [raw, next] = readBraces(src, i);
         i = next;
-        optionsTex.push(raw.trim());
-        options.push(latexToText(raw));
+        optionsTex.push(stripDisplay(raw).trim());
+        options.push(latexToText(stripDisplay(raw)));
       }
     } catch {
       warnings.push(`Вопрос ${n}: не удалось прочитать варианты ответа — пропущен`);
       continue;
     }
-    const text = latexToText(m[1]);
+    let text: string;
+    try {
+      text = latexToText(stripDisplay(m[1]));
+    } catch {
+      warnings.push(`Вопрос ${n}: условие не разобралось — пропущен`);
+      continue;
+    }
     if (!text) {
       warnings.push(`Вопрос ${n}: пустое условие — пропущен`);
       continue;
@@ -132,7 +154,7 @@ export function parseTestSource(src: string): ParseResult {
     if (correct === undefined) {
       warnings.push(`Вопрос ${n}: в таблице ответов его нет — отмечен вариант A, проверьте вручную`);
     }
-    questions.push({ text: `${text} =`, options, correct: correct ?? 0, tex: m[1].trim(), optionsTex });
+    questions.push({ text: `${text} =`, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
     itemRe.lastIndex = i;
   }
 

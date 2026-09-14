@@ -114,3 +114,48 @@ test("исходник формулы сохраняется рядом с чи�
     String.raw`\dfrac{4}{5}`,
   ]);
 });
+
+test("короткая запись дроби \\frac14 читается как 1/4", () => {
+  assert.equal(latexToText(String.raw`\frac14a`), "1/4a");
+  assert.equal(latexToText(String.raw`-\frac1{12}abc`), "− 1/12abc");
+});
+
+test("\\displaystyle не попадает ни в текст, ни в формулу", () => {
+  const src = String.raw`\begin{document}
+\item
+\begin{testbox}
+$\displaystyle 2^5\cdot2^3$
+\par\medskip
+\opts{2^8}{2^{15}}{4^8}{2^2}
+\end{testbox}
+\section*{Жауаптары}
+1 & A`;
+  const r = parseTestSource(src);
+  assert.equal(r.questions.length, 1);
+  assert.ok(!r.questions[0].tex.includes("displaystyle"), r.questions[0].tex);
+  assert.equal(r.questions[0].tex, String.raw`2^5\cdot2^3`);
+  assert.equal(r.questions[0].correct, 0, "ключ таблицей «1 & A» читается");
+});
+
+test("\\opts работает так же, как \\choices", () => {
+  const withOpts = parseTestSource(String.raw`\begin{document}
+\item $x+1$
+\opts{1}{2}{3}{4}
+Жауаптары
+1. C`);
+  assert.equal(withOpts.questions.length, 1);
+  assert.deepEqual(withOpts.questions[0].options, ["1", "2", "3", "4"]);
+  assert.equal(withOpts.questions[0].correct, 2);
+});
+
+test("кривая формула пропускает один вопрос, а не весь импорт", () => {
+  const r = parseTestSource(String.raw`\begin{document}
+\item $\frac{1}{2}$
+\choices{a}{b}{c}{d}
+\item $\dfrac{1}{$
+\choices{a}{b}{c}{d}
+Жауаптары
+1. A & 2. B`);
+  assert.equal(r.questions.length, 1, "первый вопрос уцелел");
+  assert.ok(r.warnings.some((w) => w.includes("Вопрос 2")), r.warnings.join("; "));
+});
