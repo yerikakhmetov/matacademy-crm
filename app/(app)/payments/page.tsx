@@ -10,7 +10,9 @@ import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
 import { PaymentActions } from "@/components/PaymentActions";
-import { createPayment, refreshOverdue } from "@/app/actions/data";
+import { createPayment, refreshOverdue, updatePayment } from "@/app/actions/data";
+import { PaymentEditForm } from "./PaymentEditForm";
+import { canFixReceived } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +40,16 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const where = status === "all" ? {} : { status };
 
   const [payments, students, subjects, revenue, owing, paidCount] = await Promise.all([
-    prisma.payment.findMany({ where, include: { student: true }, orderBy: { date: "desc" } }),
+    prisma.payment.findMany({
+      where,
+      include: {
+        student: true,
+        // для правки: движения денег (можно ли исправить принятую сумму) и предметы
+        txs: { select: { id: true, kind: true, amount: true } },
+        items: { select: { subjectId: true } },
+      },
+      orderBy: { date: "desc" },
+    }),
     prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     netRevenue(monthStart()),
@@ -175,6 +186,28 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               Квитанция
                             </Link>
                           )}
+                          <ModalButton
+                            label="Изменить"
+                            title={`Исправить оплату · ${p.student.name}`}
+                            icon="edit"
+                            buttonClass="btn ghost"
+                            action={updatePayment.bind(null, p.id)}
+                          >
+                            <PaymentEditForm
+                              students={students}
+                              subjects={subjects}
+                              canFixReceived={canFixReceived(p)}
+                              value={{
+                                studentId: p.studentId,
+                                purpose: p.purpose,
+                                amount: p.amount,
+                                paidAmount: p.paidAmount,
+                                method: p.method,
+                                date: p.date,
+                                subjectIds: p.items.map((i) => i.subjectId).filter((x): x is string => !!x),
+                              }}
+                            />
+                          </ModalButton>
                           <PaymentActions
                             paymentId={p.id}
                             amount={p.amount}

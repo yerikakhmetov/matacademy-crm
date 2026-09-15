@@ -16,7 +16,9 @@ import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
 import { StudentCabinetLink } from "./StudentCabinetLink";
 import { PaymentActions } from "@/components/PaymentActions";
-import { createPayment, createSubscription, updateStudent } from "@/app/actions/data";
+import { PaymentEditForm } from "../../payments/PaymentEditForm";
+import { canFixReceived } from "@/lib/payments";
+import { createPayment, createSubscription, updatePayment, updateStudent } from "@/app/actions/data";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +35,14 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
       where: { id },
       include: {
         groups: { include: { teacher: true } },
-        payments: { orderBy: { date: "desc" } },
+        payments: {
+          orderBy: { date: "desc" },
+          // для правки: движения денег и предметы счёта
+          include: {
+            txs: { select: { id: true, kind: true, amount: true } },
+            items: { select: { subjectId: true } },
+          },
+        },
         subscriptions: { orderBy: { startDate: "desc" } },
       },
     }),
@@ -41,9 +50,11 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   ]);
   if (!student) notFound();
 
-  const [settings, activeSubjects] = await Promise.all([
+  const [settings, activeSubjects, allStudents] = await Promise.all([
     getSettings(),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, lessonsPerMonth: true, color: true } }),
+    // список учеников нужен, только чтобы перенести ошибочную оплату на правильного
+    editor && showMoney ? prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
   ]);
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);
@@ -168,6 +179,28 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                                   Квитанция
                                 </Link>
                               )}
+                              <ModalButton
+                                label="Изменить"
+                                title={`Исправить оплату · ${student.name}`}
+                                icon="edit"
+                                buttonClass="btn ghost"
+                                action={updatePayment.bind(null, p.id)}
+                              >
+                                <PaymentEditForm
+                                  students={allStudents}
+                                  subjects={activeSubjects}
+                                  canFixReceived={canFixReceived(p)}
+                                  value={{
+                                    studentId: student.id,
+                                    purpose: p.purpose,
+                                    amount: p.amount,
+                                    paidAmount: p.paidAmount,
+                                    method: p.method,
+                                    date: p.date,
+                                    subjectIds: p.items.map((i) => i.subjectId).filter((x): x is string => !!x),
+                                  }}
+                                />
+                              </ModalButton>
                               <PaymentActions
                                 paymentId={p.id}
                                 amount={p.amount}

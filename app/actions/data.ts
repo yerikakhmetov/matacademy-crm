@@ -12,7 +12,7 @@ import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { recalc, markOverdue } from "@/lib/overdue";
 import { recalcAttendance } from "@/lib/attendance";
-import { maxRefundable, outstanding, paymentStatus } from "@/lib/payments";
+import { maxRefundable, outstanding, paymentStatus, planPaymentEdit } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isCuratorOfGroup } from "@/lib/curator";
@@ -1842,6 +1842,88 @@ export async function refundPayment(paymentId: string, formData: FormData) {
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+}
+
+// Исправить уже созданный счёт или принятую оплату: сумма, ученик, назначение,
+// способ, дата и предметы. Деньги могли уже прийти, поэтому правила — в
+// planPaymentEdit: одна полная оплата исправляется вместе с приходом, иначе
+// меняется только счёт и не ниже уже принятого.
+export async function updatePayment(paymentId: string, formData: FormData) {
+  await assertEditor("finance");
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { txs: { select: { id: true, kind: true, amount: true } }, student: { select: { name: true } } },
+  });
+  if (!payment) throw new Error("Счёт не найден");
+
+  const studentId = str(formData.get("studentId")) || payment.studentId;
+  const amount = int(formData.get("amount"));
+  const alsoReceived = formData.get("alsoReceived") != null;
+  const method = str(formData.get("method")) || null;
+  const purpose = str(formData.get("purpose")) || payment.purpose;
+  const date = parseDate(formData.get("date")) ?? payment.date;
+
+  const plan = planPaymentEdit(
+    { amount: payment.amount, paidAmount: payment.paidAmount, refundedAmount: payment.refundedAmount, txs: payment.txs },
+    amount,
+    alsoReceived
+  );
+  if (!plan.ok) throw new Error(plan.error);
+
+  // Разбивка по предметам пересчитывается от новой суммы: по ней считается
+  // доля предмета и зарплата преподавателя.
+  const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
+  let payItems: { subjectId: string; subjectName: string; amount: number }[] = [];
+  if (subjectIds.length > 0) {
+    const subs = await prisma.subject.findMany({
+      where: { id: { in: subjectIds } },
+      select: { id: true, name: true, price: true, lessonsPerMonth: true },
+    });
+    const chosen = subjectIds.map((id) => subs.find((x) => x.id === id)).filter(Boolean) as typeof subs;
+    payItems = splitAmount(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (plan.mode === "single") {
+      // приход исправляем вместе со счётом, иначе доход месяца останется неверным
+      await tx.paymentTx.update({ where: { id: plan.txId }, data: { amount, method, date } });
+    }
+    await tx.paymentItem.deleteMany({ where: { paymentId } });
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        studentId,
+        purpose,
+        method,
+        amount,
+        date,
+        paidAmount: plan.paidAmount,
+        status: paymentStatus(amount, plan.paidAmount, date),
+        items: payItems.length > 0 ? { create: payItems } : undefined,
+      },
+    });
+  });
+
+  const changes: string[] = [];
+  if (amount !== payment.amount) changes.push(`${money(payment.amount)} → ${money(amount)}`);
+  if (studentId !== payment.studentId) changes.push("другой ученик");
+  if ((method ?? "") !== (payment.method ?? "")) changes.push(`способ: ${method ?? "—"}`);
+  await logAudit(
+    "UPDATE",
+    "Оплата",
+    `${payment.student.name} · исправлено${changes.length ? ": " + changes.join(", ") : ""}${plan.mode === "single" ? " (вместе с приходом)" : ""}`
+  );
+
+  // долг пересчитываем у обоих, если счёт перенесли на другого ученика
+  await recalc(payment.studentId);
+  if (studentId !== payment.studentId) await recalc(studentId);
+  revalidatePath("/payments");
+  revalidatePath("/payments/daily");
+  revalidatePath("/students");
+  revalidatePath(`/students/${payment.studentId}`);
+  if (studentId !== payment.studentId) revalidatePath(`/students/${studentId}`);
   revalidatePath("/dashboard");
   revalidatePath("/reports");
 }
