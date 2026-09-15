@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 
 // Универсальная кнопка + модальное окно с формой.
+// Окно рендерится порталом в body: кнопка часто стоит в ячейке таблицы, а стили td
+// (white-space:nowrap, text-align:right) иначе наследуются окном и ломают вёрстку.
 // action — серверный экшен, принимающий FormData.
 export function ModalButton({
   label,
@@ -32,7 +35,7 @@ export function ModalButton({
         {label}
       </button>
 
-      {open && (
+      {open && typeof document !== "undefined" && createPortal(
         <div className="scrim" onClick={() => !busy && setOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <form
@@ -63,7 +66,8 @@ export function ModalButton({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
