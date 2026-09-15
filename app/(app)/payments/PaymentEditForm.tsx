@@ -21,7 +21,7 @@ export function PaymentEditForm({
     date: Date;
     subjectIds: string[];
   };
-  /** оплата принята одним движением целиком — можно исправить и принятую сумму */
+  /** оплата принята одним движением целиком — принятая сумма исправляется вместе со счётом */
   canFixReceived: boolean;
 }) {
   const methods = value.method && !PAYMENT_METHODS.includes(value.method) ? [value.method, ...PAYMENT_METHODS] : PAYMENT_METHODS;
@@ -60,16 +60,9 @@ export function PaymentEditForm({
       </div>
 
       {canFixReceived ? (
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--ink-2)" }}>
-            <input type="checkbox" name="alsoReceived" value="on" defaultChecked style={{ flex: "none" }} />
-            Исправить и принятую сумму
-          </label>
-          <p className="mut" style={{ fontSize: 12, margin: "4px 0 0 24px" }}>
-            Оставьте включённым, если ошиблись в сумме при приёме оплаты. Снимите, если деньги получены
-            верно, а ошибка только в счёте — тогда разница станет долгом.
-          </p>
-        </div>
+        <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
+          Оплата принята целиком — при изменении суммы принятые деньги исправятся вместе со счётом.
+        </p>
       ) : (
         value.paidAmount > 0 && (
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>

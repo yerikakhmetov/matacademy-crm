@@ -1860,7 +1860,9 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
   const studentId = str(formData.get("studentId")) || payment.studentId;
   const amount = int(formData.get("amount"));
-  const alsoReceived = formData.get("alsoReceived") != null;
+  // Отдельной галочки нет: если оплата принята одним движением целиком, правка
+  // суммы всегда исправляет и принятые деньги (обычно это опечатка при приёме).
+  const alsoReceived = true;
   const method = str(formData.get("method")) || null;
   const purpose = str(formData.get("purpose")) || payment.purpose;
   const date = parseDate(formData.get("date")) ?? payment.date;
