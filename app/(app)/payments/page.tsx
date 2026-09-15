@@ -10,6 +10,7 @@ import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
 import { PaymentActions } from "@/components/PaymentActions";
+import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { createPayment, refreshOverdue, updatePayment } from "@/app/actions/data";
 import { PaymentEditForm } from "./PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
@@ -214,6 +215,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                             paidAmount={p.paidAmount}
                             refundedAmount={p.refundedAmount}
                           />
+                          <DeletePaymentButton paymentId={p.id} paidAmount={p.paidAmount} />
                         </div>
                       </td>
                     )}

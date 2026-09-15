@@ -60,9 +60,10 @@ export function PaymentEditForm({
       </div>
 
       {canFixReceived ? (
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--ink-2)", marginBottom: 12 }}>
-          <input type="checkbox" name="alsoReceived" value="on" defaultChecked style={{ marginTop: 3 }} />
-          <span>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "var(--ink-2)", marginBottom: 12, minWidth: 0 }}>
+          <input type="checkbox" name="alsoReceived" value="on" defaultChecked style={{ marginTop: 3, flex: "none" }} />
+          {/* minWidth: 0 — иначе длинный текст не переносится и распирает окно вбок */}
+          <span style={{ flex: 1, minWidth: 0 }}>
             <b>Столько же и получено</b> — исправить принятую сумму вместе со счётом. Снимите галочку, если деньги
             пришли верно, а неверна только сумма счёта (тогда разница станет долгом).
           </span>

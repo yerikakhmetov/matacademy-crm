@@ -16,6 +16,7 @@ import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
 import { StudentCabinetLink } from "./StudentCabinetLink";
 import { PaymentActions } from "@/components/PaymentActions";
+import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { PaymentEditForm } from "../../payments/PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
 import { createPayment, createSubscription, updatePayment, updateStudent } from "@/app/actions/data";
@@ -207,6 +208,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                                 paidAmount={p.paidAmount}
                                 refundedAmount={p.refundedAmount}
                               />
+                              <DeletePaymentButton paymentId={p.id} paidAmount={p.paidAmount} />
                             </div>
                           </td>
                         )}

@@ -1928,13 +1928,21 @@ export async function updatePayment(paymentId: string, formData: FormData) {
   revalidatePath("/reports");
 }
 
+// Удаление ошибочной оплаты. Движения денег и разбивка по предметам удаляются
+// каскадом, поэтому принятая сумма уходит и из дохода месяца, и из доли предмета.
 export async function deletePayment(paymentId: string) {
   await assertEditor("finance");
   const payment = await prisma.payment.delete({ where: { id: paymentId }, include: { student: { select: { name: true } } } });
-  await logAudit("DELETE", "Оплата", `${payment.student.name} · ${money(payment.amount)}`);
+  await logAudit(
+    "DELETE",
+    "Оплата",
+    `${payment.student.name} · ${money(payment.amount)}${payment.paidAmount > 0 ? ` · было принято ${money(payment.paidAmount)}` : ""}`
+  );
   await recalc(payment.studentId);
   revalidatePath("/payments");
+  revalidatePath("/payments/daily");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
   revalidatePath("/dashboard");
+  revalidatePath("/reports");
 }
