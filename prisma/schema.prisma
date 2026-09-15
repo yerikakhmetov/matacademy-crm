@@ -107,6 +107,7 @@ model Group {
   lessons   Lesson[]
   homeworks Homework[]
   materials Material[]
+  grades    Grade[]
   tests     Test[]
   createdAt DateTime  @default(now())
 }
@@ -186,10 +187,15 @@ model Grade {
   createdBy String? // имя выставившего
   testId    String? // если оценка получена за тест
   test      Test?    @relation(fields: [testId], references: [id], onDelete: Cascade)
+  // За какую группу выставлена. Ученик может заниматься в нескольких группах,
+  // и без этой привязки его оценки показывались в каждой из них.
+  groupId   String?
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   @@unique([testId, studentId])
   @@index([studentId])
+  @@index([groupId])
 }
 
 // Тест/контрольная — содержит вопросы и/или используется для ввода оценок группы

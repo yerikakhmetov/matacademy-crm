@@ -22,10 +22,28 @@ export default async function MyStudentsPage() {
     include: {
       students: {
         orderBy: { name: "asc" },
-        select: { id: true, name: true, grade: true, status: true, attendance: true, phone: true, parentName: true, parentPhone: true, photoUrl: true, grades: { select: { score: true, maxScore: true } } },
+        select: { id: true, name: true, grade: true, status: true, attendance: true, phone: true, parentName: true, parentPhone: true, photoUrl: true },
       },
     },
   });
+
+  // Средний балл считаем по оценкам ИМЕННО этой группы: ученик может заниматься
+  // в нескольких, и общий средний смешивал бы разные предметы.
+  const gradeRows = await prisma.grade.findMany({
+    where: { groupId: { in: groups.map((g) => g.id) } },
+    select: { groupId: true, studentId: true, score: true, maxScore: true },
+  });
+  const pctByPair = new Map<string, number[]>();
+  for (const gr of gradeRows) {
+    const key = `${gr.groupId}|${gr.studentId}`;
+    const list = pctByPair.get(key) ?? [];
+    list.push((gr.score / gr.maxScore) * 100);
+    pctByPair.set(key, list);
+  }
+  const avgFor = (groupId: string, studentId: string) => {
+    const list = pctByPair.get(`${groupId}|${studentId}`);
+    return list && list.length ? Math.round(list.reduce((a, b) => a + b, 0) / list.length) : null;
+  };
 
   const totalStudents = groups.reduce((a, g) => a + g.students.length, 0);
 
@@ -76,7 +94,7 @@ export default async function MyStudentsPage() {
                   )}
                   {g.students.map((s) => {
                     const st = STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE;
-                    const avg = s.grades.length ? Math.round(s.grades.reduce((a, gr) => a + (gr.score / gr.maxScore) * 100, 0) / s.grades.length) : null;
+                    const avg = avgFor(g.id, s.id);
                     return (
                       <tr key={s.id}>
                         <td>

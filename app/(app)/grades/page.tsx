@@ -49,7 +49,12 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
     where: { id: groupId },
     include: {
       teacher: true,
-      students: { orderBy: { name: "asc" }, include: { grades: { orderBy: { date: "desc" } } } },
+      students: {
+        orderBy: { name: "asc" },
+        // только оценки этой группы: ученик может заниматься в нескольких,
+        // и раньше его чужие оценки показывались здесь же
+        include: { grades: { where: { groupId }, orderBy: { date: "desc" } } },
+      },
     },
   });
   if (!group) return null;
@@ -136,7 +141,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                           action={addGrade.bind(null, s.id)}
                           submitLabel="Поставить"
                         >
-                          <GradeForm />
+                          <GradeForm groupId={group.id} />
                         </ModalButton>
                       </td>
                     )}

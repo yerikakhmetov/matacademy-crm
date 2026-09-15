@@ -1,9 +1,11 @@
 import { GRADE_TYPE } from "@/lib/format";
 
-export function GradeForm() {
+export function GradeForm({ groupId }: { groupId: string }) {
   const today = new Date().toISOString().slice(0, 10);
   return (
     <>
+      {/* оценка ставится за конкретную группу, иначе она всплывёт во всех группах ученика */}
+      <input type="hidden" name="groupId" value={groupId} />
       <div className="field">
         <label>За что *</label>
         <input name="topic" required placeholder="Контрольная: дроби" />

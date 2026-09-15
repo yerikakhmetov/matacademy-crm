@@ -1233,6 +1233,9 @@ async function assertCanGrade(studentId: string) {
 
 export async function addGrade(studentId: string, formData: FormData) {
   const session = await assertCanGrade(studentId);
+  // За какую группу оценка: страница «Успеваемость» всегда открыта на конкретной
+  // группе. Без этого оценка всплывала бы во всех группах ученика.
+  const gradeGroupId = str(formData.get("groupId")) || null;
   const score = int(formData.get("score"));
   const maxScore = Math.max(1, int(formData.get("maxScore")) || 100);
   await prisma.grade.create({
@@ -1245,6 +1248,7 @@ export async function addGrade(studentId: string, formData: FormData) {
       comment: str(formData.get("comment")) || null,
       date: parseDate(formData.get("date")) ?? new Date(),
       createdBy: session.user?.name ?? null,
+      groupId: gradeGroupId,
     },
   });
   await logAudit("CREATE", "Оценка", `${score}/${maxScore} · ${str(formData.get("topic"))}`);
@@ -1466,6 +1470,7 @@ export async function saveTestResults(testId: string, formData: FormData) {
       create: {
         studentId: s.id,
         testId,
+        groupId: test.groupId,
         topic: test.title,
         type: "TEST",
         score,
@@ -1569,7 +1574,7 @@ export async function finishTestAttempt(testId: string) {
     prisma.grade.upsert({
       where: { testId_studentId: { testId, studentId } },
       create: {
-        studentId, testId, topic: test.title, type: "TEST", score,
+        studentId, testId, groupId: test.groupId, topic: test.title, type: "TEST", score,
         maxScore: test.maxScore, date: new Date(), createdBy: session?.user?.name ?? null,
       },
       update: { score, maxScore: test.maxScore, topic: test.title },
@@ -1631,6 +1636,7 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
     create: {
       studentId,
       testId,
+      groupId: test.groupId,
       topic: test.title,
       type: "TEST",
       score,
