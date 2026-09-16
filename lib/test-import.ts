@@ -85,9 +85,14 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\right)", i)) { out.push(")"); i += 7; }
     else if (src.startsWith("\\left[", i)) { out.push("["); i += 6; }
     else if (src.startsWith("\\right]", i)) { out.push("]"); i += 7; }
+    else if (src.startsWith("\\cdots", i) || src.startsWith("\\ldots", i) || src.startsWith("\\dots", i)) {
+      out.push(" … ");
+      i += src.startsWith("\\dots", i) && !src.startsWith("\\dotsb", i) ? 5 : 6;
+    }
     else if (src.startsWith("\\cdot", i)) { out.push(" · "); i += 5; }
     else if (src.startsWith("\\times", i)) { out.push(" · "); i += 6; }
     else if (src.startsWith("\\,", i) || src.startsWith("\;", i) || src.startsWith("\\!", i)) { i += 2; }
+    else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
     else if (src[i] === ":") { out.push(" : "); i++; }
     else if (src[i] === "+") { out.push(" + "); i++; }
     else if (src[i] === "-") { out.push(" − "); i++; }

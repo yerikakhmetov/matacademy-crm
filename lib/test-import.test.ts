@@ -170,3 +170,13 @@ test("словесная часть условия не теряется в за
     "Егер x + 1/x = 3 болса: x^2"
   );
 });
+
+test("многоточие не разваливается на «· s»", () => {
+  assert.equal(latexToText(String.raw`41\cdot42\cdots49`), "41 · 42 … 49");
+  assert.equal(latexToText(String.raw`2^1+2^2+\cdots+2^{20}`), "2^1 + 2^2 + … + 2^{20}");
+  assert.equal(latexToText(String.raw`a\ldots b`), "a … b");
+});
+
+test("защищённый пробел не оставляет обратный слеш", () => {
+  assert.equal(latexToText(String.raw`8^{50}.\ D`), "8^{50}. D");
+});
