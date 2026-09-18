@@ -93,6 +93,7 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\times", i)) { out.push(" · "); i += 6; }
     else if (src.startsWith("\\,", i) || src.startsWith("\;", i) || src.startsWith("\\!", i)) { i += 2; }
     else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
+    else if (src.startsWith("{,}", i)) { out.push(","); i += 3; }
     else if (src[i] === ":") { out.push(" : "); i++; }
     else if (src[i] === "+") { out.push(" + "); i++; }
     else if (src[i] === "-") { out.push(" − "); i++; }
