@@ -189,3 +189,8 @@ test("теңдеулер жүйесі запасной мәтінде оқыла
   assert.equal(latexToText(String.raw`\begin{cases}y=2x\\x-y=3\end{cases}`), "{y = 2x; x − y = 3}");
   assert.equal(latexToText(String.raw`\varnothing`), "∅");
 });
+
+test("нүктелі үтір жұтылмайды, ал \; бос орын ретінде жоғалады", () => {
+  assert.equal(latexToText(String.raw`(-3;-6)`), "( − 3; − 6)");
+  assert.equal(latexToText(String.raw`a\;b`), "ab");
+});
