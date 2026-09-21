@@ -184,3 +184,8 @@ test("защищённый пробел не оставляет обратный
 test("ондық үтір {,} мәтінде жай үтір болып қалады", () => {
   assert.equal(latexToText(String.raw`0{,}3(1-2x)+2{,}1x`), "0,3(1 − 2x) + 2,1x");
 });
+
+test("теңдеулер жүйесі запасной мәтінде оқылады", () => {
+  assert.equal(latexToText(String.raw`\begin{cases}y=2x\\x-y=3\end{cases}`), "{y = 2x; x − y = 3}");
+  assert.equal(latexToText(String.raw`\varnothing`), "∅");
+});

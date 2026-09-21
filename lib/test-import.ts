@@ -94,6 +94,14 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\,", i) || src.startsWith("\;", i) || src.startsWith("\\!", i)) { i += 2; }
     else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
     else if (src.startsWith("{,}", i)) { out.push(","); i += 3; }
+    else if (src.startsWith("\\begin{cases}", i)) { out.push("{"); i += 13; }
+    else if (src.startsWith("\\end{cases}", i)) { out.push("}"); i += 11; }
+    else if (src.startsWith("\\\\", i)) { out.push("; "); i += 2; }
+    else if (src.startsWith("\\varnothing", i) || src.startsWith("\\emptyset", i)) {
+      out.push("∅");
+      i += src.startsWith("\\varnothing", i) ? 11 : 9;
+    }
+    else if (src[i] === "&") { i++; }
     else if (src[i] === ":") { out.push(" : "); i++; }
     else if (src[i] === "+") { out.push(" + "); i++; }
     else if (src[i] === "-") { out.push(" − "); i++; }
