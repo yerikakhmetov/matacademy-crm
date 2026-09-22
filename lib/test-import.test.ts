@@ -194,3 +194,15 @@ test("нүктелі үтір жұтылмайды, ал \; бос орын ре
   assert.equal(latexToText(String.raw`(-3;-6)`), "( − 3; − 6)");
   assert.equal(latexToText(String.raw`a\;b`), "ab");
 });
+
+test("мәтіндік есепке «=» жалғанбайды", () => {
+  const r = parseTestSource(String.raw`\begin{document}
+\item $\text{(15; 25) аралығында неше натурал сан бар?}$
+\choices{11}{8}{10}{9}
+\item $\frac{1}{2}+\frac{1}{3}$
+\choices{a}{b}{c}{d}
+Жауаптары
+1. D & 2. A`);
+  assert.equal(r.questions[0].text, "(15; 25) аралығында неше натурал сан бар?");
+  assert.equal(r.questions[1].text, "1/2 + 1/3 =", "өрнекке бұрынғыдай қосылады");
+});
