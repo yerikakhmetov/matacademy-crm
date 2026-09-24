@@ -206,3 +206,12 @@ test("мәтіндік есепке «=» жалғанбайды", () => {
   assert.equal(r.questions[0].text, "(15; 25) аралығында неше натурал сан бар?");
   assert.equal(r.questions[1].text, "1/2 + 1/3 =", "өрнекке бұрынғыдай қосылады");
 });
+
+test("сұрақ белгісі бар мәтінге «=» жалғанбайды", () => {
+  const r = parseTestSource(String.raw`\begin{document}
+\item $\text{Сұрақ белгісінің орнына не жазылады? 1(27)2 2(?)3}$
+\choices{101}{125}{110}{54}
+Жауаптары
+1. B`);
+  assert.ok(!r.questions[0].text.endsWith("="), r.questions[0].text);
+});

@@ -180,7 +180,7 @@ export function parseTestSource(src: string): ParseResult {
     }
     // «=» уже мог быть в условии (уравнение, «Егер …»); дописываем только если его нет
     // Мәтіндік есеп сұраумен не нүктемен аяқталады — оған «=» қоспаймыз.
-    const shown = text.includes("=") || /[?.:!]\s*$/.test(text) ? text : `${text} =`;
+    const shown = text.includes("=") || text.includes("?") || /[.:!]\s*$/.test(text) ? text : `${text} =`;
     questions.push({ text: shown, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
     itemRe.lastIndex = i;
   }
