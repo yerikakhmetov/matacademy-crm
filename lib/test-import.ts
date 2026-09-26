@@ -94,6 +94,23 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\,", i) || src.startsWith("\\;", i) || src.startsWith("\\!", i)) { i += 2; }
     else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
     else if (src.startsWith("{,}", i)) { out.push(","); i += 3; }
+    else if (src.startsWith("\\sqrt", i)) {
+      // √: көрсеткіші бар түрі де кездеседі — \\sqrt[3]{8}
+      i += 5;
+      let deg = "";
+      if (src[i] === "[") {
+        const close = src.indexOf("]", i);
+        if (close > 0) { deg = latexToText(src.slice(i + 1, close), false); i = close + 1; }
+      }
+      while (src[i] === " ") i++;
+      if (src[i] === "{") {
+        const [inner, next] = readBraces(src, i);
+        i = next;
+        const body = latexToText(inner, false);
+        // жай сан не әріп болса жақшасыз, күрделі өрнек болса жақшамен
+        out.push(deg + "√" + (/^[0-9a-zA-Zа-яА-ЯәіңғүұқөһӘІҢҒҮҰҚӨҺ]+$/.test(body) ? body : "(" + body + ")"));
+      } else out.push(deg + "√");
+    }
     else if (src.startsWith("\\begin{cases}", i)) { out.push("{"); i += 13; }
     else if (src.startsWith("\\end{cases}", i)) { out.push("}"); i += 11; }
     else if (src.startsWith("\\\\", i)) { out.push("; "); i += 2; }

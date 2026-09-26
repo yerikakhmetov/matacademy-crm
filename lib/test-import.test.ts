@@ -215,3 +215,10 @@ test("сұрақ белгісі бар мәтінге «=» жалғанбайд
 1. B`);
   assert.ok(!r.questions[0].text.endsWith("="), r.questions[0].text);
 });
+
+test("түбір белгісі мәтінде √ болып оқылады", () => {
+  assert.equal(latexToText(String.raw`\sqrt{3}`), "√3");
+  assert.equal(latexToText(String.raw`4-\sqrt{19}`), "4 − √19");
+  assert.equal(latexToText(String.raw`\sqrt{x+1}`), "√(x + 1)");
+  assert.equal(latexToText(String.raw`\sqrt[3]{8}`), "3√8");
+});
