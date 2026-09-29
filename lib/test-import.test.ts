@@ -222,3 +222,8 @@ test("түбір белгісі мәтінде √ болып оқылады", (
   assert.equal(latexToText(String.raw`\sqrt{x+1}`), "√(x + 1)");
   assert.equal(latexToText(String.raw`\sqrt[3]{8}`), "3√8");
 });
+
+test("қорғалған таңбалар мәтінде қорғаусыз көрінеді", () => {
+  assert.equal(latexToText(String.raw`\text{60}\%\text{-ы сұр}`), "60%-ы сұр");
+  assert.equal(latexToText(String.raw`\text{a}\&\text{b}`), "a&b");
+});

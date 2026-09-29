@@ -94,6 +94,7 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\,", i) || src.startsWith("\\;", i) || src.startsWith("\\!", i)) { i += 2; }
     else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
     else if (src.startsWith("{,}", i)) { out.push(","); i += 3; }
+    else if (src[i] === "\\" && "%&_#$".includes(src[i + 1] ?? "")) { out.push(src[i + 1]); i += 2; }
     else if (src.startsWith("\\sqrt", i)) {
       // √: көрсеткіші бар түрі де кездеседі — \\sqrt[3]{8}
       i += 5;
