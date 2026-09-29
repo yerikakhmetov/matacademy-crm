@@ -37,7 +37,9 @@ export default async function CabinetHome() {
     ? await prisma.homework.findMany({
         where: { groupId: { in: groupIds } },
         orderBy: { createdAt: "desc" },
-        take: 6,
+        // Сданное ДЗ уходит вниз списка: при лимите 6 старое задание пропадало
+        // с экрана вместе с кнопкой «Қайта тапсыру».
+        take: 14,
         include: { completions: { where: { studentId } }, group: { select: { name: true } } },
       })
     : [];

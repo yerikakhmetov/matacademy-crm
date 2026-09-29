@@ -7,6 +7,7 @@ import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { isCurator } from "@/lib/curator";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
+import { StudentLinks } from "./StudentLinks";
 import { DAYS, STUDENT_STATUS, formatDate, money, subStatus } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
         orderBy: { name: "asc" },
         select: {
           id: true, name: true, phone: true, grade: true, status: true,
+          joinToken: true, portalToken: true,
           parentName: true, parentPhone: true, attendance: true, balance: true, photoUrl: true,
           // до какого числа оплачено — по действующему абонементу
           subscriptions: {
@@ -63,6 +65,22 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
     if (!myTeacherId || group.teacherId !== myTeacherId) redirect("/groups");
   }
   if (isCurator(session?.user?.role) && group.curatorId !== uid) redirect("/groups");
+
+  // Куратору и менеджеру нужны ссылки на кабинет ученика и родительскую страницу.
+  // Токены создаются лениво — у старых учеников их может не быть.
+  const showLinks = !isTeacher(session?.user?.role);
+  const links = new Map<string, { joinToken: string | null; portalToken: string | null }>();
+  if (showLinks) {
+    for (const s of group.students) {
+      let joinToken = s.joinToken;
+      let portalToken = s.portalToken;
+      const data: { joinToken?: string; portalToken?: string } = {};
+      if (!joinToken) data.joinToken = joinToken = crypto.randomUUID().replace(/-/g, "");
+      if (!portalToken) data.portalToken = portalToken = crypto.randomUUID().replace(/-/g, "");
+      if (Object.keys(data).length > 0) await prisma.student.update({ where: { id: s.id }, data });
+      links.set(s.id, { joinToken, portalToken });
+    }
+  }
 
   const showMoney = can("finance");
   const enrolled = group.students.length;
@@ -180,12 +198,13 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                 <th>Статус</th>
                 {showMoney && <th>Оплата</th>}
                 {showMoney && <th>Последний платёж</th>}
+                {showLinks && <th>Ссылки</th>}
               </tr>
             </thead>
             <tbody>
               {enrolled === 0 && (
                 <tr>
-                  <td colSpan={showMoney ? 8 : 6}>
+                  <td colSpan={(showMoney ? 8 : 6) + (showLinks ? 1 : 0)}>
                     <div className="empty">В группе пока нет учеников</div>
                   </td>
                 </tr>
@@ -248,6 +267,14 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                           )}
                         </td>
                       </>
+                    )}
+                    {showLinks && (
+                      <td>
+                        <StudentLinks
+                          joinToken={links.get(s.id)?.joinToken ?? null}
+                          portalToken={links.get(s.id)?.portalToken ?? null}
+                        />
+                      </td>
                     )}
                   </tr>
                 );

@@ -134,8 +134,9 @@ export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale:
                         <span className="d" />
                         {hw.fileName ?? t(locale, "hw.attached")}
                       </a>
-                      <label className="btn ghost" style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
-                        {uploading === hw.id ? t(locale, "hw.uploading") : t(locale, "hw.replace")}
+                      <label className="btn" style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>
+                <Icon name="export" size={13} />
+                {uploading === hw.id ? t(locale, "hw.uploading") : t(locale, "hw.replace")}
                         <input
                           type="file"
                           hidden
