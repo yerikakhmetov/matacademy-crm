@@ -118,7 +118,7 @@ export default async function LessonPage({
         date={date}
         students={students}
         editor={canMark}
-        canCancel={editor || ownsLesson}
+        canCancel={canMark}
         marked={marked}
         weekday={lesson.dayOfWeek}
         topic={session2?.topic ?? ""}

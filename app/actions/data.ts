@@ -947,8 +947,11 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
     include: { group: { include: { teacher: true, students: { select: { id: true } } } } },
   });
   if (!lesson) throw new Error("Занятие не найдено");
+  // Отменять может админ/менеджер, преподаватель этой группы ИЛИ её куратор:
+  // куратор ведёт журнал и раньше всех узнаёт, что занятия не было.
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
-  if (!(await canEditData(session.user.role)) && !ownsLesson) throw new Error("Недостаточно прав");
+  const curates = await isCuratorOfGroup(session.user.id, lesson.groupId);
+  if (!(await canEditData(session.user.role)) && !ownsLesson && !curates) throw new Error("Недостаточно прав");
 
   const faultValue = ["TEACHER", "SCHOOL", "OTHER"].includes(fault ?? "") ? (fault as string) : null;
 
