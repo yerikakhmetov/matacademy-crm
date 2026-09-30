@@ -950,7 +950,7 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
   if (!(await canEditData(session.user.role)) && !ownsLesson) throw new Error("Недостаточно прав");
 
-  const faultValue = ["TEACHER", "SCHOOL", "OTHER"].includes(str(fault)) ? str(fault) : null;
+  const faultValue = ["TEACHER", "SCHOOL", "OTHER"].includes(fault ?? "") ? (fault as string) : null;
 
   if (cancelled) {
     await prisma.attendance.deleteMany({ where: { lessonId, date } });

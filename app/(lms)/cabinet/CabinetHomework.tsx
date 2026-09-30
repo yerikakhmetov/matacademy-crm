@@ -55,6 +55,9 @@ export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale:
   const toggle = (id: string) => {
     if (busy) return;
     const prev = done[id];
+    // Галочку задевают случайно, а она закрывает задание — спрашиваем подтверждение
+    // в обе стороны: и на «выполнено», и на снятие отметки.
+    if (!confirm(t(locale, prev ? "hw.confirmRedo" : "hw.confirmDone"))) return;
     setBusy(id);
     setDone((s) => ({ ...s, [id]: !prev })); // оптимистично
     start(async () => {
@@ -122,6 +125,18 @@ export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale:
                 </div>
 
                 <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  {isDone && (
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled={loading}
+                      onClick={() => toggle(hw.id)}
+                      style={{ padding: "4px 10px", fontSize: 12 }}
+                    >
+                      <Icon name="edit" size={13} />
+                      {t(locale, "hw.redo")}
+                    </button>
+                  )}
                   {hw.fileUrl ? (
                     <>
                       <a
