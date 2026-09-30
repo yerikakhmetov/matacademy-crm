@@ -7,6 +7,15 @@ import { initials, avatarColor } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 
 type AttState = "present" | "excused" | "unexcused";
+type Fault = "SCHOOL" | "TEACHER" | "OTHER";
+
+// Чья сторона сорвала занятие. От этого зависит зарплата: по вине преподавателя
+// день остаётся в делителе, то есть за него не платят.
+const FAULTS: { key: Fault; label: string; hint: string }[] = [
+  { key: "SCHOOL", label: "Праздник, школа, форс-мажор", hint: "день не входит в расчёт — зарплата преподавателя не уменьшается" },
+  { key: "TEACHER", label: "По вине преподавателя", hint: "за это занятие преподавателю не платят" },
+  { key: "OTHER", label: "Другая причина", hint: "день не входит в расчёт зарплаты" },
+];
 type S = { id: string; name: string; grade: string | null; state: AttState };
 
 const STATES: { key: AttState; label: string; cls: string }[] = [
@@ -26,6 +35,7 @@ export function AttendanceForm({
   topic,
   cancelled,
   cancelReason,
+  cancelFault,
 }: {
   lessonId: string;
   date: string;
@@ -38,6 +48,8 @@ export function AttendanceForm({
   topic: string;
   cancelled: boolean;
   cancelReason: string;
+  /** "TEACHER" — сорвано по вине преподавателя, день остаётся в делителе зарплаты */
+  cancelFault: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -53,11 +65,17 @@ export function AttendanceForm({
     router.push(`/schedule/${lessonId}?date=${newDate}`);
   }
 
-  function cancelLesson() {
-    const reason = prompt("Почему занятие не состоялось? (праздник, болезнь и т.д.)", "");
-    if (reason === null) return;
+  // Форма отмены: причина влияет на зарплату, поэтому спрашиваем не только текст,
+  // но и чья это сторона — по вине преподавателя день остаётся в делителе.
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [fault, setFault] = useState<Fault>("SCHOOL");
+  const [reason, setReason] = useState("");
+
+  function confirmCancel() {
     start(async () => {
-      await setLessonCancelled(lessonId, date, true, reason);
+      await setLessonCancelled(lessonId, date, true, reason, fault);
+      setCancelOpen(false);
+      setReason("");
       router.refresh();
     });
   }
@@ -93,8 +111,16 @@ export function AttendanceForm({
             <p className="mut" style={{ fontSize: 13, margin: "0 0 4px" }}>
               {cancelReason || "Причина не указана"}
             </p>
+            <p style={{ margin: "0 0 8px" }}>
+              <span className={`chip ${cancelFault === "TEACHER" ? "c-bad" : "c-mut"}`}>
+                <span className="d" />
+                {FAULTS.find((f) => f.key === cancelFault)?.label ?? "Причина не указана"}
+              </span>
+            </p>
             <p className="mut" style={{ fontSize: 12, margin: "0 0 16px" }}>
-              Этот день не входит в расчёт зарплаты, отметки посещаемости за него удалены.
+              {cancelFault === "TEACHER"
+                ? "День остаётся в расчёте зарплаты: за это занятие преподавателю не начисляется."
+                : "Этот день не входит в расчёт зарплаты, отметки посещаемости за него удалены."}
             </p>
             {canCancel && (
               <button className="btn ghost" type="button" onClick={restoreLesson} disabled={pending}>
@@ -162,6 +188,45 @@ export function AttendanceForm({
             );
           })}
 
+          {canCancel && cancelOpen && (
+            <div style={{ padding: "14px 18px", borderTop: "1px solid var(--line-2)", background: "var(--surface-2)" }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
+                Почему занятие не состоялось
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                {FAULTS.map((f) => (
+                  <label key={f.key} style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                    <input
+                      type="radio"
+                      name="cancel-fault"
+                      checked={fault === f.key}
+                      onChange={() => setFault(f.key)}
+                      style={{ marginTop: 3 }}
+                    />
+                    <span>
+                      <span style={{ fontWeight: 600 }}>{f.label}</span>
+                      <span className="mut" style={{ display: "block", fontSize: 11.5 }}>{f.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Комментарий: болезнь, праздник, авария…"
+                style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 12px", fontSize: 14, color: "var(--ink)", width: "100%" }}
+              />
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button className="btn" type="button" onClick={confirmCancel} disabled={pending} style={{ color: "var(--bad)" }}>
+                  {pending ? "Отменяем…" : "Отменить занятие"}
+                </button>
+                <button className="btn ghost" type="button" onClick={() => setCancelOpen(false)} disabled={pending}>
+                  Назад
+                </button>
+              </div>
+            </div>
+          )}
+
           {editor && students.length > 0 && (
             <div className="modal-f" style={{ borderTop: "1px solid var(--line-2)" }}>
               {saved && (
@@ -174,7 +239,7 @@ export function AttendanceForm({
                 Все пришли
               </button>
               {canCancel && (
-                <button className="btn ghost" type="button" onClick={cancelLesson} disabled={pending} style={{ color: "var(--bad)" }}>
+                <button className="btn ghost" type="button" onClick={() => setCancelOpen((v) => !v)} disabled={pending} style={{ color: "var(--bad)" }}>
                   Занятие не состоялось
                 </button>
               )}

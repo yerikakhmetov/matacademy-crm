@@ -369,6 +369,7 @@ model LessonSession {
   topic     String   @default("") // тема урока («что проходили»)
   cancelled Boolean  @default(false) // занятие не состоялось (праздник, болезнь преподавателя)
   cancelReason String? // почему отменено
+  cancelFault String? // TEACHER — по вине преподавателя (день остаётся в делителе зарплаты); SCHOOL/OTHER — нет
   materials Material[] // материалы, разобранные на этом занятии
   createdAt DateTime @default(now())
 

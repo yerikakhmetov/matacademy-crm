@@ -86,10 +86,17 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
           },
         })
       : Promise.resolve([]),
-    // Отменённые занятия не входят в делитель
+    // Отменённые занятия не входят в делитель — кроме сорванных по вине
+    // преподавателя: такой день остаётся в делителе, и за него не платят.
     allLessonIds.length
       ? prisma.lessonSession.findMany({
-          where: { lessonId: { in: allLessonIds }, cancelled: true, date: { gte: rangeStart, lt: rangeEnd } },
+          where: {
+            lessonId: { in: allLessonIds },
+            cancelled: true,
+            date: { gte: rangeStart, lt: rangeEnd },
+            // явный OR: у старых отмен cancelFault = NULL, и они должны попадать в выборку
+            OR: [{ cancelFault: null }, { cancelFault: { not: "TEACHER" } }],
+          },
           select: { lessonId: true, date: true },
         })
       : Promise.resolve([]),

@@ -934,7 +934,10 @@ export async function cancelMakeup(id: string) {
 // ---------- Посещаемость ----------
 // Отмена/восстановление занятия в конкретную дату.
 // При отмене отметки посещаемости за этот день удаляются: занятия не было.
-export async function setLessonCancelled(lessonId: string, dateStr: string, cancelled: boolean, reason: string) {
+// fault: "TEACHER" — занятие сорвалось по вине преподавателя, тогда день остаётся
+// в делителе зарплаты и за него не платят. "SCHOOL"/"OTHER"/пусто — день из делителя
+// исключается, месячная доля преподавателя не страдает.
+export async function setLessonCancelled(lessonId: string, dateStr: string, cancelled: boolean, reason: string, fault?: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
   const date = new Date(dateStr + "T00:00:00.000Z");
@@ -947,18 +950,20 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
   if (!(await canEditData(session.user.role)) && !ownsLesson) throw new Error("Недостаточно прав");
 
+  const faultValue = ["TEACHER", "SCHOOL", "OTHER"].includes(str(fault)) ? str(fault) : null;
+
   if (cancelled) {
     await prisma.attendance.deleteMany({ where: { lessonId, date } });
     await prisma.lessonSession.upsert({
       where: { lessonId_date: { lessonId, date } },
-      create: { lessonId, date, topic: "", cancelled: true, cancelReason: str(reason) || null },
-      update: { cancelled: true, cancelReason: str(reason) || null },
+      create: { lessonId, date, topic: "", cancelled: true, cancelReason: str(reason) || null, cancelFault: faultValue },
+      update: { cancelled: true, cancelReason: str(reason) || null, cancelFault: faultValue },
     });
   } else {
-    await prisma.lessonSession.updateMany({ where: { lessonId, date }, data: { cancelled: false, cancelReason: null } });
+    await prisma.lessonSession.updateMany({ where: { lessonId, date }, data: { cancelled: false, cancelReason: null, cancelFault: null } });
   }
 
-  await logAudit("UPDATE", "Занятие", `${lesson.group.name} · ${dateStr} · ${cancelled ? "отменено" : "восстановлено"}`);
+  await logAudit("UPDATE", "Занятие", `${lesson.group.name} · ${dateStr} · ${cancelled ? (faultValue === "TEACHER" ? "отменено по вине преподавателя" : "отменено") : "восстановлено"}`);
 
   const stC = await getSettings();
   if (cancelled && stC.notifyCancel) {

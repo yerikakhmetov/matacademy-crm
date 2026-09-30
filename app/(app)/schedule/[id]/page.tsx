@@ -124,6 +124,7 @@ export default async function LessonPage({
         topic={session2?.topic ?? ""}
         cancelled={!!session2?.cancelled}
         cancelReason={session2?.cancelReason ?? ""}
+        cancelFault={session2?.cancelFault ?? ""}
       />
 
       <div style={{ marginTop: 16 }}>
