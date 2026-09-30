@@ -181,7 +181,14 @@ export async function POST(req: NextRequest) {
       if (token && userId) {
         await prisma.loginToken.upsert({ where: { token }, create: { token, userId }, update: { userId } });
       }
-      await sendTelegram(chat, `✅ Готово, ${student.name}! Возвращайтесь на страницу — вход в личный кабинет произойдёт автоматически.`);
+      // Кнопка входа прямо из чата: страница, с которой начали, на телефоне
+      // часто закрывается, и ожидание входа на ней прерывается.
+      const loginUrl = token ? `${new URL(req.url).origin}/join/tg/${token}` : null;
+      await sendTelegram(
+        chat,
+        `✅ Готово, ${student.name}! Нажмите кнопку ниже, чтобы войти в личный кабинет.`,
+        loginUrl ? { text: "Войти в кабинет", url: loginUrl } : undefined
+      );
       return Response.json({ ok: true });
     }
 
