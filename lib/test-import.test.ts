@@ -117,7 +117,7 @@ test("исходник формулы сохраняется рядом с чи�
 
 test("короткая запись дроби \\frac14 читается как 1/4", () => {
   assert.equal(latexToText(String.raw`\frac14a`), "1/4a");
-  assert.equal(latexToText(String.raw`-\frac1{12}abc`), "− 1/12abc");
+  assert.equal(latexToText(String.raw`-\frac1{12}abc`), "−1/12abc");
 });
 
 test("\\displaystyle не попадает ни в текст, ни в формулу", () => {
@@ -191,7 +191,7 @@ test("теңдеулер жүйесі запасной мәтінде оқыла
 });
 
 test("нүктелі үтір жұтылмайды, ал \; бос орын ретінде жоғалады", () => {
-  assert.equal(latexToText(String.raw`(-3;-6)`), "( − 3; − 6)");
+  assert.equal(latexToText(String.raw`(-3;-6)`), "(−3; −6)");
   assert.equal(latexToText(String.raw`a\;b`), "ab");
 });
 
@@ -226,4 +226,13 @@ test("түбір белгісі мәтінде √ болып оқылады", (
 test("қорғалған таңбалар мәтінде қорғаусыз көрінеді", () => {
   assert.equal(latexToText(String.raw`\text{60}\%\text{-ы сұр}`), "60%-ы сұр");
   assert.equal(latexToText(String.raw`\text{a}\&\text{b}`), "a&b");
+});
+
+test("жауап жиынының жақшалары запасной мәтінде жай жақша болады", () => {
+  assert.equal(latexToText("\\{-5;\\ 0;\\ 5\\}"), "{−5; 0; 5}");
+});
+
+test("\\left\\{ … \\right\\} және \\left| … \\right| дұрыс оқылады", () => {
+  assert.equal(latexToText(String.raw`\left\{-\dfrac{5}{2};\ \dfrac{3}{2}\right\}`), "{−5/2; 3/2}");
+  assert.equal(latexToText(String.raw`\left|\dfrac{1}{x}\right| = \dfrac{1}{2}`), "|1/x| = 1/2");
 });

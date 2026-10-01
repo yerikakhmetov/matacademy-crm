@@ -81,7 +81,12 @@ export function latexToText(src: string, top = true): string {
         i = next;
         out.push(inner);
       }
-    } else if (src.startsWith("\\left(", i)) { out.push("("); i += 6; }
+    // \left\{ … \right\} — жауап жиыны, \left| … \right| — модуль белгісі
+    } else if (src.startsWith("\\left\\{", i)) { out.push("{"); i += 7; }
+    else if (src.startsWith("\\right\\}", i)) { out.push("}"); i += 8; }
+    else if (src.startsWith("\\left|", i)) { out.push("|"); i += 6; }
+    else if (src.startsWith("\\right|", i)) { out.push("|"); i += 7; }
+    else if (src.startsWith("\\left(", i)) { out.push("("); i += 6; }
     else if (src.startsWith("\\right)", i)) { out.push(")"); i += 7; }
     else if (src.startsWith("\\left[", i)) { out.push("["); i += 6; }
     else if (src.startsWith("\\right]", i)) { out.push("]"); i += 7; }
@@ -94,7 +99,8 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\,", i) || src.startsWith("\\;", i) || src.startsWith("\\!", i)) { i += 2; }
     else if (src.startsWith("\\ ", i)) { out.push(" "); i += 2; }
     else if (src.startsWith("{,}", i)) { out.push(","); i += 3; }
-    else if (src[i] === "\\" && "%&_#$".includes(src[i + 1] ?? "")) { out.push(src[i + 1]); i += 2; }
+    // \{ және \} — жауап жиыны: қорғалған таңба запасной мәтінде қорғаусыз көрінеді
+    else if (src[i] === "\\" && "%&_#${}".includes(src[i + 1] ?? "")) { out.push(src[i + 1]); i += 2; }
     else if (src.startsWith("\\sqrt", i)) {
       // √: көрсеткіші бар түрі де кездеседі — \\sqrt[3]{8}
       i += 5;
@@ -121,8 +127,15 @@ export function latexToText(src: string, top = true): string {
     }
     else if (src[i] === "&") { i++; }
     else if (src[i] === ":") { out.push(" : "); i++; }
+    // Жиын элементтерін ажырату: «{−5;0}» емес, «{−5; 0}»
+    else if (src[i] === ";") { out.push("; "); i++; }
     else if (src[i] === "+") { out.push(" + "); i++; }
-    else if (src[i] === "-") { out.push(" − "); i++; }
+    else if (src[i] === "-") {
+      // Унарлы минус («{−5», «(−3») бос орынсыз, амал белгісі («x − 1») бос орынмен
+      const prev = out.length ? out[out.length - 1].trimEnd().slice(-1) : "";
+      out.push(prev === "" || "({[;,=+−·:|".includes(prev) ? "−" : " − ");
+      i++;
+    }
     else if (src[i] === "=") { out.push(" = "); i++; }
     else if (src[i] === "$") { i++; }
     else { out.push(src[i]); i++; }
