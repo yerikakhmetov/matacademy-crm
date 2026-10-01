@@ -260,3 +260,13 @@ test("төрт нұсқалы тест бұрынғыдай оқылады", () 
   assert.equal(r.questions[0].options.length, 4);
   assert.equal(r.questions[0].correct, 1);
 });
+
+test("аралық жауаптар: ∞, ∪, ℝ оқылады", () => {
+  assert.equal(latexToText(String.raw`\left(-\infty;\ 2\right] \cup \left[5;\ +\infty\right)`), "(−∞; 2] ∪ [5; +∞)");
+  assert.equal(latexToText(String.raw`\mathbb{R}`), "ℝ");
+});
+
+test("модуль сызығынан кейінгі минус: ашылатын — унарлы, жабылатын — амал", () => {
+  assert.equal(latexToText("-|-m| = 5"), "−|−m| = 5");
+  assert.equal(latexToText("|2-x|-|x-5|"), "|2 − x| − |x − 5|");
+});

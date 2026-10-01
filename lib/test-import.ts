@@ -121,6 +121,19 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\begin{cases}", i)) { out.push("{"); i += 13; }
     else if (src.startsWith("\\end{cases}", i)) { out.push("}"); i += 11; }
     else if (src.startsWith("\\\\", i)) { out.push("; "); i += 2; }
+    // Жауап аралық түрінде берілуі мүмкін: (−∞; 2] ∪ [5; +∞), ℝ
+    else if (src.startsWith("\\infty", i)) { out.push("∞"); i += 6; }
+    else if (src.startsWith("\\cup", i)) { out.push(" ∪ "); i += 4; }
+    else if (src.startsWith("\\mathbb", i)) {
+      i += 7;
+      while (src[i] === " ") i++;
+      if (src[i] === "{") {
+        const [inner, next] = readBraces(src, i);
+        i = next;
+        out.push(inner === "R" ? "ℝ" : inner);
+      }
+    }
+    else if (src.startsWith("\\left[", i)) { out.push("["); i += 6; }
     else if (src.startsWith("\\varnothing", i) || src.startsWith("\\emptyset", i)) {
       out.push("∅");
       i += src.startsWith("\\varnothing", i) ? 11 : 9;
@@ -129,11 +142,19 @@ export function latexToText(src: string, top = true): string {
     else if (src[i] === ":") { out.push(" : "); i++; }
     // Жиын элементтерін ажырату: «{−5;0}» емес, «{−5; 0}»
     else if (src[i] === ";") { out.push("; "); i++; }
-    else if (src[i] === "+") { out.push(" + "); i++; }
+    else if (src[i] === "+") {
+      const prev = out.length ? out[out.length - 1].trimEnd().slice(-1) : "";
+      out.push(prev === "" || "({[;,=∪".includes(prev) ? "+" : " + ");
+      i++;
+    }
     else if (src[i] === "-") {
       // Унарлы минус («{−5», «(−3») бос орынсыз, амал белгісі («x − 1») бос орынмен
       const prev = out.length ? out[out.length - 1].trimEnd().slice(-1) : "";
-      out.push(prev === "" || "({[;,=+−·:|".includes(prev) ? "−" : " − ");
+      // «|» екі мағыналы: ашылатын сызықтан кейін минус унарлы (−|−m|), ал
+      // жабылатыннан кейін амал белгісі (|a| − |b|). Сызық санымен ажыратамыз.
+      const openBar = prev === "|" && (out.join("").split("|").length - 1) % 2 === 1;
+      const unary = prev === "" || (prev !== "|" && "({[;,=+−·:".includes(prev)) || openBar;
+      out.push(unary ? "−" : " − ");
       i++;
     }
     else if (src[i] === "=") { out.push(" = "); i++; }
