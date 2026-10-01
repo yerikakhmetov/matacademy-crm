@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { isCurator } from "@/lib/curator";
+import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { formatDate } from "@/lib/format";
@@ -18,21 +17,24 @@ function fileExt(name: string) {
 
 export default async function MaterialsPage() {
   const session = await auth();
-  if (isCurator(session?.user?.role)) redirect("/schedule"); // не входит в роль куратора
   const teacher = isTeacher(session?.user?.role);
+  // Куратор ведёт журнал своих групп, поэтому материалы этих групп ему нужны —
+  // но только свои: общие (без группы) и закреплённые за ним.
+  const curator = isCurator(session?.user?.role);
   const editor = await canEditData(session?.user?.role);
   const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const curGroupIds = curator ? await curatorGroupIds(session?.user?.id) : [];
 
   // группы для загрузки/фильтра
   const groups = await prisma.group.findMany({
-    where: teacher ? { teacherId: myTeacherId ?? "__none__" } : {},
+    where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
   const groupIds = groups.map((g) => g.id);
 
   const materials = await prisma.material.findMany({
-    where: teacher ? { OR: [{ groupId: null }, { groupId: { in: groupIds } }] } : {},
+    where: teacher || curator ? { OR: [{ groupId: null }, { groupId: { in: groupIds } }] } : {},
     include: { group: { select: { name: true, color: true } } },
     orderBy: { createdAt: "desc" },
     take: 200,

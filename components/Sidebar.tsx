@@ -65,6 +65,7 @@ const NAV_CURATOR: Item[] = [
   { href: "/groups", icon: "groups", label: "Мои группы" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
+  { href: "/materials", icon: "export", label: "Материалы" },
 ];
 
 export function Sidebar({
