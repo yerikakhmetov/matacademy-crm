@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { parseTestSource } from "@/lib/test-import";
 
-const LETTERS = "ABCD";
+const LETTERS = "ABCDEFGH";
 
 // Импорт теста из LaTeX: тот же разбор, что и на сервере, показывает предпросмотр,
 // чтобы преподаватель увидел, как вопросы будут выглядеть у ученика.

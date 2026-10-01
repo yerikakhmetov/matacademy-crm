@@ -15,7 +15,7 @@ export type ParsedQuestion = {
 };
 export type ParseResult = { title: string; questions: ParsedQuestion[]; warnings: string[] };
 
-const LETTERS = "ABCD";
+const LETTERS = "ABCDEFGH"; // ҰБТ-да 5 нұсқа (A–E) жиі кездеседі
 
 // \\displaystyle влияет только на вёрстку в LaTeX, в тексте и в наборе он лишний
 function stripDisplay(s: string): string {
@@ -150,8 +150,8 @@ export function parseAnswerKey(src: string): Map<number, number> {
   const tail = m ? src.slice(m.index) : "";
   const map = new Map<number, number>();
   // «1. B», «1) B» и табличное «1 & A» — в LaTeX ключ часто рисуют таблицей
-  for (const hit of tail.matchAll(/(\d+)\s*[.)&]\s*([A-DА-Г])\b/gi)) {
-    const letter = hit[2].toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C").replace("Г", "D");
+  for (const hit of tail.matchAll(/(\d+)\s*[.)\u2013\u2014&-]\s*([A-HА-ГЕ])\b/gi)) {
+    const letter = hit[2].toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C").replace("Г", "D").replace("Е", "E");
     const idx = LETTERS.indexOf(letter);
     if (idx >= 0) map.set(Number(hit[1]), idx);
   }
@@ -183,13 +183,17 @@ export function parseTestSource(src: string): ParseResult {
     const options: string[] = [];
     const optionsTex: string[] = [];
     try {
-      for (let c = 0; c < 4; c++) {
+      // Нұсқалар саны әртүрлі: 4 те, 5 те (A–E) болады. Қатар тұрған
+      // { } топтарын оқимыз; келесі белгі «\\» болса (\\item, \\end) — тоқтаймыз.
+      for (let c = 0; c < LETTERS.length; c++) {
         while (src[i] === " " || src[i] === "\n") i++;
+        if (src[i] !== "{") break;
         const [raw, next] = readBraces(src, i);
         i = next;
         optionsTex.push(stripDisplay(raw).trim());
         options.push(latexToText(stripDisplay(raw)));
       }
+      if (options.length < 2) throw new Error("нұсқалар жеткіліксіз");
     } catch {
       warnings.push(`Вопрос ${n}: не удалось прочитать варианты ответа — пропущен`);
       continue;

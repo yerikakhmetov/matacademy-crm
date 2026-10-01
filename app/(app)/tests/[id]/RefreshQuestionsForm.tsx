@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { parseTestSource } from "@/lib/test-import";
 
-const LETTERS = "ABCD";
+const LETTERS = "ABCDEFGH";
 
 // Обновление вопросов существующего теста из того же LaTeX-исходника.
 // Показываем, сходится ли количество вопросов: если тест уже проходили,

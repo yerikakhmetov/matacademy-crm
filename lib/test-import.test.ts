@@ -236,3 +236,27 @@ test("\\left\\{ … \\right\\} және \\left| … \\right| дұрыс оқыл
   assert.equal(latexToText(String.raw`\left\{-\dfrac{5}{2};\ \dfrac{3}{2}\right\}`), "{−5/2; 3/2}");
   assert.equal(latexToText(String.raw`\left|\dfrac{1}{x}\right| = \dfrac{1}{2}`), "|1/x| = 1/2");
 });
+
+test("бес нұсқалы (A–E) тест толық оқылады", () => {
+  const src = String.raw`\begin{document}
+\textbf{Тест}
+\item $\text{Есеп}$ \choices{1}{2}{3}{4}{5}
+\item $x = 1$ \choices{A}{B}{C}{D}{E}
+Жауаптары: 1. E \quad 2. D`;
+  const r = parseTestSource(src);
+  assert.equal(r.questions.length, 2);
+  assert.equal(r.questions[0].options.length, 5, "бес нұсқа оқылды");
+  assert.equal(r.questions[0].correct, 4, "E — бесінші нұсқа");
+  assert.equal(r.questions[1].correct, 3);
+  assert.deepEqual(r.warnings, []);
+});
+
+test("төрт нұсқалы тест бұрынғыдай оқылады", () => {
+  const src = String.raw`\begin{document}
+\textbf{Тест}
+\item $x = 2$ \choices{1}{2}{3}{4}
+Жауаптары: 1. B`;
+  const r = parseTestSource(src);
+  assert.equal(r.questions[0].options.length, 4);
+  assert.equal(r.questions[0].correct, 1);
+});
