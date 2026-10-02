@@ -28,7 +28,12 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
     where: { portalToken: token },
     include: {
       groups: { include: { teacher: true, lessons: true, subject: { select: { name: true } } } },
-      grades: { orderBy: { date: "desc" }, take: 12 },
+      grades: {
+        orderBy: { date: "desc" },
+        take: 12,
+        // Қай пәнге қойылғаны: баға топқа байланған, топтың пәні бар
+        include: { group: { select: { name: true, subject: { select: { name: true } } } } },
+      },
       payments: { orderBy: { date: "desc" }, take: 8 },
       // Оқушы бірнеше пәнге жазылады: барлық абонемент пәндер бөлінісімен керек,
       // бұрын соңғысы ғана алынатын да, ата-ана бір пәнді ғана көретін.
@@ -279,7 +284,14 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                   const pct = Math.round((g.score / g.maxScore) * 100);
                   return (
                     <tr key={g.id}>
-                      <td style={{ fontWeight: 600 }}>{g.topic}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {g.topic}
+                        {(g.group?.subject?.name || g.group?.name) && (
+                          <div className="mut" style={{ fontSize: 11.5, fontWeight: 400 }}>
+                            {g.group?.subject?.name ?? g.group?.name}
+                          </div>
+                        )}
+                      </td>
                       <td className="mut">{GRADE_TYPE[g.type] ?? g.type}</td>
                       <td className="mut">{formatDate(g.date)}</td>
                       <td className="right">

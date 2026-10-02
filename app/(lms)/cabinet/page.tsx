@@ -27,7 +27,11 @@ export default async function CabinetHome() {
     where: { id: studentId },
     include: {
       groups: { include: { teacher: true, lessons: true } },
-      grades: { orderBy: { date: "desc" }, take: 10 },
+      grades: {
+        orderBy: { date: "desc" },
+        take: 10,
+        include: { group: { select: { name: true, subject: { select: { name: true } } } } },
+      },
     },
   });
   if (!student) redirect("/login");
@@ -392,7 +396,11 @@ export default async function CabinetHome() {
               <div className="list-row" key={g.id}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{g.topic}</div>
-                  <div className="mut" style={{ fontSize: 12 }}>{GRADE_TYPE[g.type] ?? g.type} · {formatDate(g.date)}</div>
+                  <div className="mut" style={{ fontSize: 12 }}>
+                    {[g.group?.subject?.name ?? g.group?.name, GRADE_TYPE[g.type] ?? g.type, formatDate(g.date)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
                 </div>
                 <span className={`chip ${gradeChipClass(pct)}`}><span className="d" />{g.score}/{g.maxScore}</span>
               </div>
