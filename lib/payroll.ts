@@ -48,7 +48,7 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
           subjectId: true,
           startDate: true,
           students: { select: { id: true } },
-          lessons: { select: { id: true, dayOfWeek: true } },
+          lessons: { where: { archivedAt: null }, select: { id: true, dayOfWeek: true } },
         },
       },
     },

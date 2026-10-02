@@ -23,7 +23,7 @@ export default async function SchedulePage() {
   const groupWhere = groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds });
 
   const [lessons, groups] = await Promise.all([
-    prisma.lesson.findMany({ where: { group: groupWhere }, include: { group: { include: { teacher: true } } } }),
+    prisma.lesson.findMany({ where: { group: groupWhere, archivedAt: null }, include: { group: { include: { teacher: true } } } }),
     prisma.group.findMany({ where: groupWhere, orderBy: { name: "asc" } }),
   ]);
 

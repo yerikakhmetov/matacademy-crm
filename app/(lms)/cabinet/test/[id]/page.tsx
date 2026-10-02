@@ -35,7 +35,7 @@ export default async function CabinetTest({
     where: { id },
     include: {
       questions: { orderBy: { order: "asc" } },
-      group: { include: { lessons: { select: { dayOfWeek: true, startTime: true } } } },
+      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
       subject: { select: { name: true, color: true } },
       attempts: { where: { studentId } },
     },

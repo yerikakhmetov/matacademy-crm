@@ -83,8 +83,11 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
     ? Date.UTC(group.startDate.getUTCFullYear(), group.startDate.getUTCMonth(), group.startDate.getUTCDate())
     : null;
   for (const l of group.lessons) {
+    // Слот убрали из расписания: прошлые даты в журнале остаются, новых нет
+    const archivedAt = l.archivedAt ? l.archivedAt.getTime() : null;
     for (const d of datesInMonth(year, month0, l.dayOfWeek)) {
       if (startsAt !== null && d.getTime() < startsAt) continue;
+      if (archivedAt !== null && d.getTime() >= archivedAt) continue;
       occurrences.push({ lessonId: l.id, date: d, iso: d.toISOString().slice(0, 10), day: d.getUTCDate(), time: l.startTime });
     }
   }

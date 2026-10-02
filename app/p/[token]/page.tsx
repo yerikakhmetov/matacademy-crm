@@ -27,7 +27,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   const student = await prisma.student.findUnique({
     where: { portalToken: token },
     include: {
-      groups: { include: { teacher: true, lessons: true, subject: { select: { name: true } } } },
+      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } }, subject: { select: { name: true } } } },
       grades: {
         orderBy: { date: "desc" },
         take: 12,

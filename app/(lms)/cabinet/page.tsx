@@ -26,7 +26,7 @@ export default async function CabinetHome() {
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     include: {
-      groups: { include: { teacher: true, lessons: true } },
+      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } } } },
       grades: {
         orderBy: { date: "desc" },
         take: 10,

@@ -426,7 +426,7 @@ async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null
   const rooms = parseList((await getSettings()).rooms);
   const desired = parseSlots(raw, rooms[0] ?? "Каб. 1");
   const existing = await prisma.lesson.findMany({
-    where: { groupId },
+    where: { groupId, archivedAt: null },
     select: { id: true, dayOfWeek: true, startTime: true, room: true },
     orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
   });
@@ -442,7 +442,22 @@ async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null
     await prisma.lesson.createMany({ data: plan.create.map((c) => ({ groupId, ...c })) });
   }
   if (plan.remove.length > 0) {
-    await prisma.lesson.deleteMany({ where: { id: { in: plan.remove } } });
+    // Слот с историей (отметки, темы занятий, отработки) не удаляем:
+    // вместе с ним каскадом ушла бы вся посещаемость за прошлые месяцы.
+    // Прячем его из расписания, журнал за прошлые даты остаётся.
+    const withHistory = await prisma.lesson.findMany({
+      where: {
+        id: { in: plan.remove },
+        OR: [{ attendance: { some: {} } }, { sessions: { some: {} } }, { makeups: { some: {} } }],
+      },
+      select: { id: true },
+    });
+    const keep = new Set(withHistory.map((l) => l.id));
+    if (keep.size > 0) {
+      await prisma.lesson.updateMany({ where: { id: { in: [...keep] } }, data: { archivedAt: new Date() } });
+    }
+    const drop = plan.remove.filter((id) => !keep.has(id));
+    if (drop.length > 0) await prisma.lesson.deleteMany({ where: { id: { in: drop } } });
   }
   return plan;
 }
@@ -1542,7 +1557,7 @@ async function assertCanTakeTest(testId: string) {
     where: { id: testId },
     include: {
       questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
-      group: { include: { lessons: { select: { dayOfWeek: true, startTime: true } } } },
+      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
     },
   });
   if (!test) throw new Error("Тест не найден");
@@ -1640,7 +1655,7 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
     where: { id: testId },
     include: {
       questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
-      group: { include: { lessons: { select: { dayOfWeek: true, startTime: true } } } },
+      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
     },
   });
   if (!test) throw new Error("Тест не найден");

@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       netRevenue(monthStart()),
       prisma.lead.count({ where: { createdAt: { gte: monthStart() } } }),
       prisma.student.findMany({ where: { balance: { lt: 0 } }, select: { balance: true } }),
-      prisma.lesson.findMany({ where: { dayOfWeek: today }, include: { group: { include: { teacher: true, students: true } } }, orderBy: { startTime: "asc" } }),
+      prisma.lesson.findMany({ where: { dayOfWeek: today, archivedAt: null }, include: { group: { include: { teacher: true, students: true } } }, orderBy: { startTime: "asc" } }),
       prisma.lead.groupBy({ by: ["stage"], _count: true }),
       prisma.payment.findMany({ where: { paidAmount: { gt: 0 } }, include: { student: true }, orderBy: { date: "desc" }, take: 5 }),
       prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true } }),

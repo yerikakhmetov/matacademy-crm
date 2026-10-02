@@ -337,6 +337,9 @@ model Lesson {
   group      Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   dayOfWeek  Int // 1 = Пн ... 6 = Сб
   startTime  String // "16:00"
+  // Занятие убрали из расписания, но у него есть история посещаемости.
+  // Удалять нельзя — отметки пропали бы вместе с ним, поэтому прячем.
+  archivedAt DateTime?
   room       String          @default("Каб. 1")
   attendance Attendance[]
   sessions   LessonSession[]

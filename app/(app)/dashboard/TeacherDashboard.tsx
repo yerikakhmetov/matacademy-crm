@@ -13,11 +13,11 @@ export async function TeacherDashboard({ userId, name }: { userId: string; name?
   const [groups, todayLessons, students] = await Promise.all([
     prisma.group.findMany({
       where: { teacherId },
-      include: { _count: { select: { students: true } }, lessons: true },
+      include: { _count: { select: { students: true } }, lessons: { where: { archivedAt: null } } },
       orderBy: { name: "asc" },
     }),
     prisma.lesson.findMany({
-      where: { dayOfWeek: today, group: { teacherId } },
+      where: { dayOfWeek: today, group: { teacherId }, archivedAt: null },
       include: { group: { include: { students: true } } },
       orderBy: { startTime: "asc" },
     }),

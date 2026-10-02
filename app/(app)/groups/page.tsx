@@ -26,7 +26,7 @@ export default async function GroupsPage() {
   const [groups, teachers, subjects] = await Promise.all([
     prisma.group.findMany({
       where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
-      include: { teacher: true, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: true },
+      include: { teacher: true, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: { where: { archivedAt: null } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.teacher.findMany({ orderBy: { name: "asc" } }),

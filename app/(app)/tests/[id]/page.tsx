@@ -33,7 +33,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
       group: {
         include: {
           teacher: { select: { userId: true } },
-          lessons: { select: { dayOfWeek: true, startTime: true } },
+          lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } },
           students: { orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true } },
         },
       },

@@ -21,7 +21,7 @@ export default async function GroupStartDatesPage() {
     include: {
       subject: { select: { name: true } },
       teacher: { select: { name: true } },
-      lessons: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
+      lessons: { where: { archivedAt: null }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
       _count: { select: { students: true } },
     },
   });

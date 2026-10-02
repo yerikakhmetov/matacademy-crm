@@ -27,7 +27,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
       teacher: { select: { id: true, name: true, phone: true, userId: true } },
       subject: { select: { name: true, color: true } },
       curator: { select: { id: true, name: true } },
-      lessons: { orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
+      lessons: { where: { archivedAt: null }, orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }] },
       students: {
         orderBy: { name: "asc" },
         select: {

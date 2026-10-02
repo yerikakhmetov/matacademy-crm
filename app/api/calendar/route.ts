@@ -17,7 +17,7 @@ export async function GET() {
   const [student, settings] = await Promise.all([
     prisma.student.findUnique({
       where: { id: studentId },
-      select: { groups: { select: { name: true, startDate: true, lessons: { select: { id: true, dayOfWeek: true, startTime: true, room: true } } } } },
+      select: { groups: { select: { name: true, startDate: true, lessons: { where: { archivedAt: null }, select: { id: true, dayOfWeek: true, startTime: true, room: true } } } } },
     }),
     getSettings(),
   ]);
