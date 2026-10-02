@@ -8,6 +8,7 @@ import {
   scheduledLessonsInMonth,
   type PayrollRow,
   type PayrollTeacher,
+  type SubjectRate,
 } from "./payroll-calc.ts";
 
 // Сбор данных из БД для расчёта зарплаты. Сама арифметика — в ./payroll-calc.ts (покрыта тестами).
@@ -28,6 +29,15 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
   const rangeStart = new Date(Date.UTC(sorted[0].year, sorted[0].month0, 1));
   const last = sorted[sorted.length - 1];
   const rangeEnd = new Date(Date.UTC(last.year, last.month0 + 1, 1));
+
+  // Ставки по предметам: если задана, зарплата считается по ней
+  const subjectRows = await prisma.subject.findMany({
+    where: { teacherRate: { gt: 0 } },
+    select: { id: true, teacherRate: true, teacherRateLessons: true },
+  });
+  const rates = new Map<string, SubjectRate>(
+    subjectRows.map((s) => [s.id, { amount: s.teacherRate, lessons: Math.max(1, s.teacherRateLessons) }])
+  );
 
   const teachersDb = await prisma.teacher.findMany({
     select: {
@@ -176,6 +186,7 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
       teachers,
       payable: payableByMonth.get(mk) ?? new Map(),
       monthlyFee,
+      rates,
       feePct,
     });
   });

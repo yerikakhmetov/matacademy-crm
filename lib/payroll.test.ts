@@ -195,3 +195,59 @@ test("отмена по вине преподавателя стоит ему о
   }).get("t1")!;
   assert.equal(r.base, 11000, "12000 − цена одного занятия (1000)");
 });
+
+// ---- Ставка предмета ----
+// Математика/физика/информатика/география: 8000 ₸ с ученика за 12 занятий,
+// то есть 666,67 ₸ за занятие. Оплата ученика на зарплату не влияет.
+const RATE = new Map([["math", { amount: 8000, lessons: 12 }]]);
+
+test("ставка: платят за каждое оплачиваемое посещение", () => {
+  const r = computePayrollRows({
+    teachers: [teacher(12)],
+    payable: new Map([[payableKey("g1", "s1"), 12]]),
+    monthlyFee: new Map(), // абонемента нет — для ставки это неважно
+    rates: RATE,
+    feePct: 3,
+  }).get("t1")!;
+  assert.equal(r.salary, 8000, "12 занятий = полная ставка, без удержания");
+  assert.equal(r.studentsWithoutFee, 0, "по ставке «без оплаты» не бывает");
+  assert.equal(r.students, 1);
+});
+
+test("ставка: пропуск по уважительной причине не оплачивается", () => {
+  const r = computePayrollRows({
+    teachers: [teacher(12)],
+    payable: new Map([[payableKey("g1", "s1"), 11]]), // 1 уважительный пропуск
+    monthlyFee: new Map(),
+    rates: RATE,
+    feePct: 3,
+  }).get("t1")!;
+  assert.equal(r.salary, Math.round((8000 / 12) * 11));
+});
+
+test("ставка: каждый ученик приносит свою сумму", () => {
+  const t: PayrollTeacher = { id: "t1", groups: [{ id: "g1", subjectId: "math", scheduledLessons: 12, studentIds: ["s1", "s2", "s3"] }] };
+  const r = computePayrollRows({
+    teachers: [t],
+    payable: new Map([
+      [payableKey("g1", "s1"), 12],
+      [payableKey("g1", "s2"), 12],
+      [payableKey("g1", "s3"), 6],
+    ]),
+    monthlyFee: new Map(),
+    rates: RATE,
+    feePct: 3,
+  }).get("t1")!;
+  assert.equal(r.salary, 8000 + 8000 + 4000);
+});
+
+test("ставка не задана — старая модель по доле ученика", () => {
+  const r = computePayrollRows({
+    teachers: [teacher(12)],
+    payable: new Map([[payableKey("g1", "s1"), 12]]),
+    monthlyFee: new Map([[feeKey("s1", "math"), 12000]]),
+    rates: new Map(), // ставок нет
+    feePct: 3,
+  }).get("t1")!;
+  assert.equal(r.salary, Math.round(12000 * 0.97));
+});

@@ -2,7 +2,15 @@
 
 const COLORS = ["#3A5AE0", "#7A5CFF", "#12B886", "#F59F00", "#E8590C", "#E64980", "#1098AD", "#495057"];
 
-type Values = { name?: string; price?: number; lessonsPerMonth?: number; color?: string; active?: boolean };
+type Values = {
+  name?: string;
+  price?: number;
+  lessonsPerMonth?: number;
+  teacherRate?: number;
+  teacherRateLessons?: number;
+  color?: string;
+  active?: boolean;
+};
 
 export function SubjectForm({ values }: { values?: Values }) {
   return (
@@ -26,6 +34,23 @@ export function SubjectForm({ values }: { values?: Values }) {
         {values?.price && values?.lessonsPerMonth
           ? ` Сейчас — ${Math.round(values.price / values.lessonsPerMonth).toLocaleString("ru-RU")} ₸ за занятие.`
           : ""}
+      </p>
+      <div className="grid2">
+        <div className="field">
+          <label>Ставка преподавателя (₸)</label>
+          <input name="teacherRate" type="number" min={0} placeholder="8000" defaultValue={values?.teacherRate || ""} />
+        </div>
+        <div className="field">
+          <label>За сколько занятий</label>
+          <input name="teacherRateLessons" type="number" min={1} placeholder="12" defaultValue={values?.teacherRateLessons || ""} />
+        </div>
+      </div>
+      <p className="mut" style={{ fontSize: 12, margin: "-6px 0 10px" }}>
+        Сколько преподаватель получает с одного ученика за это число занятий. Платится за каждое занятие,
+        на котором ученик был или пропустил без уважительной причины — оплата ученика на зарплату не влияет.
+        {values?.teacherRate && values?.teacherRateLessons
+          ? ` Сейчас — ${Math.round(values.teacherRate / values.teacherRateLessons).toLocaleString("ru-RU")} ₸ за занятие с ученика.`
+          : " Пусто или 0 — зарплата считается по старой модели (доля ученика минус удержание школы)."}
       </p>
       <div className="field">
         <label>Цвет</label>

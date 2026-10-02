@@ -123,8 +123,9 @@ export function AttendanceForm({
                 : "Этот день не входит в расчёт зарплаты, отметки посещаемости за него удалены."}
             </p>
             {canCancel && (
-              <button className="btn ghost" type="button" onClick={restoreLesson} disabled={pending}>
-                {pending ? "Восстанавливаем…" : "Восстановить занятие"}
+              <button className="btn" type="button" onClick={restoreLesson} disabled={pending}>
+                <Icon name="check" size={15} />
+                {pending ? "Отмечаем…" : "Занятие состоялось"}
               </button>
             )}
           </div>
@@ -138,6 +139,23 @@ export function AttendanceForm({
               {marked ? "Отмечено" : "Не отмечено"}
             </span>
           </div>
+
+          {/* Занятие состоялось или нет — это решает зарплату, поэтому вынесено наверх */}
+          {canCancel && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderBottom: "1px solid var(--line-2)", flexWrap: "wrap" }}>
+              <span className="mut" style={{ fontSize: 12.5 }}>Занятие:</span>
+              <span className="chip c-ok"><span className="d" />Состоялось</span>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => setCancelOpen((v) => !v)}
+                disabled={pending}
+                style={{ padding: "4px 10px", fontSize: 12, color: "var(--bad)" }}
+              >
+                Не состоялось
+              </button>
+            </div>
+          )}
 
           <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--line-2)" }}>
             <label style={{ display: "block", fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 6 }}>
@@ -238,11 +256,6 @@ export function AttendanceForm({
               <button className="btn ghost" type="button" onClick={allPresent} disabled={pending} title="Отметить всех присутствующими">
                 Все пришли
               </button>
-              {canCancel && (
-                <button className="btn ghost" type="button" onClick={() => setCancelOpen((v) => !v)} disabled={pending} style={{ color: "var(--bad)" }}>
-                  Занятие не состоялось
-                </button>
-              )}
               <button className="btn" type="submit" disabled={pending}>
                 <Icon name="check" size={16} />
                 {pending ? "Сохраняем…" : "Сохранить отметки"}

@@ -54,6 +54,7 @@ export default async function SubjectsPage() {
                 <th className="right">Цена / месяц</th>
                 <th className="right">Занятий</th>
                 <th className="right">За занятие</th>
+                <th className="right">Ставка педагога</th>
                 <th>Статус</th>
                 <th className="right">В абонементах</th>
                 {editor && <th style={{ width: 220 }}></th>}
@@ -62,7 +63,7 @@ export default async function SubjectsPage() {
             <tbody>
               {subjects.length === 0 && (
                 <tr>
-                  <td colSpan={editor ? 7 : 6}>
+                  <td colSpan={editor ? 8 : 7}>
                     <div className="empty">Предметов пока нет — добавьте первый</div>
                   </td>
                 </tr>
@@ -85,6 +86,16 @@ export default async function SubjectsPage() {
                   <td className="right num">{s.lessonsPerMonth > 0 ? s.lessonsPerMonth : "—"}</td>
                   <td className="right num mut">
                     {s.lessonsPerMonth > 0 ? money(Math.round(s.price / s.lessonsPerMonth)) : "—"}
+                  </td>
+                  <td className="right num">
+                    {s.teacherRate > 0 ? (
+                      <>
+                        <span style={{ fontWeight: 600 }}>{money(s.teacherRate)}</span>
+                        <span className="mut"> / {s.teacherRateLessons} зан.</span>
+                      </>
+                    ) : (
+                      <span className="mut" title="Зарплата считается по доле ученика">по доле</span>
+                    )}
                   </td>
                   <td>
                     <span className={`chip ${s.active ? "c-ok" : "c-mut"}`}>

@@ -71,40 +71,57 @@ export type PayrollTeacher = {
   }[];
 };
 
+// Ставка по предмету: сумма с одного ученика за lessons занятий.
+// Занятие одного ученика стоит amount / lessons и платится за каждое
+// оплачиваемое посещение — независимо от того, заплатил ли ученик в этом месяце.
+export type SubjectRate = { amount: number; lessons: number };
+
 export type PayrollInput = {
   teachers: PayrollTeacher[];
   /** payableKey(groupId, studentId) -> число оплачиваемых посещений за месяц */
   payable: Map<string, number>;
   /** feeKey(studentId, subjectId) -> месячная доля ученика по предмету, ₸ */
   monthlyFee: Map<string, number>;
-  /** удержание школы, % */
+  /** subjectId -> ставка преподавателя; если есть, она важнее доли ученика */
+  rates?: Map<string, SubjectRate>;
+  /** удержание школы, % (к ставке не применяется — ставка уже «на руки») */
   feePct: number;
 };
 
-export function computePayrollRows({ teachers, payable, monthlyFee, feePct }: PayrollInput): Map<string, PayrollRow> {
+export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePct }: PayrollInput): Map<string, PayrollRow> {
   const net = Math.max(0, 100 - Math.max(0, feePct)) / 100;
   const rows = new Map<string, PayrollRow>();
 
   for (const t of teachers) {
-    let gross = 0;
+    let rateGross = 0;  // по ставке предмета — выплачивается полностью
+    let shareGross = 0; // по доле ученика — из неё удерживается feePct
     let paidLessons = 0;
     const studs = new Set<string>();
     const noFee = new Set<string>();
 
     for (const g of t.groups) {
+      if (!g.subjectId) continue;
+      const rate = rates?.get(g.subjectId);
+      const byRate = rate != null && rate.amount > 0 && rate.lessons > 0;
       const divisor = g.scheduledLessons;
-      if (divisor <= 0 || !g.subjectId) continue;
+      if (!byRate && divisor <= 0) continue;
       for (const studentId of g.studentIds) {
         const pl = payable.get(payableKey(g.id, studentId)) ?? 0;
         if (pl === 0) continue;
         paidLessons += pl;
+        if (byRate) {
+          // Ставка: цена занятия фиксирована, оплата ученика роли не играет
+          rateGross += (rate.amount / rate.lessons) * pl;
+          studs.add(studentId);
+          continue;
+        }
         const fee = monthlyFee.get(feeKey(studentId, g.subjectId)) ?? 0;
         if (fee <= 0) {
           noFee.add(studentId);
           continue;
         }
         // За месяц с ученика нельзя начислить больше его месячной доли.
-        gross += Math.min(fee, (fee / divisor) * pl);
+        shareGross += Math.min(fee, (fee / divisor) * pl);
         studs.add(studentId);
       }
     }
@@ -114,8 +131,8 @@ export function computePayrollRows({ teachers, payable, monthlyFee, feePct }: Pa
       students: studs.size,
       paidLessons,
       studentsWithoutFee: noFee.size,
-      base: Math.round(gross),
-      salary: Math.round(gross * net),
+      base: Math.round(rateGross + shareGross),
+      salary: Math.round(rateGross + shareGross * net),
     });
   }
   return rows;
