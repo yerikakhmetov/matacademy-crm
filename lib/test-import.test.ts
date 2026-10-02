@@ -270,3 +270,10 @@ test("модуль сызығынан кейінгі минус: ашылаты�
   assert.equal(latexToText("-|-m| = 5"), "−|−m| = 5");
   assert.equal(latexToText("|2-x|-|x-5|"), "|2 − x| − |x − 5|");
 });
+
+test("бөлімі күрделі бөлшек жақшаға алынады", () => {
+  assert.equal(latexToText(String.raw`\dfrac{x^4}{9y^6}`), "x^4/(9y^6)");
+  assert.equal(latexToText(String.raw`\dfrac{1}{2x}`), "1/(2x)");
+  assert.equal(latexToText(String.raw`\dfrac{3}{10}`), "3/10", "жай сан — жақшасыз");
+  assert.equal(latexToText(String.raw`\dfrac{1}{x}`), "1/x", "жалғыз әріп — жақшасыз");
+});
