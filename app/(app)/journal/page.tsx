@@ -97,6 +97,15 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   const records = lessonIds.length
     ? await prisma.attendance.findMany({ where: { lessonId: { in: lessonIds }, date: { gte: monthStart, lt: monthEnd } } })
     : [];
+  // Отменённые занятия: их не нужно отмечать, и в «не отмечено» они не идут
+  const cancelledRows = lessonIds.length
+    ? await prisma.lessonSession.findMany({
+        where: { lessonId: { in: lessonIds }, cancelled: true, date: { gte: monthStart, lt: monthEnd } },
+        select: { lessonId: true, date: true },
+      })
+    : [];
+  const cancelledOcc = new Set(cancelledRows.map((c) => `${c.lessonId}|${c.date.toISOString().slice(0, 10)}`));
+
   // ключ: lessonId|iso|studentId -> состояние отметки
   type Cell = "present" | "excused" | "unexcused";
   const recMap = new Map<string, Cell>();
@@ -126,7 +135,9 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
 
   // занятие считается отмеченным, если по нему есть хоть одна запись
   const markedOcc = new Set(records.map((r) => `${r.lessonId}|${r.date.toISOString().slice(0, 10)}`));
-  const unmarked = occurrences.filter((o) => !markedOcc.has(`${o.lessonId}|${o.iso}`)).length;
+  const unmarked = occurrences.filter(
+    (o) => !markedOcc.has(`${o.lessonId}|${o.iso}`) && !cancelledOcc.has(`${o.lessonId}|${o.iso}`)
+  ).length;
 
   const counted = records.filter((r) => r.present || !r.excused);
   const totalPresent = records.filter((r) => r.present).length;
@@ -176,20 +187,28 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                 <tr>
                   <th className="jsticky">Ученик</th>
                   {occurrences.map((o, i) => {
-                    const done = markedOcc.has(`${o.lessonId}|${o.iso}`);
+                    const off = cancelledOcc.has(`${o.lessonId}|${o.iso}`);
+                    const done = markedOcc.has(`${o.lessonId}|${o.iso}`) || off;
                     return (
                       <th key={i} style={{ textAlign: "center", minWidth: 40 }}>
                         <Link
                           href={`/schedule/${o.lessonId}?date=${o.iso}`}
-                          title={done ? `Открыть занятие ${o.day} · ${o.time}` : `Занятие ${o.day} · ${o.time} ещё не отмечено`}
+                          title={
+                            off
+                              ? `Занятие ${o.day} · ${o.time} не состоялось`
+                              : done
+                                ? `Открыть занятие ${o.day} · ${o.time}`
+                                : `Занятие ${o.day} · ${o.time} ещё не отмечено`
+                          }
                           style={{
-                            color: done ? "inherit" : "var(--warn)",
+                            color: off ? "var(--ink-3)" : done ? "inherit" : "var(--warn)",
                             textDecoration: "none",
-                            fontWeight: done ? 600 : 800,
+                            fontWeight: done && !off ? 600 : off ? 500 : 800,
                             display: "block",
                           }}
                         >
                           {o.day}
+                          {off && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>×</span>}
                           {!done && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>•</span>}
                         </Link>
                       </th>
@@ -223,7 +242,9 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                               title={`${s.name} · ${o.day} ${MONTH_NAMES[month0]} · открыть занятие`}
                               style={{ textDecoration: "none", color: "inherit", display: "block" }}
                             >
-                              {v === undefined ? (
+                              {cancelledOcc.has(`${o.lessonId}|${o.iso}`) ? (
+                                <span className="jcell jnone" title="занятие не состоялось">—</span>
+                              ) : v === undefined ? (
                                 <span className="jcell jnone">·</span>
                               ) : v === "present" ? (
                                 <span className="jcell jyes">✓</span>
