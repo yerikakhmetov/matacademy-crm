@@ -124,6 +124,16 @@ export function latexToText(src: string, top = true): string {
     else if (src.startsWith("\\end{cases}", i)) { out.push("}"); i += 11; }
     else if (src.startsWith("\\\\", i)) { out.push("; "); i += 2; }
     // Жауап аралық түрінде берілуі мүмкін: (−∞; 2] ∪ [5; +∞), ℝ
+    // Теңсіздік белгілері
+    else if (src.startsWith("\\leqslant", i)) { out.push(" ≤ "); i += 9; }
+    else if (src.startsWith("\\geqslant", i)) { out.push(" ≥ "); i += 9; }
+    else if (src.startsWith("\\leq", i)) { out.push(" ≤ "); i += 4; }
+    else if (src.startsWith("\\geq", i)) { out.push(" ≥ "); i += 4; }
+    else if (src.startsWith("\\neq", i)) { out.push(" ≠ "); i += 4; }
+    else if (src.startsWith("\\le", i)) { out.push(" ≤ "); i += 3; }
+    else if (src.startsWith("\\ge", i)) { out.push(" ≥ "); i += 3; }
+    else if (src.startsWith("\\ne", i)) { out.push(" ≠ "); i += 3; }
+    else if (src.startsWith("\\pm", i)) { out.push("±"); i += 3; }
     else if (src.startsWith("\\infty", i)) { out.push("∞"); i += 6; }
     else if (src.startsWith("\\cup", i)) { out.push(" ∪ "); i += 4; }
     else if (src.startsWith("\\mathbb", i)) {
@@ -238,7 +248,9 @@ export function parseTestSource(src: string): ParseResult {
     }
     // «=» уже мог быть в условии (уравнение, «Егер …»); дописываем только если его нет
     // Мәтіндік есеп сұраумен не нүктемен аяқталады — оған «=» қоспаймыз.
-    const shown = text.includes("=") || text.includes("?") || /[.:!]\s*$/.test(text) ? text : `${text} =`;
+    // Теңсіздікке де «=» қосылмайды: «5 + x < 20 =» деген мағынасыз
+    const shown =
+      /[=?<>≤≥≠]/.test(text) || /[.:!]\s*$/.test(text) ? text : `${text} =`;
     questions.push({ text: shown, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
     itemRe.lastIndex = i;
   }

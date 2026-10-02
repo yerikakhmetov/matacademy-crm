@@ -277,3 +277,14 @@ test("бөлімі күрделі бөлшек жақшаға алынады", (
   assert.equal(latexToText(String.raw`\dfrac{3}{10}`), "3/10", "жай сан — жақшасыз");
   assert.equal(latexToText(String.raw`\dfrac{1}{x}`), "1/x", "жалғыз әріп — жақшасыз");
 });
+
+test("теңсіздік белгілері оқылады және соңына «=» жалғанбайды", () => {
+  const src = String.raw`\begin{document}
+\textbf{Тест}
+\item $5x \geq -20$ \choices{a}{b}{c}{d}
+\item $x - 3 \leq 11$ \choices{a}{b}{c}{d}
+Жауаптары: 1. A \quad 2. B`;
+  const r = parseTestSource(src);
+  assert.equal(r.questions[0].text, "5x ≥ −20");
+  assert.equal(r.questions[1].text, "x − 3 ≤ 11");
+});
