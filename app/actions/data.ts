@@ -388,6 +388,29 @@ export async function deleteStudent(id: string) {
 // ---------- Группы ----------
 // Дата первого занятия обязательна: без неё делитель зарплаты и журнал
 // считают занятия, которых не было.
+// Массовое проставление даты первого занятия: отдельная страница, где
+// у всех групп сразу видно, у кого даты нет. Пустое поле не трогаем —
+// чтобы случайно не стереть уже заданную дату.
+export async function setGroupStartDates(formData: FormData) {
+  await assertEditor();
+  let changed = 0;
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("start_")) continue;
+    const v = str(value);
+    if (!v) continue;
+    const id = key.slice("start_".length);
+    await prisma.group.update({
+      where: { id },
+      data: { startDate: new Date(`${v}T00:00:00Z`) },
+    });
+    changed++;
+  }
+  if (changed > 0) await logAudit("UPDATE", "Группы", `Дата начала задана: ${changed}`);
+  revalidatePath("/groups");
+  revalidatePath("/groups/start-dates");
+  revalidatePath("/payroll");
+}
+
 function groupStartDate(formData: FormData): Date {
   const v = str(formData.get("startDate"));
   if (!v) throw new Error("Укажите дату начала занятий группы");

@@ -38,6 +38,9 @@ export default async function GroupsPage() {
     ? await prisma.user.findMany({ where: { role: "CURATOR" }, orderBy: { name: "asc" }, select: { id: true, name: true } })
     : [];
 
+  // Басталу күні қойылмаған топтар: олар жалақы есебін бұрмалайды
+  const noStartCount = groups.filter((g) => g.startDate == null).length;
+
   const avgFill =
     groups.length > 0 ? Math.round(groups.reduce((a, g) => a + g._count.students / g.capacity, 0) / groups.length * 100) : 0;
 
@@ -50,6 +53,17 @@ export default async function GroupsPage() {
             {groups.length} групп · средняя наполняемость {avgFill}%
           </p>
         </div>
+        {editor && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Link
+              className={`btn ${noStartCount > 0 ? "" : "ghost"}`}
+              href="/groups/start-dates"
+              style={noStartCount > 0 ? { color: "var(--bad)" } : undefined}
+            >
+              Даты начала{noStartCount > 0 ? ` · ${noStartCount}` : ""}
+            </Link>
+          </div>
+        )}
         {editor && (
           <ModalButton label="Новая группа" title="Новая группа" action={createGroup}>
             <GroupForm teachers={teachers} subjects={subjects} rooms={rooms} curators={curators} />
