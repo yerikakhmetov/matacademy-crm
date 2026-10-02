@@ -386,6 +386,15 @@ export async function deleteStudent(id: string) {
 }
 
 // ---------- Группы ----------
+// Дата первого занятия обязательна: без неё делитель зарплаты и журнал
+// считают занятия, которых не было.
+function groupStartDate(formData: FormData): Date {
+  const v = str(formData.get("startDate"));
+  if (!v) throw new Error("Укажите дату начала занятий группы");
+  return new Date(`${v}T00:00:00Z`);
+}
+
+
 // Приводим занятия группы к тому, что задали в форме расписания.
 // Занятия по возможности обновляем, а не пересоздаём: удаление Lesson
 // каскадом уносит посещаемость, темы уроков и отработки.
@@ -427,7 +436,7 @@ export async function createGroup(formData: FormData) {
       subjectId: str(formData.get("subjectId")) || null,
       curatorId: str(formData.get("curatorId")) || null,
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
-      startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
+      startDate: groupStartDate(formData),
     },
   });
   await syncGroupSchedule(group.id, formData.get("schedule"));
@@ -450,7 +459,7 @@ export async function updateGroup(id: string, formData: FormData) {
       subjectId: str(formData.get("subjectId")) || null,
       curatorId: str(formData.get("curatorId")) || null,
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
-      startDate: str(formData.get("startDate")) ? new Date(`${str(formData.get("startDate"))}T00:00:00Z`) : null,
+      startDate: groupStartDate(formData),
     },
   });
   const plan = await syncGroupSchedule(id, formData.get("schedule"));

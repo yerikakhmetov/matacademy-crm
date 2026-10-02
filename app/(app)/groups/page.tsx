@@ -98,6 +98,15 @@ export default async function GroupsPage() {
                       </span>
                     </div>
                   )}
+                  {/* Без даты первого занятия зарплата считается по лишним занятиям */}
+                  {g.startDate == null && (
+                    <div style={{ marginTop: 5 }}>
+                      <span className="chip c-bad" title="Укажите дату первого занятия: от неё зависят журнал и зарплата">
+                        <span className="d" />
+                        Нет даты начала
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="gtag" style={{ background: g.color }}>
                   {g.name[0]}

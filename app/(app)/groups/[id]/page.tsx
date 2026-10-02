@@ -117,7 +117,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
             </h1>
             <p>
               {group.level ? `${group.level} · ` : ""}{scheduleText}
-              {group.startDate && group.startDate.getTime() > Date.now() ? ` · старт ${formatDate(group.startDate)}` : ""}
+              {group.startDate ? ` · старт ${formatDate(group.startDate)}` : ""}
+              {group.startDate == null ? " · дата начала не указана" : ""}
             </p>
           </div>
         </div>

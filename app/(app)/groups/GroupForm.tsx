@@ -83,11 +83,11 @@ export function GroupForm({
         </p>
       </div>
       <div className="field">
-        <label>Занятия начинаются с</label>
-        <input name="startDate" type="date" defaultValue={dateValue(values?.startDate)} />
+        <label>Занятия начинаются с *</label>
+        <input name="startDate" type="date" required defaultValue={dateValue(values?.startDate)} />
         <p className="mut" style={{ fontSize: 12, marginTop: 4 }}>
           До этой даты занятий по расписанию нет: они не попадут в журнал, в календарь ученика и в расчёт зарплаты.
-          Пусто — группа занимается давно.
+          Для давно работающей группы укажите дату её первого занятия.
         </p>
       </div>
       <GroupSchedule rooms={rooms} value={values?.schedule} />
