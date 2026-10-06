@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { dateTimeInTz } from "@/lib/daily";
+import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { initials, avatarColor } from "@/lib/format";
@@ -15,12 +17,7 @@ const ACTION: Record<string, { cls: string; label: string }> = {
 // Журнал аудита читают, когда нужно точное время события (например чтобы
 // восстановить базу на момент до удаления), поэтому показываем абсолютное
 // время с секундами, а «сколько прошло» оставляем во всплывающей подсказке.
-function when(d: Date) {
-  return d.toLocaleString("ru-RU", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit", second: "2-digit",
-  });
-}
+
 
 function ago(d: Date) {
   const diff = Math.floor((Date.now() - d.getTime()) / 1000);
@@ -34,6 +31,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const session = await auth();
   if (session?.user?.role !== "ADMIN") redirect("/dashboard");
 
+  const tz = (await getSettings()).tzOffsetHours;
   const sp = await searchParams;
   const action = sp.action ?? "all";
   const user = sp.user ?? "all";
@@ -93,7 +91,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 return (
                   <tr key={l.id}>
                     <td className="num mut" style={{ whiteSpace: "nowrap" }} title={ago(l.createdAt)}>
-                      {when(l.createdAt)}
+                      {dateTimeInTz(l.createdAt, tz)}
                     </td>
                     <td>
                       <div className="person">

@@ -17,6 +17,15 @@ export function dayKeyInTz(d: Date, tzOffsetHours: number): string {
   return new Date(d.getTime() + tzOffsetHours * 3600_000).toISOString().slice(0, 10);
 }
 
+// Дата и время в часовом поясе школы. Сервер в облаке живёт по UTC, поэтому
+// toLocaleString на нём показал бы чужое время — для журнала аудита это важно:
+// по нему восстанавливают базу на момент до ошибки.
+export function dateTimeInTz(d: Date, tzOffsetHours: number): string {
+  const s = new Date(d.getTime() + tzOffsetHours * 3600_000);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(s.getUTCDate())}.${p(s.getUTCMonth() + 1)}.${s.getUTCFullYear()}, ${p(s.getUTCHours())}:${p(s.getUTCMinutes())}:${p(s.getUTCSeconds())}`;
+}
+
 // Дни идут от новых к старым; внутри дня — тоже новые сверху.
 export function groupByDay<T extends DayTx>(txs: T[], tzOffsetHours: number): DayGroup<T>[] {
   const map = new Map<string, DayGroup<T>>();

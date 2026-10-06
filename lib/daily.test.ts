@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dayKeyInTz, groupByDay } from "./daily.ts";
+import { dateTimeInTz, dayKeyInTz, groupByDay } from "./daily.ts";
 
 const tx = (kind: string, amount: number, iso: string) => ({ kind, amount, date: new Date(iso) });
 
@@ -49,4 +49,15 @@ test("день только с возвратом даёт отрицатель�
 
 test("пустой список — пустой результат, без падений", () => {
   assert.deepEqual(groupByDay([], 5), []);
+});
+
+test("dateTimeInTz: уақыт мектептің белдеуімен, сервердікімен емес", () => {
+  const d = new Date("2026-10-06T09:32:07.000Z"); // UTC
+  assert.equal(dateTimeInTz(d, 5), "06.10.2026, 14:32:07", "UTC+5 — Алматы");
+  assert.equal(dateTimeInTz(d, 0), "06.10.2026, 09:32:07");
+});
+
+test("dateTimeInTz: белдеу күнді де жылжытады", () => {
+  const d = new Date("2026-10-06T21:10:00.000Z");
+  assert.equal(dateTimeInTz(d, 5), "07.10.2026, 02:10:00", "келесі күн");
 });
