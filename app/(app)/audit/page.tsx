@@ -12,12 +12,22 @@ const ACTION: Record<string, { cls: string; label: string }> = {
   DELETE: { cls: "c-bad", label: "Удалено" },
 };
 
+// Журнал аудита читают, когда нужно точное время события (например чтобы
+// восстановить базу на момент до удаления), поэтому показываем абсолютное
+// время с секундами, а «сколько прошло» оставляем во всплывающей подсказке.
 function when(d: Date) {
+  return d.toLocaleString("ru-RU", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  });
+}
+
+function ago(d: Date) {
   const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diff < 60) return "только что";
   if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
-  return d.toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  return `${Math.floor(diff / 86400)} дн назад`;
 }
 
 export default async function AuditPage({ searchParams }: { searchParams: Promise<{ action?: string; user?: string; entity?: string }> }) {
@@ -63,11 +73,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           <table>
             <thead>
               <tr>
+                <th style={{ whiteSpace: "nowrap" }}>Когда</th>
                 <th>Кто</th>
                 <th>Действие</th>
                 <th>Объект</th>
                 <th>Что именно</th>
-                <th className="right">Когда</th>
               </tr>
             </thead>
             <tbody>
@@ -82,6 +92,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 const a = ACTION[l.action] ?? ACTION.UPDATE;
                 return (
                   <tr key={l.id}>
+                    <td className="num mut" style={{ whiteSpace: "nowrap" }} title={ago(l.createdAt)}>
+                      {when(l.createdAt)}
+                    </td>
                     <td>
                       <div className="person">
                         <div className="av2" style={{ background: avatarColor(l.userName), width: 30, height: 30, fontSize: 11 }}>
@@ -100,7 +113,6 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                     </td>
                     <td className="mut">{l.entity}</td>
                     <td style={{ fontWeight: 600 }}>{l.label}</td>
-                    <td className="right mut">{when(l.createdAt)}</td>
                   </tr>
                 );
               })}
