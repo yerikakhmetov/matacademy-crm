@@ -377,8 +377,42 @@ export async function regeneratePortalToken(id: string) {
   revalidatePath(`/students/${id}`);
 }
 
-export async function deleteStudent(id: string) {
+// Ученик уходит из школы: статус «Ушёл» и выход из групп. Все данные —
+// оплаты, оценки, посещаемость — остаются на месте. Это замена удалению:
+// удаление уносит их каскадом и восстанавливается только из снимка базы.
+export async function archiveStudent(id: string) {
   await assertEditor();
+  const st = await prisma.student.findUnique({
+    where: { id },
+    select: { name: true, groups: { select: { id: true } } },
+  });
+  if (!st) throw new Error("Ученик не найден");
+  await prisma.student.update({
+    where: { id },
+    data: { status: "LEFT", groups: { disconnect: st.groups.map((g) => ({ id: g.id })) } },
+  });
+  await logAudit("UPDATE", "Ученик", `${st.name} — в архив (вышел из групп)`);
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+}
+
+export async function unarchiveStudent(id: string) {
+  await assertEditor();
+  const st = await prisma.student.findUnique({ where: { id }, select: { name: true } });
+  if (!st) throw new Error("Ученик не найден");
+  await prisma.student.update({ where: { id }, data: { status: "ACTIVE" } });
+  await logAudit("UPDATE", "Ученик", `${st.name} — возвращён из архива`);
+  revalidatePath("/students");
+  revalidatePath(`/students/${id}`);
+}
+
+// Удаление необратимо и уносит каскадом оплаты, оценки и посещаемость,
+// поэтому доступно только администратору. Менеджеру — архив.
+export async function deleteStudent(id: string) {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    throw new Error("Удалять учеников может только администратор. Используйте «В архив».");
+  }
   const st = await prisma.student.findUnique({ where: { id }, select: { name: true } });
   await prisma.student.delete({ where: { id } });
   await logAudit("DELETE", "Ученик", st?.name ?? id);

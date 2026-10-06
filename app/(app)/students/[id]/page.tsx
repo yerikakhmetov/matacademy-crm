@@ -362,9 +362,14 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
           {editor && (
             <div className="card" style={{ padding: 18 }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 12 }}>
-                Опасная зона
+                Архив и удаление
               </div>
-              <DeleteStudentButton id={student.id} name={student.name} />
+              <DeleteStudentButton
+                id={student.id}
+                name={student.name}
+                isAdmin={session?.user?.role === "ADMIN"}
+                archived={student.status === "LEFT"}
+              />
             </div>
           )}
         </div>
