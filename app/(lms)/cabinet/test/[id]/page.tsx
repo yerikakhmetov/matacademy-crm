@@ -35,21 +35,25 @@ export default async function CabinetTest({
     where: { id },
     include: {
       questions: { orderBy: { order: "asc" } },
-      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
+      groups: {
+        select: { id: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } },
+      },
       subject: { select: { name: true, color: true } },
       attempts: { where: { studentId } },
     },
   });
-  if (!test || !test.groupId) redirect("/cabinet");
+  if (!test || test.groups.length === 0) redirect("/cabinet");
 
-  // Ученик должен состоять в группе теста
-  const inGroup = await prisma.student.findFirst({ where: { id: studentId, groups: { some: { id: test.groupId } } }, select: { id: true } });
-  if (!inGroup) redirect("/cabinet");
+  // Ученик должен состоять в одной из групп теста; по её расписанию он и открывается
+  const me = await prisma.student.findUnique({ where: { id: studentId }, select: { groups: { select: { id: true } } } });
+  const myGroupIds = new Set((me?.groups ?? []).map((g) => g.id));
+  const myGroup = test.groups.find((g) => myGroupIds.has(g.id));
+  if (!myGroup) redirect("/cabinet");
 
   const attempt = test.attempts[0] ?? null;
   const tz = (await getSettings()).tzOffsetHours;
   const locale = await getLocale();
-  const open = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz, test.availableFrom);
+  const open = isTestOpen(test.date, myGroup.lessons, new Date(), tz, test.availableFrom);
 
   const header = (
     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>

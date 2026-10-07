@@ -108,7 +108,8 @@ model Group {
   homeworks Homework[]
   materials Material[]
   grades    Grade[]
-  tests     Test[]
+  tests       Test[]
+  sharedTests Test[] @relation("TestGroups")
   createdAt DateTime  @default(now())
 }
 
@@ -202,8 +203,11 @@ model Grade {
 model Test {
   id        String         @id @default(cuid())
   title     String
-  groupId   String? // если привязан к группе (для ввода оценок)
+  groupId   String? // основная группа (оценки выставляются по ней)
   group     Group?         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  // Один тест можно дать нескольким группам: каждая открывает его по своему
+  // расписанию. Основная группа тоже входит в этот список.
+  groups    Group[]        @relation("TestGroups")
   subjectId String? // предмет теста
   subject   Subject?       @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   date      DateTime       @default(now())

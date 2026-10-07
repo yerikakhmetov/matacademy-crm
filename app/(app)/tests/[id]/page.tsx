@@ -9,7 +9,9 @@ import { Avatar } from "@/components/Avatar";
 import { ModalButton } from "@/components/ModalButton";
 import { saveTestResults, refreshTestQuestions } from "@/app/actions/data";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
-import { isTestOpen } from "@/lib/tests";
+import { isTestOpen, testAvailableAt } from "@/lib/tests";
+import { dateTimeInTz } from "@/lib/daily";
+import { TestGroupsForm } from "./TestGroupsForm";
 import { getSettings } from "@/lib/settings";
 import { DeleteTestButton } from "./DeleteTestButton";
 import { SaveTestButton } from "./SaveTestButton";
@@ -37,6 +39,10 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           students: { orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true } },
         },
       },
+      groups: {
+        select: { id: true, name: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } },
+        orderBy: { name: "asc" },
+      },
       subject: { select: { name: true, color: true, teachers: { select: { userId: true } } } },
       grades: { select: { studentId: true, score: true } },
       questions: { orderBy: { order: "asc" } },
@@ -54,6 +60,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
   const teachesSubject = !!test.subject?.teachers.some((t) => t.userId === uid);
   if (teacher && !ownsGroup && !teachesSubject) redirect("/tests");
   const canEditResults = editor || ownsGroup;
+  const canManage = editor || ownsGroup || teachesSubject;
 
   const scoreByStudent = new Map(test.grades.map((g) => [g.studentId, g.score]));
 
@@ -70,7 +77,22 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
     entered > 0 ? Math.round(test.grades.reduce((a, g) => a + (g.score / test.maxScore) * 100, 0) / entered) : null;
 
   const tz = (await getSettings()).tzOffsetHours;
-  const testOpen = isTestOpen(test.date, test.group?.lessons ?? [], new Date(), tz, test.availableFrom);
+  // Тест бірнеше топқа берілуі мүмкін: әрқайсысы өз сабағынан кейін ашылады
+  const assigned = test.groups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    opensAt: testAvailableAt(test.date, g.lessons, tz, test.availableFrom),
+  }));
+  const allGroups = canManage
+    ? await prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
+    : [];
+  const groupOptions = allGroups.map((g) => {
+    const a = assigned.find((x) => x.id === g.id);
+    return { id: g.id, name: g.name, opensAt: a ? dateTimeInTz(a.opensAt, tz) : null };
+  });
+  // «Открыт» — если открыт хотя бы для одной группы
+  const testOpen = assigned.some((a) => a.opensAt.getTime() <= Date.now()) ||
+    (assigned.length === 0 && isTestOpen(test.date, [], new Date(), tz, test.availableFrom));
 
   return (
     <>
@@ -89,7 +111,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
               )}
             </h1>
             <p>
-              {test.group?.name ? `${test.group.name} · ` : ""}
+              {assigned.length > 0 ? `${assigned.map((a) => a.name).join(", ")} · ` : ""}
               {formatDate(test.date)} · макс. {test.maxScore}
               {test.questions.length ? ` · ${test.questions.length} вопросов` : ""}
             </p>
@@ -259,6 +281,23 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
       )}
 
       {/* Ввод баллов — только если тест привязан к группе */}
+      <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 10 }}>
+          Кому доступен тест
+        </div>
+        <TestGroupsForm
+          testId={test.id}
+          all={groupOptions}
+          selected={assigned.map((a) => a.id)}
+          primaryId={test.groupId}
+          canEdit={canManage}
+        />
+        <p className="mut" style={{ fontSize: 12, marginTop: 10 }}>
+          Каждая группа открывает тест после своего урока в день теста. Рядом с отмеченной группой —
+          время открытия.
+        </p>
+      </div>
+
       {test.group && (
         <>
           <div className="grid kpis" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 16 }}>

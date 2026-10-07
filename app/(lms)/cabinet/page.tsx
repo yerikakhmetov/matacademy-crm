@@ -56,19 +56,23 @@ export default async function CabinetHome() {
   const tz = (await getSettings()).tzOffsetHours;
   const testsRaw = groupIds.length
     ? await prisma.test.findMany({
-        where: { groupId: { in: groupIds }, questions: { some: {} } },
+        // Тест бірнеше топқа берілуі мүмкін — оқушының тобы солардың біріне кірсе көрінеді
+        where: { groups: { some: { id: { in: groupIds } } }, questions: { some: {} } },
         orderBy: { date: "desc" },
         take: 12,
         include: {
           _count: { select: { questions: true } },
           attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true } },
           subject: { select: { name: true, color: true } },
+          groups: { select: { id: true } },
         },
       })
     : [];
   const lessonsByGroup = new Map(student.groups.map((g) => [g.id, g.lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime }))]));
   const tests = testsRaw.map((row) => {
-    const lessons = lessonsByGroup.get(row.groupId ?? "") ?? [];
+    // Қолжетімділік оқушының ӨЗ тобының кестесімен есептеледі
+    const mine = row.groups.find((g) => lessonsByGroup.has(g.id))?.id ?? row.groupId ?? "";
+    const lessons = lessonsByGroup.get(mine) ?? [];
     const attempt = row.attempts[0] ?? null;
     return {
       id: row.id,

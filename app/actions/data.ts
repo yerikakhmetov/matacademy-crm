@@ -1520,13 +1520,19 @@ export async function refreshTestQuestions(testId: string, formData: FormData) {
 export async function createTest(formData: FormData) {
   const groupId = str(formData.get("groupId")) || null;
   const subjectId = str(formData.get("subjectId")) || null;
+  // Тест можно дать нескольким группам; основная группа входит в список всегда
+  const picked = formData.getAll("groupIds").map((v) => str(v)).filter(Boolean);
+  const groupIds = [...new Set([...(groupId ? [groupId] : []), ...picked])];
   if (groupId) await assertCanManageGroup(groupId);
+  else if (groupIds.length > 0) await assertCanManageGroup(groupIds[0]);
   else await assertEditor();
+  for (const gid of groupIds) await assertCanManageGroup(gid);
   const test = await prisma.test.create({
     data: {
       title: str(formData.get("title")) || "Тест",
       groupId,
       subjectId,
+      groups: { connect: groupIds.map((id) => ({ id })) },
       maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
       date: parseDate(formData.get("date")) ?? new Date(),
       shuffle: formData.get("shuffle") != null,
@@ -1537,6 +1543,24 @@ export async function createTest(formData: FormData) {
   await logAudit("CREATE", "Тест", `${test.title}`);
   revalidatePath("/tests");
   redirect(`/tests/${test.id}`);
+}
+
+// Кому назначен тест: список групп можно поменять после создания.
+// Основная группа (для ввода баллов) остаётся в списке всегда.
+export async function setTestGroups(testId: string, formData: FormData) {
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  if (!test) throw new Error("Тест не найден");
+  if (test.groupId) await assertCanManageGroup(test.groupId);
+  else await assertEditor();
+
+  const picked = formData.getAll("groupIds").map((v) => str(v)).filter(Boolean);
+  const groupIds = [...new Set([...(test.groupId ? [test.groupId] : []), ...picked])];
+  for (const gid of groupIds) await assertCanManageGroup(gid);
+
+  await prisma.test.update({ where: { id: testId }, data: { groups: { set: groupIds.map((id) => ({ id })) } } });
+  await logAudit("UPDATE", "Тест", `${test.title} — группы: ${groupIds.length}`);
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/tests");
 }
 
 export async function saveTestResults(testId: string, formData: FormData) {
