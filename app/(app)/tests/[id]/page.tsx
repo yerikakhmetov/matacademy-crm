@@ -7,7 +7,8 @@ import { isTeacher } from "@/lib/teacher";
 import { formatDate, scoreColor } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { ModalButton } from "@/components/ModalButton";
-import { saveTestResults, refreshTestQuestions } from "@/app/actions/data";
+import { saveTestResults, refreshTestQuestions, updateTest } from "@/app/actions/data";
+import { TestEditForm } from "./TestEditForm";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { dateTimeInTz } from "@/lib/daily";
@@ -83,6 +84,9 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
     name: g.name,
     opensAt: testAvailableAt(test.date, g.lessons, tz, test.availableFrom),
   }));
+  const subjectOptions = canManage
+    ? await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
+    : [];
   const allGroups = canManage
     ? await prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
     : [];
@@ -119,6 +123,27 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
         </div>
         {(editor || ownsGroup || teachesSubject) && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <ModalButton
+              label="Изменить"
+              title={`Изменить тест · ${test.title}`}
+              icon="edit"
+              buttonClass="btn ghost"
+              action={updateTest.bind(null, test.id)}
+              submitLabel="Сохранить"
+            >
+              <TestEditForm
+                values={{
+                  title: test.title,
+                  subjectId: test.subjectId,
+                  date: test.date.toISOString().slice(0, 10),
+                  maxScore: test.maxScore,
+                  timeLimitMin: test.timeLimitMin,
+                  shuffle: test.shuffle,
+                  allowRetake: test.allowRetake,
+                }}
+                subjects={subjectOptions}
+              />
+            </ModalButton>
             <ModalButton
               label="Обновить вопросы"
               title={`Вопросы из исходника · ${test.title}`}

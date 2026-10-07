@@ -1547,6 +1547,33 @@ export async function createTest(formData: FormData) {
 
 // Кому назначен тест: список групп можно поменять после создания.
 // Основная группа (для ввода баллов) остаётся в списке всегда.
+// Правка теста: дату, название и настройки нужно уметь менять и после
+// создания — тест нередко заводят «на вчера» или переносят на другой день.
+export async function updateTest(testId: string, formData: FormData) {
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  if (!test) throw new Error("Тест не найден");
+  if (test.groupId) await assertCanManageGroup(test.groupId);
+  else await assertEditor();
+
+  const date = parseDate(formData.get("date"));
+  await prisma.test.update({
+    where: { id: testId },
+    data: {
+      title: str(formData.get("title")) || test.title,
+      subjectId: str(formData.get("subjectId")) || null,
+      maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
+      ...(date ? { date } : {}),
+      shuffle: formData.get("shuffle") != null,
+      allowRetake: formData.get("allowRetake") != null,
+      timeLimitMin: int(formData.get("timeLimitMin")) > 0 ? int(formData.get("timeLimitMin")) : null,
+    },
+  });
+  await logAudit("UPDATE", "Тест", `${str(formData.get("title")) || test.title} — изменён`);
+  revalidatePath(`/tests/${testId}`);
+  revalidatePath("/tests");
+  revalidatePath("/cabinet");
+}
+
 export async function setTestGroups(testId: string, formData: FormData) {
   const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
   if (!test) throw new Error("Тест не найден");
