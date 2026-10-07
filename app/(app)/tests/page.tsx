@@ -28,7 +28,7 @@ export default async function TestsPage() {
         : {},
       include: {
         group: { select: { name: true, _count: { select: { students: true } } } },
-        groups: { select: { name: true }, orderBy: { name: "asc" } },
+        groupLinks: { select: { group: { select: { name: true } } } },
         subject: { select: { name: true, color: true } },
         grades: { select: { score: true, maxScore: true } },
         _count: { select: { questions: true } },
@@ -113,7 +113,7 @@ export default async function TestsPage() {
                         <span className="mut">—</span>
                       )}
                     </td>
-                    <td className="mut">{t.groups.length > 0 ? t.groups.map((g) => g.name).join(", ") : (t.group?.name ?? "—")}</td>
+                    <td className="mut">{t.groupLinks.length > 0 ? t.groupLinks.map((l) => l.group.name).join(", ") : (t.group?.name ?? "—")}</td>
                     <td className="mut">{formatDate(t.date)}</td>
                     <td className="right num">{t._count.questions || "—"}</td>
                     <td className="right num">{t.group ? `${n}/${t.group._count.students}` : "—"}</td>

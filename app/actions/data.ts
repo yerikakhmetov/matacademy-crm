@@ -1532,7 +1532,7 @@ export async function createTest(formData: FormData) {
       title: str(formData.get("title")) || "Тест",
       groupId,
       subjectId,
-      groups: { connect: groupIds.map((id) => ({ id })) },
+      groupLinks: { create: groupIds.map((groupId) => ({ groupId })) },
       maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
       date: parseDate(formData.get("date")) ?? new Date(),
       shuffle: formData.get("shuffle") != null,
@@ -1584,7 +1584,16 @@ export async function setTestGroups(testId: string, formData: FormData) {
   const groupIds = [...new Set([...(test.groupId ? [test.groupId] : []), ...picked])];
   for (const gid of groupIds) await assertCanManageGroup(gid);
 
-  await prisma.test.update({ where: { id: testId }, data: { groups: { set: groupIds.map((id) => ({ id })) } } });
+  // У каждой группы свой день теста: поле date_<groupId>; пусто — общая дата
+  await prisma.testGroup.deleteMany({ where: { testId, groupId: { notIn: groupIds } } });
+  for (const groupId of groupIds) {
+    const date = parseDate(formData.get(`date_${groupId}`));
+    await prisma.testGroup.upsert({
+      where: { testId_groupId: { testId, groupId } },
+      create: { testId, groupId, date },
+      update: { date },
+    });
+  }
   await logAudit("UPDATE", "Тест", `${test.title} — группы: ${groupIds.length}`);
   revalidatePath(`/tests/${testId}`);
   revalidatePath("/tests");

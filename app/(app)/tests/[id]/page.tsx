@@ -40,9 +40,11 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           students: { orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true } },
         },
       },
-      groups: {
-        select: { id: true, name: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } },
-        orderBy: { name: "asc" },
+      groupLinks: {
+        select: {
+          date: true,
+          group: { select: { id: true, name: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
+        },
       },
       subject: { select: { name: true, color: true, teachers: { select: { userId: true } } } },
       grades: { select: { studentId: true, score: true } },
@@ -79,10 +81,12 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
 
   const tz = (await getSettings()).tzOffsetHours;
   // Тест бірнеше топқа берілуі мүмкін: әрқайсысы өз сабағынан кейін ашылады
-  const assigned = test.groups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    opensAt: testAvailableAt(test.date, g.lessons, tz, test.availableFrom),
+  const assigned = test.groupLinks.map((l) => ({
+    id: l.group.id,
+    name: l.group.name,
+    date: l.date ?? test.date,
+    ownDate: l.date != null,
+    opensAt: testAvailableAt(l.date ?? test.date, l.group.lessons, tz, test.availableFrom),
   }));
   const subjectOptions = canManage
     ? await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
@@ -92,7 +96,13 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
     : [];
   const groupOptions = allGroups.map((g) => {
     const a = assigned.find((x) => x.id === g.id);
-    return { id: g.id, name: g.name, opensAt: a ? dateTimeInTz(a.opensAt, tz) : null };
+    return {
+      id: g.id,
+      name: g.name,
+      opensAt: a ? dateTimeInTz(a.opensAt, tz) : null,
+      date: (a?.date ?? test.date).toISOString().slice(0, 10),
+      ownDate: a?.ownDate ?? false,
+    };
   });
   // «Открыт» — если открыт хотя бы для одной группы
   const testOpen = assigned.some((a) => a.opensAt.getTime() <= Date.now()) ||
@@ -318,8 +328,9 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           canEdit={canManage}
         />
         <p className="mut" style={{ fontSize: 12, marginTop: 10 }}>
-          Каждая группа открывает тест после своего урока в день теста. Рядом с отмеченной группой —
-          время открытия.
+          У каждой группы свой день теста — она открывает его в этот день после своего урока.
+          Если дату не менять, действует общая дата теста. Ручное «Открыть доступ» ниже отменяет
+          расписание для всех групп сразу.
         </p>
       </div>
 

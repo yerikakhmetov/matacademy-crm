@@ -57,34 +57,36 @@ export default async function CabinetHome() {
   const testsRaw = groupIds.length
     ? await prisma.test.findMany({
         // Тест бірнеше топқа берілуі мүмкін — оқушының тобы солардың біріне кірсе көрінеді
-        where: { groups: { some: { id: { in: groupIds } } }, questions: { some: {} } },
+        where: { groupLinks: { some: { groupId: { in: groupIds } } }, questions: { some: {} } },
         orderBy: { date: "desc" },
         take: 12,
         include: {
           _count: { select: { questions: true } },
           attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true } },
           subject: { select: { name: true, color: true } },
-          groups: { select: { id: true } },
+          groupLinks: { select: { groupId: true, date: true } },
         },
       })
     : [];
   const lessonsByGroup = new Map(student.groups.map((g) => [g.id, g.lessons.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime }))]));
   const tests = testsRaw.map((row) => {
     // Қолжетімділік оқушының ӨЗ тобының кестесімен есептеледі
-    const mine = row.groups.find((g) => lessonsByGroup.has(g.id))?.id ?? row.groupId ?? "";
-    const lessons = lessonsByGroup.get(mine) ?? [];
+    const link = row.groupLinks.find((l) => lessonsByGroup.has(l.groupId));
+    const lessons = lessonsByGroup.get(link?.groupId ?? row.groupId ?? "") ?? [];
+    // Топтың өз күні болса, сол бойынша; болмаса тесттің ортақ күні
+    const date = link?.date ?? row.date;
     const attempt = row.attempts[0] ?? null;
     return {
       id: row.id,
       title: row.title,
-      date: row.date,
+      date,
       maxScore: row.maxScore,
       questions: row._count.questions,
       subjectName: row.subject?.name ?? null,
       subjectColor: row.subject?.color ?? "#3A5AE0",
       attempt,
-      open: isTestOpen(row.date, lessons, new Date(), tz, row.availableFrom),
-      opensAt: testAvailableAt(row.date, lessons, tz, row.availableFrom),
+      open: isTestOpen(date, lessons, new Date(), tz, row.availableFrom),
+      opensAt: testAvailableAt(date, lessons, tz, row.availableFrom),
     };
   });
 
