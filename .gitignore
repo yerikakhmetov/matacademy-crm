@@ -46,3 +46,6 @@ next-env.d.ts
 
 # но шаблон переменных нужен в репозитории
 !.env.example
+
+.npmcache/
+.claude.old/

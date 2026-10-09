@@ -1651,23 +1651,31 @@ async function assertCanTakeTest(testId: string) {
     where: { id: testId },
     include: {
       questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
-      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
+      // Тест может быть назначен нескольким группам, у каждой свой день и расписание
+      groupLinks: {
+        select: {
+          date: true,
+          group: { select: { id: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
+        },
+      },
     },
   });
   if (!test) throw new Error("Тест не найден");
-  if (!test.groupId || !test.group) throw new Error("Тест не привязан к группе");
+  if (test.groupLinks.length === 0) throw new Error("Тест не привязан к группе");
   if (test.questions.length === 0) throw new Error("В тесте нет вопросов");
 
-  const inGroup = await prisma.student.findFirst({
-    where: { id: studentId, groups: { some: { id: test.groupId } } },
-    select: { id: true },
-  });
-  if (!inGroup) throw new Error("Тест не для вашей группы");
+  // Ученик должен состоять в одной из групп теста — по ней и считаем открытие
+  const me = await prisma.student.findUnique({ where: { id: studentId }, select: { groups: { select: { id: true } } } });
+  const myGroupIds = new Set((me?.groups ?? []).map((g) => g.id));
+  const link = test.groupLinks.find((l) => myGroupIds.has(l.group.id));
+  if (!link) throw new Error("Тест не для вашей группы");
 
   const tz = (await getSettings()).tzOffsetHours;
-  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz, test.availableFrom)) throw new Error("Тест ещё не открыт");
+  if (!isTestOpen(link.date ?? test.date, link.group.lessons, new Date(), tz, test.availableFrom)) {
+    throw new Error("Тест ещё не открыт");
+  }
 
-  return { studentId, test };
+  return { studentId, test, groupId: link.group.id };
 }
 
 // Подсчёт результата по сохранённым ответам.
@@ -1713,7 +1721,7 @@ export async function saveTestAnswer(testId: string, index: number, choice: numb
 
 // Завершить попытку по сохранённым ответам — вызывается по кнопке и когда время вышло.
 export async function finishTestAttempt(testId: string) {
-  const { studentId, test } = await assertCanTakeTest(testId);
+  const { studentId, test, groupId } = await assertCanTakeTest(testId);
   const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
   if (!attempt || attempt.finished) return;
 
@@ -1727,7 +1735,7 @@ export async function finishTestAttempt(testId: string) {
     prisma.grade.upsert({
       where: { testId_studentId: { testId, studentId } },
       create: {
-        studentId, testId, groupId: test.groupId, topic: test.title, type: "TEST", score,
+        studentId, testId, groupId, topic: test.title, type: "TEST", score,
         maxScore: test.maxScore, date: new Date(), createdBy: session?.user?.name ?? null,
       },
       update: { score, maxScore: test.maxScore, topic: test.title },
@@ -1741,28 +1749,9 @@ export async function finishTestAttempt(testId: string) {
 
 // Ученик проходит тест (одна попытка): авто-проверка по правильным ответам.
 export async function submitTestAttempt(testId: string, formData: FormData) {
+  // Та же проверка, что и при старте: группа ученика, её день и расписание
+  const { studentId, test, groupId } = await assertCanTakeTest(testId);
   const session = await auth();
-  const studentId = await getStudentIdForUser(session?.user?.id);
-  if (!studentId) throw new Error("Профиль ученика не найден");
-
-  const test = await prisma.test.findUnique({
-    where: { id: testId },
-    include: {
-      questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
-      group: { include: { lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
-    },
-  });
-  if (!test) throw new Error("Тест не найден");
-  if (!test.groupId || !test.group) throw new Error("Тест не привязан к группе");
-  if (test.questions.length === 0) throw new Error("В тесте нет вопросов");
-
-  // Ученик должен состоять в группе теста
-  const inGroup = await prisma.student.findFirst({ where: { id: studentId, groups: { some: { id: test.groupId } } }, select: { id: true } });
-  if (!inGroup) throw new Error("Тест не для вашей группы");
-
-  // Тест открывается только после времени урока по расписанию
-  const tz = (await getSettings()).tzOffsetHours;
-  if (!isTestOpen(test.date, test.group.lessons, new Date(), tz, test.availableFrom)) throw new Error("Тест ещё не открыт");
 
   // Одна попытка, если преподаватель не разрешил проходить заново
   const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });
@@ -1789,7 +1778,7 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
     create: {
       studentId,
       testId,
-      groupId: test.groupId,
+      groupId,
       topic: test.title,
       type: "TEST",
       score,
