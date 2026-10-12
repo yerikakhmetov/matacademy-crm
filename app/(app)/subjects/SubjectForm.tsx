@@ -8,6 +8,7 @@ type Values = {
   lessonsPerMonth?: number;
   teacherRate?: number;
   teacherRateLessons?: number;
+  curatorRate?: number;
   color?: string;
   active?: boolean;
 };
@@ -51,6 +52,13 @@ export function SubjectForm({ values }: { values?: Values }) {
         {values?.teacherRate && values?.teacherRateLessons
           ? ` Сейчас — ${Math.round(values.teacherRate / values.teacherRateLessons).toLocaleString("ru-RU")} ₸ за занятие с ученика.`
           : " Пусто или 0 — зарплата считается по старой модели (доля ученика минус удержание школы)."}
+      </p>
+      <div className="field">
+        <label>Ставка куратора (₸ с ученика в месяц)</label>
+        <input name="curatorRate" type="number" min={0} placeholder="общая из настроек" defaultValue={values?.curatorRate || ""} />
+      </div>
+      <p className="mut" style={{ fontSize: 12, margin: "-6px 0 10px" }}>
+        Сколько куратор получает в месяц с одного ученика, оплатившего этот предмет. Пусто или 0 — общая ставка из настроек.
       </p>
       <div className="field">
         <label>Цвет</label>

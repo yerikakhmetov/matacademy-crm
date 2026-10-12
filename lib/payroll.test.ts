@@ -251,3 +251,56 @@ test("ставка не задана — старая модель по доле
   }).get("t1")!;
   assert.equal(r.salary, Math.round(12000 * 0.97));
 });
+
+// ---------- Куратор ----------
+import { computeCuratorRows, curatorRateFor, type PayrollCurator } from "./payroll-calc.ts";
+
+const curator = (groups: PayrollCurator["groups"]): PayrollCurator => ({ id: "c1", groups });
+const fees = (...keys: string[]) => new Map(keys.map((k) => [k, 10000]));
+
+test("куратор: ставка за каждый оплаченный предмет ученика", () => {
+  const c = curator([
+    { id: "g-math", subjectId: "math", studentIds: ["s1"] },
+    { id: "g-lit", subjectId: "lit", studentIds: ["s1"] },
+    { id: "g-phys", subjectId: "phys", studentIds: ["s1"] },
+  ]);
+  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math"), feeKey("s1", "lit"), feeKey("s1", "phys")), defaultRate: 1000 }).get("c1")!;
+  assert.equal(r.seats, 3);
+  assert.equal(r.students, 1);
+  assert.equal(r.salary, 3000);
+});
+
+test("куратор: своя ставка предмета важнее общей, 0 = общая", () => {
+  const c = curator([
+    { id: "g-math", subjectId: "math", studentIds: ["s1"] },
+    { id: "g-lit", subjectId: "lit", studentIds: ["s1"] },
+  ]);
+  const subjectRates = new Map([["lit", 700], ["math", 0]]);
+  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math"), feeKey("s1", "lit")), defaultRate: 1000, subjectRates }).get("c1")!;
+  assert.equal(r.salary, 1700);
+  assert.equal(curatorRateFor("math", 1000, subjectRates), 1000);
+  assert.equal(curatorRateFor("lit", 1000, subjectRates), 700);
+});
+
+test("куратор: неоплативший ученик не приносит ставку", () => {
+  const c = curator([{ id: "g-math", subjectId: "math", studentIds: ["s1", "s2"] }]);
+  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math")), defaultRate: 1000 }).get("c1")!;
+  assert.equal(r.seats, 1);
+  assert.equal(r.salary, 1000);
+});
+
+test("куратор: один ученик в двух группах одного предмета — одна ставка", () => {
+  const c = curator([
+    { id: "g1", subjectId: "math", studentIds: ["s1"] },
+    { id: "g2", subjectId: "math", studentIds: ["s1"] },
+  ]);
+  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math")), defaultRate: 1000 }).get("c1")!;
+  assert.equal(r.salary, 1000);
+});
+
+test("куратор: группа без предмета и пустой список учеников — ноль", () => {
+  const c = curator([{ id: "g1", subjectId: null, studentIds: ["s1"] }, { id: "g2", subjectId: "math", studentIds: [] }]);
+  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math")), defaultRate: 1000 }).get("c1")!;
+  assert.equal(r.salary, 0);
+  assert.equal(r.bySubject.length, 0);
+});

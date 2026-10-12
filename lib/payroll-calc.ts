@@ -137,3 +137,75 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
   }
   return rows;
 }
+
+// ---------- Куратор ----------
+//
+// Куратор не ведёт занятия, а закреплён за группами. Его зарплата — фиксированная
+// ставка с каждого ученика, который в этом месяце оплатил предмет группы куратора.
+// Ученик, ходящий на три предмета к одному куратору, приносит ему три ставки.
+// Удержание школы не применяется: ставка уже «на руки». Посещаемость роли не играет.
+
+export type PayrollCurator = {
+  id: string;
+  groups: { id: string; subjectId: string | null; studentIds: string[] }[];
+};
+
+export type CuratorSubjectRow = { subjectId: string; seats: number; rate: number; amount: number };
+
+export type CuratorRow = {
+  curatorId: string;
+  seats: number; // оплаченных ученико-предметов
+  students: number; // уникальных учеников
+  salary: number; // ₸ к выплате
+  bySubject: CuratorSubjectRow[];
+};
+
+export type CuratorPayrollInput = {
+  curators: PayrollCurator[];
+  /** feeKey(studentId, subjectId) -> месячная доля ученика по предмету, ₸ (>0 = оплатил) */
+  monthlyFee: Map<string, number>;
+  /** общая ставка из настроек, ₸ с ученика за предмет */
+  defaultRate: number;
+  /** subjectId -> своя ставка предмета; 0/отсутствует = общая */
+  subjectRates?: Map<string, number>;
+};
+
+export function curatorRateFor(subjectId: string, defaultRate: number, subjectRates?: Map<string, number>): number {
+  const own = subjectRates?.get(subjectId) ?? 0;
+  return Math.max(0, own > 0 ? own : defaultRate);
+}
+
+export function computeCuratorRows({ curators, monthlyFee, defaultRate, subjectRates }: CuratorPayrollInput): Map<string, CuratorRow> {
+  const rows = new Map<string, CuratorRow>();
+  for (const c of curators) {
+    const students = new Set<string>();
+    // Ученик в двух группах одного предмета у одного куратора — одна ставка, не две
+    const seen = new Set<string>();
+    const bySubject = new Map<string, CuratorSubjectRow>();
+
+    for (const g of c.groups) {
+      if (!g.subjectId) continue;
+      const rate = curatorRateFor(g.subjectId, defaultRate, subjectRates);
+      for (const studentId of g.studentIds) {
+        const k = feeKey(studentId, g.subjectId);
+        if ((monthlyFee.get(k) ?? 0) <= 0 || seen.has(k)) continue;
+        seen.add(k);
+        students.add(studentId);
+        let row = bySubject.get(g.subjectId);
+        if (!row) bySubject.set(g.subjectId, (row = { subjectId: g.subjectId, seats: 0, rate, amount: 0 }));
+        row.seats += 1;
+        row.amount += rate;
+      }
+    }
+
+    const list = [...bySubject.values()];
+    rows.set(c.id, {
+      curatorId: c.id,
+      seats: list.reduce((a, r) => a + r.seats, 0),
+      students: students.size,
+      salary: Math.round(list.reduce((a, r) => a + r.amount, 0)),
+      bySubject: list,
+    });
+  }
+  return rows;
+}

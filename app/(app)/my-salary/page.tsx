@@ -4,8 +4,10 @@ import { auth } from "@/auth";
 import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
 import { getSettings } from "@/lib/settings";
 import { money } from "@/lib/format";
-import { gatherPayrollRange } from "@/lib/payroll";
+import { isCurator } from "@/lib/curator";
+import { gatherCuratorPayrollRange, gatherPayrollRange } from "@/lib/payroll";
 import { MonthSelect } from "../payroll/PayrollControls";
+import { CuratorSalary } from "./CuratorSalary";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +16,8 @@ const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн",
 export default async function MySalaryPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
   const sp = await searchParams;
   const session = await auth();
-  if (!isTeacher(session?.user?.role)) redirect("/dashboard");
-  const teacherId = await getTeacherIdForUser(session?.user?.id);
+  const curator = isCurator(session?.user?.role);
+  if (!isTeacher(session?.user?.role) && !curator) redirect("/dashboard");
 
   const now = new Date();
   const monthOpts = Array.from({ length: 6 }).map((_, i) => {
@@ -23,6 +25,30 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
     return { id: `${d.getFullYear()}-${d.getMonth()}`, name: `${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`, year: d.getFullYear(), month0: d.getMonth() };
   });
   const sel = (sp.month && monthOpts.find((m) => m.id === sp.month)) || monthOpts[0];
+
+  if (curator) {
+    const settings = await getSettings();
+    const [live, subjects] = await Promise.all([
+      gatherCuratorPayrollRange(monthOpts, settings.curatorRate),
+      prisma.subject.findMany({ select: { id: true, name: true } }),
+    ]);
+    const userId = session?.user?.id ?? "";
+    const months = monthOpts.map((m, i) => {
+      const r = live[i].get(userId);
+      return { id: m.id, name: m.name, salary: r?.salary ?? 0, seats: r?.seats ?? 0, students: r?.students ?? 0, bySubject: r?.bySubject ?? [] };
+    });
+    return (
+      <CuratorSalary
+        months={months}
+        monthOpts={monthOpts}
+        selId={sel.id}
+        defaultRate={settings.curatorRate}
+        subjectNames={Object.fromEntries(subjects.map((s) => [s.id, s.name]))}
+      />
+    );
+  }
+
+  const teacherId = await getTeacherIdForUser(session?.user?.id);
 
   if (!teacherId) {
     return (

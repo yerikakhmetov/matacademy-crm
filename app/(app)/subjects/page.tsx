@@ -55,6 +55,7 @@ export default async function SubjectsPage() {
                 <th className="right">Занятий</th>
                 <th className="right">За занятие</th>
                 <th className="right">Ставка педагога</th>
+                <th className="right">Ставка куратора</th>
                 <th>Статус</th>
                 <th className="right">В абонементах</th>
                 {editor && <th style={{ width: 220 }}></th>}
@@ -63,7 +64,7 @@ export default async function SubjectsPage() {
             <tbody>
               {subjects.length === 0 && (
                 <tr>
-                  <td colSpan={editor ? 8 : 7}>
+                  <td colSpan={editor ? 9 : 8}>
                     <div className="empty">Предметов пока нет — добавьте первый</div>
                   </td>
                 </tr>
@@ -95,6 +96,13 @@ export default async function SubjectsPage() {
                       </>
                     ) : (
                       <span className="mut" title="Зарплата считается по доле ученика">по доле</span>
+                    )}
+                  </td>
+                  <td className="right num">
+                    {s.curatorRate > 0 ? (
+                      <span style={{ fontWeight: 600 }}>{money(s.curatorRate)}</span>
+                    ) : (
+                      <span className="mut" title="Общая ставка куратора из настроек">{money(settings.curatorRate)} общая</span>
                     )}
                   </td>
                   <td>

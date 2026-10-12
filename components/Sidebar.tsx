@@ -56,7 +56,7 @@ const NAV_TEACHER: Item[] = [
   { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 
-// Куратор: свои группы, их расписание и журнал. Денег и лидов не видит.
+// Куратор: свои группы, их расписание и журнал. Из денег видит только свою зарплату.
 const NAV_CURATOR: Item[] = [
   { section: "Куратор" },
   { href: "/schedule", icon: "schedule", label: "Расписание" },
@@ -66,6 +66,7 @@ const NAV_CURATOR: Item[] = [
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 
 export function Sidebar({

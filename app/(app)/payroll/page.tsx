@@ -5,7 +5,7 @@ import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
 import { getSettings } from "@/lib/settings";
 import { money, initials, avatarColor } from "@/lib/format";
-import { gatherPayroll } from "@/lib/payroll";
+import { gatherCuratorPayroll, gatherPayroll } from "@/lib/payroll";
 import { MonthSelect } from "./PayrollControls";
 import { PayrollLockButton } from "./PayrollLockButton";
 
@@ -30,11 +30,17 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const settings = await getSettings();
   const feePct = settings.schoolFeePct;
 
-  const [teachers, records, live] = await Promise.all([
+  const [teachers, records, live, curators, curatorLive, subjects] = await Promise.all([
     prisma.teacher.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     prisma.payrollRecord.findMany({ where: { year: sel.year, month: sel.month0 } }),
     gatherPayroll(sel.year, sel.month0, feePct),
+    prisma.user.findMany({ where: { role: "CURATOR" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    gatherCuratorPayroll(sel.year, sel.month0, settings.curatorRate),
+    prisma.subject.findMany({ select: { id: true, name: true } }),
   ]);
+  const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const curatorRows = curators.map((c) => ({ c, row: curatorLive.get(c.id) }));
+  const curatorTotal = curatorRows.reduce((a, r) => a + (r.row?.salary ?? 0), 0);
 
   const locked = records.length > 0;
   const recMap = new Map(records.map((r) => [r.teacherId, r]));
@@ -52,13 +58,13 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
     };
   });
 
-  const total = rows.reduce((a, r) => a + r.salary, 0);
+  const total = rows.reduce((a, r) => a + r.salary, 0) + curatorTotal;
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1>Зарплата преподавателей</h1>
+          <h1>Зарплата</h1>
           <p>{locked ? "Зафиксированный расчёт" : "Автоматический расчёт по посещаемости"} за {sel.name} · удержание школы {feePct}%</p>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -115,6 +121,57 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
       </div>
+
+      {curators.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>Кураторы</h3>
+            <span className="mut" style={{ fontSize: 12.5 }}>{money(curatorTotal)} · ставка {money(settings.curatorRate)} с ученика за предмет</span>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Куратор</th>
+                  <th className="right">Учеников</th>
+                  <th className="right">Оплач. предметов</th>
+                  <th>По предметам</th>
+                  <th className="right">К выплате</th>
+                </tr>
+              </thead>
+              <tbody>
+                {curatorRows.map(({ c, row }) => (
+                  <tr key={c.id}>
+                    <td>
+                      <div className="person">
+                        <div className="av2" style={{ background: avatarColor(c.name ?? ""), width: 30, height: 30, fontSize: 11 }}>
+                          {initials(c.name ?? "?")}
+                        </div>
+                        <div className="nm" style={{ fontSize: 13.5 }}>{c.name}</div>
+                      </div>
+                    </td>
+                    <td className="right mut num">{row?.students ?? 0}</td>
+                    <td className="right mut num">{row?.seats ?? 0}</td>
+                    <td className="mut" style={{ fontSize: 12.5 }}>
+                      {row && row.bySubject.length > 0
+                        ? row.bySubject.map((b) => `${subjectName.get(b.subjectId) ?? "—"}: ${b.seats} × ${money(b.rate)}`).join(" · ")
+                        : "—"}
+                    </td>
+                    <td className="right money num" style={{ color: (row?.salary ?? 0) > 0 ? "var(--ok)" : "var(--ink-3)" }}>{money(row?.salary ?? 0)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
+        Куратор получает фиксированную ставку в месяц с каждого ученика своих групп, оплатившего предмет
+        (абонемент или оплата за месяц): ученик с тремя предметами у одного куратора приносит три ставки.
+        Общая ставка — в настройках, у предмета может быть своя. Удержание школы и посещаемость на неё не влияют.
+        Расчёт кураторов всегда живой — «Зафиксировать месяц» относится к преподавателям.
+      </p>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
         Если у предмета задана ставка преподавателя (например 8000 ₸ с ученика за 12 занятий), зарплата = цена

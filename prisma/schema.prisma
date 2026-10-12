@@ -290,6 +290,9 @@ model Subject {
   // занятий. 0 = ставка не задана, зарплата считается по старой модели (доля ученика).
   teacherRate        Int         @default(0)
   teacherRateLessons Int         @default(12)
+  // Ставка куратора: сколько он получает в месяц с ОДНОГО оплатившего ученика этого предмета.
+  // 0 = берётся общая ставка из настроек (Settings.curatorRate).
+  curatorRate        Int         @default(0)
   color     String             @default("#3A5AE0")
   active    Boolean            @default(true)
   createdAt DateTime           @default(now())
@@ -468,6 +471,7 @@ model Settings {
   discountMode  String @default("add") // как объединять скидки: add | max | mul
   siblingDiscount Int  @default(0) // скидка «брат/сестра», % (0 = выкл)
   schoolFeePct   Int   @default(3) // удержание школы из оплаты ученика перед начислением зарплаты, %
+  curatorRate    Int   @default(1000) // зарплата куратора: ₸ в месяц с одного оплатившего ученика по предмету (если у предмета нет своей ставки)
   tzOffsetHours  Int   @default(5) // часовой пояс школы относительно UTC (Алматы = 5)
   defaultLocale  String @default("ru") // язык страниц для учеников и родителей: ru | kk
   notifyStudent  Boolean @default(false) // дублировать уведомления самому ученику в Telegram

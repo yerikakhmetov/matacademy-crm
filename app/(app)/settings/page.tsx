@@ -119,6 +119,10 @@ export default async function SettingsPage() {
               <input name="schoolFeePct" type="number" min={0} max={100} defaultValue={s.schoolFeePct} />
             </div>
             <div className="field">
+              <label>Ставка куратора, ₸ с ученика за предмет</label>
+              <input name="curatorRate" type="number" min={0} defaultValue={s.curatorRate} />
+            </div>
+            <div className="field">
               <label>Часовой пояс школы (UTC±)</label>
               <input name="tzOffsetHours" type="number" min={-12} max={14} defaultValue={s.tzOffsetHours} />
             </div>
@@ -136,7 +140,7 @@ export default async function SettingsPage() {
             </div>
           </div>
           <p className="mut" style={{ fontSize: 12, margin: "8px 0 0" }}>
-            Часовой пояс определяет, когда тест открывается ученику после урока (Алматы — 5). Длительность занятия используется при выгрузке расписания в календарь. Язык — стартовый для кабинета ученика и портала родителя; каждый может переключить его сам.
+            Куратор получает ставку в месяц с каждого ученика своих групп, оплатившего предмет: ученик с тремя предметами у одного куратора приносит три ставки. У предмета может быть своя ставка (в «Предметах и ценах»), она важнее общей. Часовой пояс определяет, когда тест открывается ученику после урока (Алматы — 5). Длительность занятия используется при выгрузке расписания в календарь. Язык — стартовый для кабинета ученика и портала родителя; каждый может переключить его сам.
           </p>
         </div>
 
