@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { unlinkTelegram } from "@/app/actions/data";
+import { unlinkTelegram } from "@/app/actions/students";
 import { Icon } from "@/components/Icon";
 
 export function TelegramLink({

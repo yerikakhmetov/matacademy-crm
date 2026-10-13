@@ -9,7 +9,7 @@ import { money, initials, avatarColor, STUDENT_STATUS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { StudentForm } from "./StudentForm";
 import { Icon } from "@/components/Icon";
-import { createStudent } from "@/app/actions/data";
+import { createStudent } from "@/app/actions/students";
 
 export const dynamic = "force-dynamic";
 

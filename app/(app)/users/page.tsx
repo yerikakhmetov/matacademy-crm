@@ -7,7 +7,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { UserForm } from "./UserForm";
 import { UserTelegram } from "./UserTelegram";
 import { DeleteUserButton } from "./DeleteUserButton";
-import { createUser, updateUser } from "@/app/actions/data";
+import { createUser, updateUser } from "@/app/actions/users";
 
 export const dynamic = "force-dynamic";
 

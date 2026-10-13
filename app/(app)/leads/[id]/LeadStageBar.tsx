@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { moveLead } from "@/app/actions/data";
+import { moveLead } from "@/app/actions/leads";
 import { LEAD_STAGES } from "@/lib/format";
 
 export function LeadStageBar({ leadId, current, editor }: { leadId: string; current: string; editor: boolean }) {

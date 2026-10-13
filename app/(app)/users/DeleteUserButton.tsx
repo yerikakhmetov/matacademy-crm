@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteUser } from "@/app/actions/data";
+import { deleteUser } from "@/app/actions/users";
 
 export function DeleteUserButton({ id, name }: { id: string; name: string }) {
   const [confirm, setConfirm] = useState(false);

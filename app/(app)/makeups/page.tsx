@@ -7,7 +7,7 @@ import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
 import { formatDate, initials, avatarColor, DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { MakeupButtons } from "./MakeupButtons";
-import { scheduleMakeup } from "@/app/actions/data";
+import { scheduleMakeup } from "@/app/actions/lessons";
 
 export const dynamic = "force-dynamic";
 

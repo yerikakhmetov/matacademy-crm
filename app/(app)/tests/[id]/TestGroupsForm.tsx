@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setTestGroups } from "@/app/actions/data";
+import { setTestGroups } from "@/app/actions/tests";
 
 type Group = {
   id: string;

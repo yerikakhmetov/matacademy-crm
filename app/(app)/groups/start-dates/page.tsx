@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
-import { setGroupStartDates } from "@/app/actions/data";
+import { setGroupStartDates } from "@/app/actions/groups";
 import { DAYS, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";

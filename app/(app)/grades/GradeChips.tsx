@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteGrade } from "@/app/actions/data";
+import { deleteGrade } from "@/app/actions/grades";
 import { GRADE_TYPE, gradeChipClass } from "@/lib/format";
 
 type G = { id: string; score: number; maxScore: number; topic: string; type: string };

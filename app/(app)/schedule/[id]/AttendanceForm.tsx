@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { saveAttendance, setLessonCancelled } from "@/app/actions/data";
+import { saveAttendance, setLessonCancelled } from "@/app/actions/lessons";
 import { initials, avatarColor } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 

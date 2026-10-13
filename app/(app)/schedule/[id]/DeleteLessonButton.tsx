@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteLesson } from "@/app/actions/data";
+import { deleteLesson } from "@/app/actions/lessons";
 
 export function DeleteLessonButton({ id }: { id: string }) {
   const [confirm, setConfirm] = useState(false);

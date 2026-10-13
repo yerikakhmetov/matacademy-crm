@@ -9,7 +9,7 @@ import { HomeworkForm } from "./HomeworkForm";
 import { HomeworkStudents } from "./HomeworkStudents";
 import { GroupSelect } from "./GroupSelect";
 import { DeleteHomeworkButton } from "./DeleteHomeworkButton";
-import { addHomework } from "@/app/actions/data";
+import { addHomework } from "@/app/actions/homework";
 
 export const dynamic = "force-dynamic";
 

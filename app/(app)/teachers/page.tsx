@@ -9,7 +9,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { TeacherForm } from "./TeacherForm";
 import { DeleteTeacherButton } from "./DeleteTeacherButton";
 import { TeacherTelegramLogin } from "./TeacherTelegramLogin";
-import { createTeacher, updateTeacher } from "@/app/actions/data";
+import { createTeacher, updateTeacher } from "@/app/actions/teachers";
 
 export const dynamic = "force-dynamic";
 

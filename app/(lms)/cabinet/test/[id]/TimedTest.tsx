@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { finishTestAttempt, saveTestAnswer } from "@/app/actions/data";
+import { finishTestAttempt, saveTestAnswer } from "@/app/actions/tests";
 import { Formula } from "@/components/Formula";
 import { Icon } from "@/components/Icon";
 import { t, type Locale } from "@/lib/i18n";

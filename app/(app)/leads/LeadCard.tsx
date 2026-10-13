@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTransition } from "react";
-import { moveLead } from "@/app/actions/data";
+import { moveLead } from "@/app/actions/leads";
 import { LEAD_STAGES, formatDate } from "@/lib/format";
 
 const ORDER = LEAD_STAGES.map((s) => s.key);

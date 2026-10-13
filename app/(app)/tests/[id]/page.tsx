@@ -7,7 +7,7 @@ import { isTeacher } from "@/lib/teacher";
 import { formatDate, scoreColor } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { ModalButton } from "@/components/ModalButton";
-import { saveTestResults, refreshTestQuestions, updateTest } from "@/app/actions/data";
+import { saveTestResults, refreshTestQuestions, updateTest } from "@/app/actions/tests";
 import { TestEditForm } from "./TestEditForm";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";

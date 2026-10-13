@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { clearAllData } from "@/app/actions/data";
+import { clearAllData } from "@/app/actions/promos";
 
 export function ClearDataButton() {
   const [open, setOpen] = useState(false);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { cancelMakeup, completeMakeup } from "@/app/actions/data";
+import { cancelMakeup, completeMakeup } from "@/app/actions/lessons";
 import { Icon } from "@/components/Icon";
 
 export function MakeupButtons({ id }: { id: string }) {

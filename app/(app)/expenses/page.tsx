@@ -6,7 +6,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { MonthSelect } from "../payroll/PayrollControls";
 import { ExpenseForm } from "./ExpenseForm";
 import { DeleteExpenseButton } from "./DeleteExpenseButton";
-import { createExpense, updateExpense } from "@/app/actions/data";
+import { createExpense, updateExpense } from "@/app/actions/expenses";
 
 export const dynamic = "force-dynamic";
 

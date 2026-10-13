@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { issueTelegramBind, unbindTelegram } from "@/app/actions/data";
+import { issueTelegramBind, unbindTelegram } from "@/app/actions/users";
 import { Icon } from "@/components/Icon";
 
 // Привязка Telegram к учётной записи: администратор выдаёт одноразовый код

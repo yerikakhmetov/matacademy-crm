@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteExpense } from "@/app/actions/data";
+import { deleteExpense } from "@/app/actions/expenses";
 
 export function DeleteExpenseButton({ id }: { id: string }) {
   const [confirm, setConfirm] = useState(false);

@@ -9,7 +9,7 @@ import { formatDate, scoreColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { TestForm } from "./TestForm";
 import { ImportForm } from "./ImportForm";
-import { createTest, importTest } from "@/app/actions/data";
+import { createTest, importTest } from "@/app/actions/tests";
 
 export const dynamic = "force-dynamic";
 

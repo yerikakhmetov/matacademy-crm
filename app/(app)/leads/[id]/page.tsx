@@ -12,7 +12,7 @@ import { LeadTaskToggle } from "./LeadTaskToggle";
 import { ConvertForm } from "./ConvertForm";
 import { LeadForm } from "../LeadForm";
 import { DeleteLeadButton } from "./DeleteLeadButton";
-import { convertLeadToStudent, updateLead } from "@/app/actions/data";
+import { convertLeadToStudent, updateLead } from "@/app/actions/leads";
 
 export const dynamic = "force-dynamic";
 

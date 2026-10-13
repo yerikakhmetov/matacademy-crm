@@ -7,7 +7,7 @@ import { isTestOpen, shuffleForSeed } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
-import { finishTestAttempt, startTestAttempt, submitTestAttempt } from "@/app/actions/data";
+import { finishTestAttempt, startTestAttempt, submitTestAttempt } from "@/app/actions/tests";
 import { Formula } from "@/components/Formula";
 import { renderQuestion } from "@/lib/math-render";
 import { TimedTest } from "./TimedTest";

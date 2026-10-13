@@ -20,7 +20,8 @@ import { PaymentActions } from "@/components/PaymentActions";
 import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { PaymentEditForm } from "../../payments/PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
-import { createInvoice, createPayment, updatePayment, updateStudent } from "@/app/actions/data";
+import { createInvoice, createPayment, updatePayment } from "@/app/actions/payments";
+import { updateStudent } from "@/app/actions/students";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";

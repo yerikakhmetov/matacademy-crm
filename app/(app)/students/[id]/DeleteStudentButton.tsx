@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { archiveStudent, deleteStudent, unarchiveStudent } from "@/app/actions/data";
+import { archiveStudent, deleteStudent, unarchiveStudent } from "@/app/actions/students";
 
 // Обычный путь — архив: ученик выходит из групп, но оплаты, оценки и
 // посещаемость остаются. Полное удаление уносит их каскадом, поэтому

@@ -1,6 +1,6 @@
 import { ModalButton } from "@/components/ModalButton";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
-import { receivePaymentForm, refundPayment } from "@/app/actions/data";
+import { receivePaymentForm, refundPayment } from "@/app/actions/payments";
 import { money, PAYMENT_METHODS } from "@/lib/format";
 
 // Действия по счёту: принять оплату (полностью или частично) и вернуть деньги.

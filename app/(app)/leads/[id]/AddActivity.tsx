@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useTransition } from "react";
-import { addLeadActivity } from "@/app/actions/data";
+import { addLeadActivity } from "@/app/actions/leads";
 import { Icon } from "@/components/Icon";
 
 export function AddActivity({ leadId }: { leadId: string }) {

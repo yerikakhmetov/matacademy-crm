@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { deleteTest } from "@/app/actions/data";
+import { deleteTest } from "@/app/actions/tests";
 
 export function DeleteTestButton({ id, title }: { id: string; title: string }) {
   const router = useRouter();

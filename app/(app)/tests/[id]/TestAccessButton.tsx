@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { setTestAccess } from "@/app/actions/data";
+import { setTestAccess } from "@/app/actions/tests";
 import { Icon } from "@/components/Icon";
 
 // Доступ к тесту: по умолчанию он открывается после урока в день теста.

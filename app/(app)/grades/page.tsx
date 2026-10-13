@@ -8,7 +8,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { GradeForm } from "./GradeForm";
 import { GroupSelect } from "./GroupSelect";
 import { GradeChips } from "./GradeChips";
-import { addGrade } from "@/app/actions/data";
+import { addGrade } from "@/app/actions/grades";
 
 export const dynamic = "force-dynamic";
 

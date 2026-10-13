@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { removeMyHomeworkFile, toggleMyHomework } from "@/app/actions/data";
+import { removeMyHomeworkFile, toggleMyHomework } from "@/app/actions/homework";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { t, type Locale } from "@/lib/i18n";

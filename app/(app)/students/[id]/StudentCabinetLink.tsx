@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { regenerateJoinToken } from "@/app/actions/data";
+import { regenerateJoinToken } from "@/app/actions/students";
 import { Icon } from "@/components/Icon";
 
 export function StudentCabinetLink({

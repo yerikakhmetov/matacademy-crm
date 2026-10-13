@@ -8,7 +8,7 @@ import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { GroupForm } from "./GroupForm";
 import { DeleteGroupButton } from "./DeleteGroupButton";
-import { createGroup, updateGroup } from "@/app/actions/data";
+import { createGroup, updateGroup } from "@/app/actions/groups";
 import { DAYS, formatDate } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
 

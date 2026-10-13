@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { regeneratePortalToken } from "@/app/actions/data";
+import { regeneratePortalToken } from "@/app/actions/students";
 import { Icon } from "@/components/Icon";
 
 export function ParentPortalLink({ studentId, token }: { studentId: string; token: string }) {

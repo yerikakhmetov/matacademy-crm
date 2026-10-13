@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { lockPayrollMonth, unlockPayrollMonth } from "@/app/actions/data";
+import { lockPayrollMonth, unlockPayrollMonth } from "@/app/actions/payroll";
 
 export function PayrollLockButton({ year, month0, locked }: { year: number; month0: number; locked: boolean }) {
   const [pending, start] = useTransition();

@@ -8,7 +8,7 @@ import { ModalButton } from "@/components/ModalButton";
 import Link from "next/link";
 import { LeadForm } from "./LeadForm";
 import { LeadCard } from "./LeadCard";
-import { createLead } from "@/app/actions/data";
+import { createLead } from "@/app/actions/leads";
 
 export const dynamic = "force-dynamic";
 

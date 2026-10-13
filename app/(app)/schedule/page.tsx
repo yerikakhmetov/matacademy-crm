@@ -7,7 +7,7 @@ import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { LessonForm } from "./LessonForm";
-import { createLesson } from "@/app/actions/data";
+import { createLesson } from "@/app/actions/lessons";
 import { getSettings, parseList } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";

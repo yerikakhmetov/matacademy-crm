@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deletePayment } from "@/app/actions/data";
+import { deletePayment } from "@/app/actions/payments";
 
 // Удаление ошибочной оплаты. Вместе со счётом удаляются и принятые по нему деньги,
 // поэтому они пропадут из дохода месяца — об этом предупреждаем прямо в вопросе.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { broadcastTelegram } from "@/app/actions/data";
+import { broadcastTelegram } from "@/app/actions/broadcast";
 import { Icon } from "@/components/Icon";
 
 export function BroadcastForm({ groups, linkedCount }: { groups: { id: string; name: string }[]; linkedCount: number }) {

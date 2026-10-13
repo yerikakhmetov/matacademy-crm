@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteHomework } from "@/app/actions/data";
+import { deleteHomework } from "@/app/actions/homework";
 import { Icon } from "@/components/Icon";
 
 export function DeleteHomeworkButton({ id }: { id: string }) {

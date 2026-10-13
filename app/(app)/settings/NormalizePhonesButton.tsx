@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { normalizeAllPhones } from "@/app/actions/data";
+import { normalizeAllPhones } from "@/app/actions/users";
 import { Icon } from "@/components/Icon";
 
 // Разовая уборка: приводит уже накопленные телефоны к единому виду.

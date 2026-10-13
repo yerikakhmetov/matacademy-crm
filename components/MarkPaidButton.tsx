@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { markPaid } from "@/app/actions/data";
+import { markPaid } from "@/app/actions/payments";
 import { Icon } from "./Icon";
 
 export function MarkPaidButton({ paymentId }: { paymentId: string }) {

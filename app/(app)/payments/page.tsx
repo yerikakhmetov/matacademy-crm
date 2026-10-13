@@ -11,7 +11,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
 import { PaymentActions } from "@/components/PaymentActions";
 import { DeletePaymentButton } from "@/components/DeletePaymentButton";
-import { createPayment, updatePayment } from "@/app/actions/data";
+import { createPayment, updatePayment } from "@/app/actions/payments";
 import { markOverdue } from "@/lib/overdue";
 import { PaymentEditForm } from "./PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";

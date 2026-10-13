@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
-import { deleteMaterial } from "@/app/actions/data";
+import { deleteMaterial } from "@/app/actions/materials";
 
 export type LessonMaterial = {
   id: string;

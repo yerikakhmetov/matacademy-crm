@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { deleteMaterial } from "@/app/actions/data";
+import { deleteMaterial } from "@/app/actions/materials";
 import { Icon } from "@/components/Icon";
 
 export function DeleteMaterialButton({ id }: { id: string }) {

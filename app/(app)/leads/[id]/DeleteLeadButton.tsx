@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { deleteLead } from "@/app/actions/data";
+import { deleteLead } from "@/app/actions/leads";
 
 export function DeleteLeadButton({ id, name }: { id: string; name: string }) {
   const [confirm, setConfirm] = useState(false);

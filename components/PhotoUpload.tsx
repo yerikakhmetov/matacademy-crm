@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { removePhoto } from "@/app/actions/data";
+import { removePhoto } from "@/app/actions/photos";
 import { Avatar } from "./Avatar";
 import { Icon } from "./Icon";
 

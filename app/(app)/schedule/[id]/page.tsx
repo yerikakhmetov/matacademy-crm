@@ -12,7 +12,7 @@ import { LessonForm } from "../LessonForm";
 import { AttendanceForm } from "./AttendanceForm";
 import { DeleteLessonButton } from "./DeleteLessonButton";
 import { LessonMaterials } from "./LessonMaterials";
-import { updateLesson } from "@/app/actions/data";
+import { updateLesson } from "@/app/actions/lessons";
 
 export const dynamic = "force-dynamic";
 

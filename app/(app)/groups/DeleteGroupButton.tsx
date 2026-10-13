@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { deleteGroup } from "@/app/actions/data";
+import { deleteGroup } from "@/app/actions/groups";
 
 export function DeleteGroupButton({ id, name, hasStudents }: { id: string; name: string; hasStudents: boolean }) {
   const [confirm, setConfirm] = useState(false);

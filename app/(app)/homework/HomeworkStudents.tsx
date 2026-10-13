@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { toggleHomeworkDone } from "@/app/actions/data";
+import { toggleHomeworkDone } from "@/app/actions/homework";
 import { initials } from "@/lib/format";
 
 type S = { id: string; name: string; done: boolean; fileUrl?: string | null; fileName?: string | null };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { toggleLeadTask } from "@/app/actions/data";
+import { toggleLeadTask } from "@/app/actions/leads";
 
 export function LeadTaskToggle({ id, done }: { id: string; done: boolean }) {
   const [pending, start] = useTransition();

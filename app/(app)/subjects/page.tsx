@@ -8,7 +8,7 @@ import { getSettings, parseDiscounts, parseMultiTiers } from "@/lib/settings";
 import { ModalButton } from "@/components/ModalButton";
 import { SubjectForm } from "./SubjectForm";
 import { DeleteSubjectButton } from "./DeleteSubjectButton";
-import { createSubject, updateSubject } from "@/app/actions/data";
+import { createSubject, updateSubject } from "@/app/actions/subjects";
 
 export const dynamic = "force-dynamic";
 
