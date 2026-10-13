@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 
 // Вебхук Telegram: ловит /start <studentId> и привязывает чат родителя к ученику.
 export async function POST(req: NextRequest) {
-  // Необязательная защита: секрет в заголовке (устанавливается при setWebhook)
+  // Секрет обязателен (задаётся в setWebhook): без него любой мог бы прислать
+  // поддельное «нажал Старт» от чужого Telegram id.
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (secret && req.headers.get("x-telegram-bot-api-secret-token") !== secret) {
+  if (!secret || req.headers.get("x-telegram-bot-api-secret-token") !== secret) {
     return Response.json({ ok: false }, { status: 401 });
   }
 

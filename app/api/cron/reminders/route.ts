@@ -9,19 +9,11 @@ export const dynamic = "force-dynamic";
 // Ежедневная авто-рассылка напоминаний в Telegram.
 // Запускается Vercel Cron (см. vercel.json) или вручную с секретом.
 export async function GET(req: NextRequest) {
+  // Только с секретом в заголовке: Vercel Cron сам шлёт «Authorization: Bearer $CRON_SECRET».
+  // User-agent подделывается, а секрет в адресе (?secret=) оседает в логах.
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const authz = req.headers.get("authorization");
-    const q = req.nextUrl.searchParams.get("secret");
-    if (authz !== `Bearer ${secret}` && q !== secret) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  } else {
-    // Секрет не задан — пропускаем только запросы Vercel Cron, публичный доступ закрыт.
-    const ua = req.headers.get("user-agent") ?? "";
-    if (!ua.includes("vercel-cron")) {
-      return Response.json({ error: "Unauthorized (задайте CRON_SECRET)" }, { status: 401 });
-    }
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   await markOverdue();

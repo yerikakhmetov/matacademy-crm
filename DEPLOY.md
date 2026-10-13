@@ -115,7 +115,7 @@ git add -A && git commit -m "..." && git push
    отправьте её родителю, он нажмёт «Старт» и подпишется. Рассылка идёт автоматически каждый
    день в 09:00 (Алматы) через Vercel Cron. Проверить вручную:
    ```bash
-   curl "https://crm.matacademy.kz/api/cron/reminders?secret=<CRON_SECRET>"
+   curl -H "Authorization: Bearer <CRON_SECRET>" "https://crm.matacademy.kz/api/cron/reminders"
    ```
 
 Без этих переменных приложение работает как обычно — просто без авто-рассылки
@@ -143,7 +143,7 @@ WhatsApp и есть телефон родителя — идёт в WhatsApp. W
    Затем **Redeploy**.
 4. Проверьте вручную (телефоны родителей должны быть в международном формате):
    ```bash
-   curl "https://crm.matacademy.kz/api/cron/reminders?secret=<CRON_SECRET>"
+   curl -H "Authorization: Bearer <CRON_SECRET>" "https://crm.matacademy.kz/api/cron/reminders"
    ```
    В ответе появится `sentWhatsapp`.
 
