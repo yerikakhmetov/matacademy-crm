@@ -167,7 +167,13 @@ async function assertCanEditPhoto(entity: "student" | "teacher", id: string) {
 // Сохранить URL фото (файл уже загружен напрямую в Vercel Blob с клиента).
 export async function savePhotoUrl(entity: "student" | "teacher", id: string, url: string) {
   await assertCanEditPhoto(entity, id);
-  if (!/^https:\/\/[^/]+\.blob\.vercel-storage\.com\//.test(url) && !/^https:\/\/[^/]+\.public\.blob\.vercel-storage\.com\//.test(url)) {
+  // Разбираем URL целиком: регулярка по строке пропускала «https://evil.com?x.blob.vercel-storage.com/…»
+  let photoHost = "";
+  try {
+    const u = new URL(url);
+    if (u.protocol === "https:") photoHost = u.hostname;
+  } catch {}
+  if (!photoHost.endsWith(".blob.vercel-storage.com")) {
     throw new Error("Недопустимый адрес файла");
   }
   if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: url } });
@@ -1673,10 +1679,23 @@ function scoreAnswers(questions: { correct: number }[], answers: number[], maxSc
 }
 
 // Начать тест с ограничением по времени: фиксируем момент старта.
+// Сервер сам следит за временем: клиентский таймер можно обойти, вызвав экшен напрямую.
+// 30 секунд запаса — на задержку сети при последнем ответе.
+const TEST_DEADLINE_GRACE_MS = 30_000;
+function testTimeIsUp(timeLimitMin: number | null, startedAt: Date | null, now = new Date()): boolean {
+  if (!timeLimitMin || !startedAt) return false;
+  return now.getTime() > startedAt.getTime() + timeLimitMin * 60_000 + TEST_DEADLINE_GRACE_MS;
+}
+
 export async function startTestAttempt(testId: string) {
   const { studentId, test } = await assertCanTakeTest(testId);
   const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
   if (existing && existing.finished && !test.allowRetake) throw new Error("Тест уже пройден");
+  // Идущую попытку не перезапускаем: иначе повторное «Начать» стирало ответы и обнуляло таймер
+  if (existing && !existing.finished) {
+    revalidatePath(`/cabinet/test/${testId}`);
+    return;
+  }
 
   await prisma.testAttempt.upsert({
     where: { testId_studentId: { testId, studentId } },
@@ -1699,6 +1718,8 @@ export async function saveTestAnswer(testId: string, index: number, choice: numb
   const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
   if (!attempt || attempt.finished) return;
   if (index < 0 || index >= test.questions.length) return;
+  if (!Number.isInteger(choice) || choice < -1) return;
+  if (testTimeIsUp(test.timeLimitMin, attempt.startedAt)) throw new Error("Время вышло — ответ не сохранён");
 
   const answers = [...attempt.answers];
   while (answers.length < test.questions.length) answers.push(-1);
@@ -1740,9 +1761,12 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
   const { studentId, test, groupId } = await assertCanTakeTest(testId);
   const session = await auth();
 
+  // Тест с таймером сдаётся только через попытку (start → save → finish), где сервер проверяет время
+  if (test.timeLimitMin) throw new Error("Этот тест проходится с таймером — нажмите «Начать»");
+
   // Одна попытка, если преподаватель не разрешил проходить заново
-  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { id: true } });
-  if (existing && !test.allowRetake) throw new Error("Тест уже пройден");
+  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { finished: true } });
+  if (existing?.finished && !test.allowRetake) throw new Error("Тест уже пройден");
 
   const answers = test.questions.map((q) => {
     const raw = formData.get(`q_${q.id}`);
@@ -1753,28 +1777,30 @@ export async function submitTestAttempt(testId: string, formData: FormData) {
   const correctCount = test.questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
   const score = Math.round((correctCount / total) * test.maxScore);
 
-  await prisma.testAttempt.upsert({
-    where: { testId_studentId: { testId, studentId } },
-    create: { testId, studentId, answers, correctCount, total, score },
-    update: { answers, correctCount, total, score, submittedAt: new Date() },
-  });
-
-  // Результат сразу становится оценкой за тест
-  await prisma.grade.upsert({
-    where: { testId_studentId: { testId, studentId } },
-    create: {
-      studentId,
-      testId,
-      groupId,
-      topic: test.title,
-      type: "TEST",
-      score,
-      maxScore: test.maxScore,
-      date: new Date(),
-      createdBy: session?.user?.name ?? null,
-    },
-    update: { score, maxScore: test.maxScore, topic: test.title },
-  });
+  // Попытка и оценка пишутся вместе: не бывает сданного теста без оценки
+  await prisma.$transaction([
+    prisma.testAttempt.upsert({
+      where: { testId_studentId: { testId, studentId } },
+      create: { testId, studentId, answers, correctCount, total, score, finished: true },
+      update: { answers, correctCount, total, score, finished: true, submittedAt: new Date() },
+    }),
+    // Результат сразу становится оценкой за тест
+    prisma.grade.upsert({
+      where: { testId_studentId: { testId, studentId } },
+      create: {
+        studentId,
+        testId,
+        groupId,
+        topic: test.title,
+        type: "TEST",
+        score,
+        maxScore: test.maxScore,
+        date: new Date(),
+        createdBy: session?.user?.name ?? null,
+      },
+      update: { score, maxScore: test.maxScore, topic: test.title },
+    }),
+  ]);
 
   revalidatePath(`/cabinet/test/${testId}`);
   revalidatePath("/cabinet");
@@ -1866,6 +1892,8 @@ export async function createPayment(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+const STALE_PAYMENT = "Счёт уже изменился (возможно, оплату приняли в другой вкладке). Обновите страницу.";
+
 // Отметить счёт оплаченным (гасит долг)
 // Принять оплату по счёту: сумма по умолчанию — весь остаток (кнопка «Оплачен»),
 // либо частичная сумма из формы.
@@ -1883,8 +1911,19 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
 
   const session = await auth();
   const paidAmount = payment.paidAmount + sum;
-  await prisma.$transaction([
-    prisma.paymentTx.create({
+  await prisma.$transaction(async (tx) => {
+    // Пишем, только если счёт не изменился с момента чтения: второй клик «Оплачен»
+    // или вторая вкладка получат ошибку, а не второй приход на ту же сумму.
+    const upd = await tx.payment.updateMany({
+      where: { id: paymentId, paidAmount: payment.paidAmount },
+      data: {
+        paidAmount,
+        method: method || payment.method,
+        status: paymentStatus(payment.amount, paidAmount, payment.date),
+      },
+    });
+    if (upd.count === 0) throw new Error(STALE_PAYMENT);
+    await tx.paymentTx.create({
       data: {
         paymentId,
         kind: "PAYMENT",
@@ -1893,16 +1932,8 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
         date: parseDate(dateStr ?? null) ?? new Date(),
         createdBy: session?.user?.name ?? null,
       },
-    }),
-    prisma.payment.update({
-      where: { id: paymentId },
-      data: {
-        paidAmount,
-        method: method || payment.method,
-        status: paymentStatus(payment.amount, paidAmount, payment.date),
-      },
-    }),
-  ]);
+    });
+  });
 
   await logAudit(
     "UPDATE",
@@ -1948,8 +1979,14 @@ export async function refundPayment(paymentId: string, formData: FormData) {
   const sum = Math.min(Math.max(1, asked || canRefund), canRefund);
 
   const session = await auth();
-  await prisma.$transaction([
-    prisma.paymentTx.create({
+  await prisma.$transaction(async (tx) => {
+    // Та же защита от двойного возврата, что и у приёма оплаты
+    const upd = await tx.payment.updateMany({
+      where: { id: paymentId, refundedAmount: payment.refundedAmount, paidAmount: payment.paidAmount },
+      data: { refundedAmount: payment.refundedAmount + sum },
+    });
+    if (upd.count === 0) throw new Error(STALE_PAYMENT);
+    await tx.paymentTx.create({
       data: {
         paymentId,
         kind: "REFUND",
@@ -1959,12 +1996,8 @@ export async function refundPayment(paymentId: string, formData: FormData) {
         note: str(formData.get("note")) || null,
         createdBy: session?.user?.name ?? null,
       },
-    }),
-    prisma.payment.update({
-      where: { id: paymentId },
-      data: { refundedAmount: payment.refundedAmount + sum },
-    }),
-  ]);
+    });
+  });
 
   await logAudit("UPDATE", "Возврат", `${payment.student.name} · ${money(sum)}`);
   await recalc(payment.studentId);

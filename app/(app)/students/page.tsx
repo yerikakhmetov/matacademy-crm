@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData, getAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
+import { curatorGroupIds, groupScope, isCurator } from "@/lib/curator";
 import { money, initials, avatarColor, STUDENT_STATUS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { StudentForm } from "./StudentForm";
@@ -27,13 +28,19 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
   const showMoney = (await getAccess()).can("finance");
   const filters = showMoney ? FILTERS : FILTERS.filter((f) => f.key !== "debt");
 
-  const where =
-    status === "debt" ? { balance: { lt: 0 } } : status === "all" ? {} : { status };
+  // Куратор видит только учеников своих групп
+  const curator = isCurator(session?.user?.role);
+  const myGroups = curator ? groupScope(await curatorGroupIds(session?.user?.id)) : null;
+  const scope = myGroups ? { groups: { some: { id: myGroups } } } : {};
+  // «Должники» — только при доступе к деньгам, иначе фильтр раскрывал бы чужие долги
+  const filter =
+    status === "debt" ? (showMoney ? { balance: { lt: 0 } } : {}) : status === "all" ? {} : { status };
+  const where = { ...scope, ...filter };
 
   const [students, groups, counts] = await Promise.all([
     prisma.student.findMany({ where, include: { groups: { select: { name: true } } }, orderBy: { createdAt: "asc" } }),
-    prisma.group.findMany({ orderBy: { name: "asc" } }),
-    prisma.student.count(),
+    prisma.group.findMany({ where: myGroups ? { id: myGroups } : {}, orderBy: { name: "asc" } }),
+    prisma.student.count({ where: scope }),
   ]);
 
   return (

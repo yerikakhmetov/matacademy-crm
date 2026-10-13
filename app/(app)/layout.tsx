@@ -21,7 +21,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Уведомления (для админа/менеджера)
   const notifications: { text: string; href: string; kind: string }[] = [];
-  if (session.user.role !== "TEACHER") {
+  // Сводка долгов и лидов — для администрации; преподавателю и куратору она не нужна
+  if (session.user.role !== "TEACHER" && session.user.role !== "CURATOR") {
     const weekAgo = new Date(Date.now() - 7 * 86400000);
     const [overdueCount, newLeadsWeek] = await Promise.all([
       prisma.payment.count({ where: { status: "OVERDUE" } }),

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isTeacher } from "@/lib/teacher";
+import { isCurator } from "@/lib/curator";
 import { auth } from "@/auth";
 import { canEditData, getAccess } from "@/lib/access";
 import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS } from "@/lib/format";
@@ -28,6 +29,11 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
+  // Куратор открывает только учеников своих групп
+  if (isCurator(session?.user?.role)) {
+    const mine = await prisma.student.count({ where: { id, groups: { some: { curatorId: session?.user?.id ?? "__none__" } } } });
+    if (mine === 0) notFound();
+  }
   const editor = await canEditData(session?.user?.role);
   const showMoney = (await getAccess()).can("finance"); // finance-модуль запрещён менеджеру → скрываем деньги
 

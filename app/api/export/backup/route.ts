@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 // Полная выгрузка данных школы одним JSON — на случай, если нужно забрать всё
 // из облака или перенести. Только администратор.
 //
-// Намеренно НЕ выгружаются: хеши паролей и одноразовые токены входа —
+// Намеренно НЕ выгружаются: хеши паролей, одноразовые токены входа и ссылки-ключи
+// родительских порталов и кабинетов учеников —
 // файл скачивается на компьютер, и такие данные в нём быть не должны.
 export async function GET() {
   const session = await auth();
@@ -24,7 +25,11 @@ export async function GET() {
     prisma.teacher.findMany(),
     prisma.subject.findMany(),
     prisma.group.findMany(),
-    prisma.student.findMany({ include: { groups: { select: { id: true } } } }),
+    // ссылки-ключи порталов и кабинета не выгружаем: утёкший файл не должен открывать чужие кабинеты
+    prisma.student.findMany({
+      omit: { portalToken: true, joinToken: true, joinTgId: true },
+      include: { groups: { select: { id: true } } },
+    }),
     prisma.lesson.findMany(),
     prisma.lessonSession.findMany(),
     prisma.attendance.findMany(),
