@@ -6,7 +6,7 @@ import { requireAccess } from "@/lib/access";
 import { money, initials, avatarColor, formatDate } from "@/lib/format";
 import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
-import { refreshOverdue } from "@/app/actions/data";
+import { markOverdue } from "@/lib/overdue";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +21,7 @@ export default async function RemindersPage() {
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   await requireAccess("finance");
 
-  await refreshOverdue();
+  await markOverdue();
 
   const [overdue, pending, groups, linkedCount] = await Promise.all([
     prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true }, orderBy: { date: "asc" } }),

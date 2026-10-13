@@ -10,7 +10,7 @@ import { money } from "@/lib/format";
 import { tariffsFromText, getSettings, parseList, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitAmount, isDiscountMode, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { sendTelegram } from "@/lib/telegram";
 import { notifyParent, notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
-import { recalc, markOverdue } from "@/lib/overdue";
+import { recalc } from "@/lib/overdue";
 import { recalcAttendance } from "@/lib/attendance";
 import { maxRefundable, outstanding, paymentStatus, planPaymentEdit } from "@/lib/payments";
 import { gatherPayroll } from "@/lib/payroll";
@@ -890,12 +890,6 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
   revalidatePath("/students");
   revalidatePath("/payments");
   revalidatePath("/dashboard");
-}
-
-// Автопометка просроченных счетов (server action). Cron вызывает markOverdue() напрямую.
-export async function refreshOverdue() {
-  if (!(await auth())?.user) throw new Error("Требуется вход");
-  return markOverdue();
 }
 
 // ---------- Расписание ----------
@@ -1898,6 +1892,9 @@ export async function createPayment(formData: FormData) {
 
 const STALE_PAYMENT = "Счёт уже изменился (возможно, оплату приняли в другой вкладке). Обновите страницу.";
 
+const sameUtcDay = (a: Date, b: Date) =>
+  a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+
 // Ошибка, которую должен увидеть пользователь. Брошенный текст в продакшне до браузера
 // не доходит, поэтому формы получают его как результат: { error }.
 class UserError extends Error {}
@@ -2035,10 +2032,14 @@ async function refundPaymentImpl(paymentId: string, formData: FormData) {
 // planPaymentEdit: одна полная оплата исправляется вместе с приходом, иначе
 // меняется только счёт и не ниже уже принятого.
 export async function updatePayment(paymentId: string, formData: FormData) {
+  return asResult(() => updatePaymentImpl(paymentId, formData));
+}
+
+async function updatePaymentImpl(paymentId: string, formData: FormData) {
   await assertEditor("finance");
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { txs: { select: { id: true, kind: true, amount: true } }, student: { select: { name: true } } },
+    include: { txs: { select: { id: true, kind: true, amount: true, date: true } }, student: { select: { name: true } } },
   });
   if (!payment) throw new Error("Счёт не найден");
 
@@ -2056,7 +2057,7 @@ export async function updatePayment(paymentId: string, formData: FormData) {
     amount,
     alsoReceived
   );
-  if (!plan.ok) throw new Error(plan.error);
+  if (!plan.ok) throw new UserError(plan.error);
 
   // Разбивка по предметам пересчитывается от новой суммы: по ней считается
   // доля предмета и зарплата преподавателя.
@@ -2073,8 +2074,16 @@ export async function updatePayment(paymentId: string, formData: FormData) {
 
   await prisma.$transaction(async (tx) => {
     if (plan.mode === "single") {
-      // приход исправляем вместе со счётом, иначе доход месяца останется неверным
-      await tx.paymentTx.update({ where: { id: plan.txId }, data: { amount, method, date } });
+      // Сумму прихода исправляем вместе со счётом, иначе доход месяца останется неверным.
+      // Дату прихода двигаем, только если счёт и приход были созданы одним днём («Принять оплату»):
+      // счёт за сентябрь, оплаченный в октябре, при исправлении опечатки не должен
+      // перетаскивать октябрьский доход в сентябрь.
+      const received = payment.txs.find((t) => t.id === plan.txId);
+      const createdTogether = received != null && sameUtcDay(received.date, payment.date);
+      await tx.paymentTx.update({
+        where: { id: plan.txId },
+        data: createdTogether ? { amount, method, date } : { amount, method },
+      });
     }
     await tx.paymentItem.deleteMany({ where: { paymentId } });
     await tx.payment.update({

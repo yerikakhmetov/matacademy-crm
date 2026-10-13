@@ -8,7 +8,7 @@ import { isCurator } from "@/lib/curator";
 import { getAccess } from "@/lib/access";
 import { Icon } from "@/components/Icon";
 import { money, initials, avatarColor, LEAD_STAGES } from "@/lib/format";
-import { refreshOverdue } from "@/app/actions/data";
+import { markOverdue } from "@/lib/overdue";
 import { TeacherDashboard } from "./TeacherDashboard";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +29,7 @@ export default async function DashboardPage() {
   const { can } = await getAccess();
   const showMoney = can("finance"); // менеджер без права «finance» не видит суммы
 
-  await refreshOverdue(); // автопометка просроченных счетов
+  await markOverdue(); // автопометка просроченных счетов
 
   const jsDay = new Date().getDay(); // 0=Вс..6=Сб
   const today = jsDay === 0 ? 0 : jsDay; // 1..6 = Пн..Сб

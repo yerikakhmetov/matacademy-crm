@@ -24,6 +24,8 @@ export function TelegramLoginButton({ botUsername }: { botUsername: string }) {
     setWaiting(true);
 
     const started = Date.now();
+    // Первый опрос сразу: сервер запомнит устройство, и бот покажет его в вопросе «Это вы?»
+    fetch(`/api/telegram/login-status?token=${token}`).catch(() => {});
     timer.current = setInterval(async () => {
       if (Date.now() - started > 5 * 60 * 1000) {
         if (timer.current) clearInterval(timer.current);
@@ -71,7 +73,7 @@ export function TelegramLoginButton({ botUsername }: { botUsername: string }) {
       </a>
       {waiting && (
         <span className="mut" style={{ fontSize: 11.5, textAlign: "center" }}>
-          Откройте бота, нажмите «Старт» — вход произойдёт автоматически.
+          Откройте бота, нажмите «Старт», затем «Да, это я» — вход произойдёт автоматически.
         </span>
       )}
       {error && <span className="chip c-bad" style={{ fontSize: 11.5 }}><span className="d" />{error}</span>}

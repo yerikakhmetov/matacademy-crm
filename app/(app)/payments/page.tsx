@@ -11,7 +11,8 @@ import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
 import { PaymentActions } from "@/components/PaymentActions";
 import { DeletePaymentButton } from "@/components/DeletePaymentButton";
-import { createPayment, refreshOverdue, updatePayment } from "@/app/actions/data";
+import { createPayment, updatePayment } from "@/app/actions/data";
+import { markOverdue } from "@/lib/overdue";
 import { PaymentEditForm } from "./PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
 
@@ -29,28 +30,36 @@ function monthStart() {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
-export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const { status = "all" } = await searchParams;
+// Счётов за годы набирается тысячи — показываем страницами
+const PAGE_SIZE = 50;
+
+export default async function PaymentsPage({ searchParams }: { searchParams: Promise<{ status?: string; page?: string }> }) {
+  const { status = "all", page: pageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   await requireAccess("finance");
   const editor = await canEditData(session?.user?.role);
 
-  await refreshOverdue(); // автопометка просроченных счетов
+  await markOverdue(); // автопометка просроченных счетов
 
   const where = status === "all" ? {} : { status };
 
-  const [payments, students, subjects, revenue, owing, paidCount] = await Promise.all([
+  const [payments, total, students, subjects, revenue, owing, paidCount] = await Promise.all([
     prisma.payment.findMany({
       where,
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
       include: {
-        student: true,
+        // только то, что нужно таблице: токены и телефоны ученика сюда не тянем
+        student: { select: { name: true } },
         // для правки: движения денег (можно ли исправить принятую сумму) и предметы
         txs: { select: { id: true, kind: true, amount: true } },
         items: { select: { subjectId: true } },
       },
-      orderBy: { date: "desc" },
+      orderBy: [{ date: "desc" }, { id: "desc" }],
     }),
+    prisma.payment.count({ where }),
     prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     netRevenue(monthStart()),
@@ -63,6 +72,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     prisma.paymentTx.count({ where: { kind: "PAYMENT", date: { gte: monthStart() } } }),
   ]);
 
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageHref = (n: number) => `/payments?status=${status}${n > 1 ? `&page=${n}` : ""}`;
   const avg = paidCount > 0 ? Math.round(revenue / paidCount) : 0;
   const left = (p: { amount: number; paidAmount: number }) => Math.max(0, p.amount - p.paidAmount);
   const pendingSum = owing.filter((p) => p.status !== "OVERDUE").reduce((a, p) => a + left(p), 0);
@@ -225,6 +236,20 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
             </tbody>
           </table>
         </div>
+        {pages > 1 && (
+          <nav aria-label="Страницы" style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 18px", borderTop: "1px solid var(--line-2)", flexWrap: "wrap" }}>
+            <span className="mut num" style={{ fontSize: 12.5, marginRight: "auto" }}>
+              {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} из {total}
+            </span>
+            {page > 1 ? (
+              <Link className="btn ghost" href={pageHref(page - 1)}>← Новее</Link>
+            ) : null}
+            <span className="mut num" style={{ fontSize: 12.5 }}>стр. {page} / {pages}</span>
+            {page < pages ? (
+              <Link className="btn ghost" href={pageHref(page + 1)}>Старше →</Link>
+            ) : null}
+          </nav>
+        )}
       </div>
     </>
   );

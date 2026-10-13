@@ -21,13 +21,19 @@ export async function recalc(studentId: string) {
 export async function markOverdue() {
   const today = new Date();
   const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  const res = await prisma.payment.updateMany({
+  // Сначала узнаём, какие счета станут просроченными: пересчитывать долг нужно
+  // только их ученикам, а не всем должникам школы. Обычно список пуст — тогда это
+  // один быстрый запрос по индексу (status, date), и страницы его не замечают.
+  const due = await prisma.payment.findMany({
     where: { status: "PENDING", date: { lt: start } },
+    select: { id: true, studentId: true },
+  });
+  if (due.length === 0) return 0;
+  const res = await prisma.payment.updateMany({
+    where: { id: { in: due.map((p) => p.id) }, status: "PENDING" },
     data: { status: "OVERDUE" },
   });
-  if (res.count > 0) {
-    const affected = await prisma.payment.findMany({ where: { status: "OVERDUE" }, select: { studentId: true }, distinct: ["studentId"] });
-    for (const a of affected) await recalc(a.studentId);
-  }
+  const students = [...new Set(due.map((p) => p.studentId))];
+  await Promise.all(students.map((id) => recalc(id)));
   return res.count;
 }

@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { sendTelegram } from "@/lib/telegram";
+import { sendTelegram, sendTelegramChoices, settleTelegramChoice } from "@/lib/telegram";
+import { isLoginToken } from "@/lib/device";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,12 @@ export async function POST(req: NextRequest) {
 
   let update: {
     message?: { chat?: { id?: number | string }; text?: string; from?: { first_name?: string; id?: number | string } };
+    callback_query?: {
+      id: string;
+      data?: string;
+      from?: { id?: number | string };
+      message?: { message_id?: number; chat?: { id?: number | string } };
+    };
   };
   try {
     update = await req.json();
@@ -24,6 +31,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+  // Нажатие «Да, это я» / «Нет» под вопросом о входе
+  if (update.callback_query) {
+    await handleLoginChoice(update.callback_query);
+    return Response.json({ ok: true });
+  }
+
   const msg = update.message;
   const chatId = msg?.chat?.id;
   const text = (msg?.text ?? "").trim();
@@ -61,9 +74,27 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (userId) {
-        await prisma.loginToken.upsert({ where: { token }, create: { token, userId }, update: { userId } });
-        await sendTelegram(chat, `✅ Вход подтверждён! Вернитесь на страницу входа — вы уже входите.`);
+      if (userId && isLoginToken(token)) {
+        // Не входим сразу: ссылку мог прислать чужой человек («подтвердите заявку»),
+        // и тогда вошёл бы он, а не владелец Telegram. Спрашиваем, показывая устройство.
+        await prisma.loginToken.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 60 * 60 * 1000) } } });
+        const row = await prisma.loginToken.upsert({
+          where: { token },
+          create: { token, pendingUserId: userId },
+          update: { pendingUserId: userId, userId: null },
+          select: { device: true },
+        });
+        await sendTelegramChoices(
+          chat,
+          `🔐 Вход в CRM МатАкадемии\nУстройство: <b>${escapeHtml(row.device ?? "неизвестное устройство")}</b>\n\n` +
+            `Это вы сейчас нажали «Войти через Telegram» на сайте? Если нет — нажмите «Нет» и никому не пересылайте ссылки входа.`,
+          [
+            { text: "✅ Да, это я", data: `lc_${token}` },
+            { text: "✖️ Нет", data: `ld_${token}` },
+          ]
+        );
+      } else if (userId) {
+        await sendTelegram(chat, `⚠️ Ссылка входа повреждена. Откройте страницу входа и нажмите кнопку ещё раз.`);
       } else {
         await sendTelegram(chat, `⚠️ Ваш Telegram не привязан к учётной записи. Преподавателю нужна ссылка «Вход по Telegram» из карточки, ученику — личная ссылка на кабинет от школы.`);
       }
@@ -215,4 +246,54 @@ export async function POST(req: NextRequest) {
   }
 
   return Response.json({ ok: true });
+}
+
+const escapeHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Ответ на вопрос «Это вы?». Подтвердить может только тот же Telegram, который нажал
+// «Старт», и только в течение 10 минут — столько же живёт токен входа.
+async function handleLoginChoice(cb: {
+  id: string;
+  data?: string;
+  from?: { id?: number | string };
+  message?: { message_id?: number; chat?: { id?: number | string } };
+}) {
+  const data = cb.data ?? "";
+  const chat = cb.message?.chat?.id != null ? String(cb.message.chat.id) : null;
+  const messageId = cb.message?.message_id ?? null;
+  const confirm = data.startsWith("lc_");
+  const deny = data.startsWith("ld_");
+  const token = data.slice(3);
+  if ((!confirm && !deny) || !isLoginToken(token)) {
+    await settleTelegramChoice(cb.id, null, null, "");
+    return;
+  }
+
+  const row = await prisma.loginToken.findUnique({ where: { token } });
+  const fresh = row && Date.now() - row.createdAt.getTime() <= 10 * 60 * 1000;
+  if (!row || !fresh || !row.pendingUserId) {
+    await settleTelegramChoice(cb.id, chat, messageId, "⌛ Запрос на вход устарел. Начните вход на сайте заново.");
+    return;
+  }
+
+  // Кнопку должен нажать владелец того же аккаунта, что и при «Старте»
+  const fromId = cb.from?.id != null ? String(cb.from.id) : "";
+  const owner = await prisma.user.findUnique({ where: { telegramUserId: fromId }, select: { id: true } });
+  const student = owner
+    ? null
+    : await prisma.student.findFirst({ where: { joinTgId: fromId, userId: row.pendingUserId }, select: { id: true } });
+  const sameAccount = owner?.id === row.pendingUserId || student != null;
+  if (!sameAccount) {
+    await settleTelegramChoice(cb.id, chat, messageId, "⚠️ Подтвердить вход может только владелец аккаунта.");
+    return;
+  }
+
+  if (deny) {
+    await prisma.loginToken.delete({ where: { token } }).catch(() => {});
+    await settleTelegramChoice(cb.id, chat, messageId, "✖️ Вход отменён. Если это были не вы — никому не пересылайте ссылки входа.");
+    return;
+  }
+
+  await prisma.loginToken.update({ where: { token }, data: { userId: row.pendingUserId, pendingUserId: null } });
+  await settleTelegramChoice(cb.id, chat, messageId, "✅ Вход подтверждён. Вернитесь на страницу входа — вы уже входите.");
 }
