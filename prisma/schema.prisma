@@ -419,6 +419,8 @@ model Attendance {
   excused   Boolean  @default(false) // если отсутствовал: true = уважительная (учителю не платят за этот день)
 
   @@unique([lessonId, studentId, date])
+  @@index([studentId]) // пересчёт % посещаемости ученика
+  @@index([date]) // выборки за месяц: журнал, зарплата
 }
 
 // Лиды / воронка продаж
@@ -499,6 +501,8 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  @@index([entity])
+  @@index([userName])
 }
 
 // Оплаты

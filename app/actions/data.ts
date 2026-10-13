@@ -778,6 +778,10 @@ export async function deleteSubject(id: string) {
 // персональная, брат/сестра, промокод). Счёт на N месяцев: доля предмета в зарплате
 // делится между этими месяцами (Payment.months). Абонементы больше не создаются.
 export async function createInvoice(studentId: string, formData: FormData) {
+  return asResult(() => createInvoiceImpl(studentId, formData));
+}
+
+async function createInvoiceImpl(studentId: string, formData: FormData) {
   await assertEditor("finance");
   const months = Math.min(12, Math.max(1, int(formData.get("months")) || 1));
   const start = parseDate(formData.get("startDate")) ?? new Date();
@@ -798,7 +802,7 @@ export async function createInvoice(studentId: string, formData: FormData) {
     const subs = await prisma.subject.findMany({ where: { id: { in: subjectIds } } });
     // сохранить порядок выбора
     const chosen = subjectIds.map((id) => subs.find((s) => s.id === id)).filter(Boolean) as typeof subs;
-    if (chosen.length === 0) throw new Error("Предметы не найдены");
+    if (chosen.length === 0) throw new UserError("Предметы не найдены");
 
     const discName = str(formData.get("discount"));
     const disc = parseDiscounts(settings.discounts).find((d) => d.name === discName);
@@ -824,9 +828,9 @@ export async function createInvoice(studentId: string, formData: FormData) {
     if (codeInput) {
       const code = codeInput.trim().toUpperCase().replace(/\s+/g, "");
       const promo = await prisma.promoCode.findUnique({ where: { code } });
-      if (!promo || !promo.active) throw new Error("Промокод не найден или отключён");
-      if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) throw new Error("Промокод исчерпан");
-      if (promo.expiresAt && promo.expiresAt < new Date()) throw new Error("Срок действия промокода истёк");
+      if (!promo || !promo.active) throw new UserError("Промокод не найден или отключён");
+      if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) throw new UserError("Промокод исчерпан");
+      if (promo.expiresAt && promo.expiresAt < new Date()) throw new UserError("Срок действия промокода истёк");
       promoPct = promo.percent;
       promoApplyId = promo.id;
       promoMaxUses = promo.maxUses;
@@ -851,7 +855,7 @@ export async function createInvoice(studentId: string, formData: FormData) {
     basePrice = price;
   }
 
-  if (price <= 0) throw new Error("Сумма счёта должна быть больше нуля");
+  if (price <= 0) throw new UserError("Сумма счёта должна быть больше нуля");
 
   const purpose = months > 1 ? `${plan} · ${months} мес.` : plan;
   const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
@@ -862,7 +866,7 @@ export async function createInvoice(studentId: string, formData: FormData) {
         where: promoMaxUses > 0 ? { id: promoApplyId, usedCount: { lt: promoMaxUses } } : { id: promoApplyId },
         data: { usedCount: { increment: 1 } },
       });
-      if (used.count === 0) throw new Error("Промокод исчерпан");
+      if (used.count === 0) throw new UserError("Промокод исчерпан");
     }
     // счёт хранит разбивку по предметам — по ней считаются доход по предметам и зарплата
     await tx.payment.create({
@@ -1894,6 +1898,18 @@ export async function createPayment(formData: FormData) {
 
 const STALE_PAYMENT = "Счёт уже изменился (возможно, оплату приняли в другой вкладке). Обновите страницу.";
 
+// Ошибка, которую должен увидеть пользователь. Брошенный текст в продакшне до браузера
+// не доходит, поэтому формы получают его как результат: { error }.
+class UserError extends Error {}
+async function asResult(run: () => Promise<unknown>): Promise<{ error?: string } | void> {
+  try {
+    await run();
+  } catch (e) {
+    if (e instanceof UserError) return { error: e.message };
+    throw e;
+  }
+}
+
 // Отметить счёт оплаченным (гасит долг)
 // Принять оплату по счёту: сумма по умолчанию — весь остаток (кнопка «Оплачен»),
 // либо частичная сумма из формы.
@@ -1906,7 +1922,7 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
   if (!payment) throw new Error("Счёт не найден");
 
   const left = outstanding(payment.amount, payment.paidAmount);
-  if (left <= 0) throw new Error("Счёт уже оплачен полностью");
+  if (left <= 0) throw new UserError("Счёт уже оплачен полностью");
   const sum = amountIn == null ? left : Math.min(Math.max(1, amountIn), left);
 
   const session = await auth();
@@ -1922,7 +1938,7 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
         status: paymentStatus(payment.amount, paidAmount, payment.date),
       },
     });
-    if (upd.count === 0) throw new Error(STALE_PAYMENT);
+    if (upd.count === 0) throw new UserError(STALE_PAYMENT);
     await tx.paymentTx.create({
       data: {
         paymentId,
@@ -1951,11 +1967,13 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
 // Приём оплаты из формы (частичной или полной).
 export async function receivePaymentForm(paymentId: string, formData: FormData) {
   const asked = int(formData.get("amount"));
-  return receivePayment(
-    paymentId,
-    asked > 0 ? asked : null,
-    str(formData.get("method")) || undefined,
-    str(formData.get("date")) || undefined
+  return asResult(() =>
+    receivePayment(
+      paymentId,
+      asked > 0 ? asked : null,
+      str(formData.get("method")) || undefined,
+      str(formData.get("date")) || undefined
+    )
   );
 }
 
@@ -1966,6 +1984,10 @@ export async function markPaid(paymentId: string, method?: string) {
 
 // Возврат денег родителю. Уменьшает доход тем месяцем, когда возврат сделан.
 export async function refundPayment(paymentId: string, formData: FormData) {
+  return asResult(() => refundPaymentImpl(paymentId, formData));
+}
+
+async function refundPaymentImpl(paymentId: string, formData: FormData) {
   await assertEditor("finance");
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
@@ -1974,7 +1996,7 @@ export async function refundPayment(paymentId: string, formData: FormData) {
   if (!payment) throw new Error("Счёт не найден");
 
   const canRefund = maxRefundable(payment.paidAmount, payment.refundedAmount);
-  if (canRefund <= 0) throw new Error("По этому счёту возвращать нечего");
+  if (canRefund <= 0) throw new UserError("По этому счёту возвращать нечего");
   const asked = int(formData.get("amount"));
   const sum = Math.min(Math.max(1, asked || canRefund), canRefund);
 
@@ -1985,7 +2007,7 @@ export async function refundPayment(paymentId: string, formData: FormData) {
       where: { id: paymentId, refundedAmount: payment.refundedAmount, paidAmount: payment.paidAmount },
       data: { refundedAmount: payment.refundedAmount + sum },
     });
-    if (upd.count === 0) throw new Error(STALE_PAYMENT);
+    if (upd.count === 0) throw new UserError(STALE_PAYMENT);
     await tx.paymentTx.create({
       data: {
         paymentId,

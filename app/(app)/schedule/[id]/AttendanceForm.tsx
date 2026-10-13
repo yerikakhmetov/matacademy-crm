@@ -106,7 +106,7 @@ export function AttendanceForm({
             <span className="chip c-bad"><span className="d" />Занятие отменено</span>
           </div>
           <div style={{ padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 34, marginBottom: 8 }}>🚫</div>
+            <div aria-hidden="true" style={{ fontSize: 34, marginBottom: 8 }}>🚫</div>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>Занятие не состоялось</div>
             <p className="mut" style={{ fontSize: 13, margin: "0 0 4px" }}>
               {cancelReason || "Причина не указана"}
@@ -175,7 +175,7 @@ export function AttendanceForm({
           {students.map((s) => {
             const cur = state[s.id];
             return (
-              <div key={s.id} className="list-row">
+              <div key={s.id} className="list-row att-row">
                 <div className="av2" style={{ background: avatarColor(s.name) }}>
                   {initials(s.name)}
                 </div>
@@ -184,7 +184,7 @@ export function AttendanceForm({
                   <div className="mut" style={{ fontSize: 12 }}>{s.grade ?? "—"}</div>
                 </div>
                 <input type="hidden" name={`att_${s.id}`} value={cur} />
-                <div style={{ display: "flex", gap: 4, flex: "none" }}>
+                <div className="att-btns" role="group" aria-label={`Отметка: ${s.name}`} style={{ display: "flex", gap: 4, flex: "none" }}>
                   {STATES.map((st) => {
                     const active = cur === st.key;
                     return (
@@ -193,6 +193,7 @@ export function AttendanceForm({
                         type="button"
                         disabled={!editor}
                         onClick={() => setState((p) => ({ ...p, [s.id]: st.key }))}
+                        aria-pressed={active}
                         className={`chip ${active ? st.cls : "c-mut"}`}
                         style={{ minWidth: 52, justifyContent: "center", cursor: editor ? "pointer" : "default", opacity: active ? 1 : 0.55, border: "none" }}
                       >
@@ -246,13 +247,15 @@ export function AttendanceForm({
           )}
 
           {editor && students.length > 0 && (
-            <div className="modal-f" style={{ borderTop: "1px solid var(--line-2)" }}>
-              {saved && (
-                <span className="chip c-ok" style={{ marginRight: "auto" }}>
-                  <span className="d" />
-                  Сохранено
-                </span>
-              )}
+            <div className="modal-f att-savebar" style={{ borderTop: "1px solid var(--line-2)" }}>
+              <span role="status" aria-live="polite" style={{ marginRight: "auto" }}>
+                {saved && (
+                  <span className="chip c-ok">
+                    <span className="d" />
+                    Сохранено
+                  </span>
+                )}
+              </span>
               <button className="btn ghost" type="button" onClick={allPresent} disabled={pending} title="Отметить всех присутствующими">
                 Все пришли
               </button>

@@ -39,13 +39,19 @@ export function TimedTest({
   const [answers, setAnswers] = useState<number[]>(initialAnswers);
   const [left, setLeft] = useState(() => deadline - Date.now());
   const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState<Map<number, number>>(new Map()); // index -> выбор, который не сохранился
+  const [confirming, setConfirming] = useState(false);
   const [, start] = useTransition();
   const finishing = useRef(false);
+  // Ответы отправляются строго по очереди: сервер переписывает массив ответов целиком,
+  // и два одновременных запроса затирали бы друг друга.
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   const finish = () => {
     if (finishing.current) return;
     finishing.current = true;
     start(async () => {
+      await queue.current; // сначала дописать ответы, потом считать результат
       await finishTestAttempt(testId);
       router.refresh();
     });
@@ -64,17 +70,36 @@ export function TimedTest({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deadline]);
 
+  const send = (index: number, choice: number) => {
+    setSaving(true);
+    queue.current = queue.current.then(async () => {
+      try {
+        await saveTestAnswer(testId, index, choice);
+        setFailed((m) => {
+          if (!m.has(index)) return m;
+          const next = new Map(m);
+          next.delete(index);
+          return next;
+        });
+      } catch {
+        setFailed((m) => new Map(m).set(index, choice));
+      } finally {
+        setSaving(false);
+      }
+    });
+  };
+
   const choose = (index: number, choice: number) => {
     setAnswers((prev) => {
       const next = [...prev];
       next[index] = choice;
       return next;
     });
-    setSaving(true);
-    start(async () => {
-      await saveTestAnswer(testId, index, choice);
-      setSaving(false);
-    });
+    send(index, choice);
+  };
+
+  const retryFailed = () => {
+    for (const [index, choice] of failed) send(index, choice);
   };
 
   const answered = answers.filter((a) => a >= 0).length;
@@ -96,18 +121,51 @@ export function TimedTest({
           borderColor: urgent ? "var(--bad)" : "var(--line)",
         }}
       >
-        <div className="num" style={{ fontSize: 22, fontWeight: 800, color: urgent ? "var(--bad)" : "var(--ink)" }}>
+        <div
+          className="num"
+          role="timer"
+          aria-label={t(locale, "test.timeLeft")}
+          style={{ fontSize: 22, fontWeight: 800, color: urgent ? "var(--bad)" : "var(--ink)" }}
+        >
+          {urgent && <span aria-hidden="true">⏱ </span>}
           {mmss(left)}
         </div>
-        <div className="mut" style={{ fontSize: 12.5, flex: 1 }}>
+        <div className="mut" style={{ fontSize: 12.5, flex: 1, minWidth: 0 }}>
           {t(locale, "test.answeredOf", { n: answered, total: questions.length })}
           {saving ? ` · ${t(locale, "test.saving")}` : ""}
         </div>
-        <button className="btn" type="button" onClick={finish}>
-          <Icon name="check" size={16} />
-          {t(locale, "test.submit")}
-        </button>
+        {!confirming && (
+          <button className="btn" type="button" onClick={() => setConfirming(true)}>
+            <Icon name="check" size={16} />
+            {t(locale, "test.submit")}
+          </button>
+        )}
       </div>
+
+      {confirming && (
+        <div className="card" role="alertdialog" aria-live="assertive" style={{ padding: 14, marginBottom: 12, borderColor: "var(--accent)" }}>
+          <p style={{ margin: "0 0 10px", fontWeight: 600 }}>
+            {t(locale, "test.confirmSubmit", { n: answered, total: questions.length })}
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn" type="button" onClick={finish}>
+              {t(locale, "test.confirmYes")}
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setConfirming(false)}>
+              {t(locale, "test.confirmNo")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {failed.size > 0 && (
+        <div className="err" role="alert" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{ flex: 1 }}>{t(locale, "test.saveFailed", { n: failed.size })}</span>
+          <button className="btn" type="button" onClick={retryFailed}>
+            {t(locale, "test.retrySave")}
+          </button>
+        </div>
+      )}
 
       {questions.map((q, shown) => (
         <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
@@ -122,7 +180,8 @@ export function TimedTest({
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
-                    padding: "9px 12px",
+                    padding: "12px 12px",
+                    minHeight: 48,
                     borderRadius: 9,
                     border: `1.5px solid ${active ? "var(--accent)" : "var(--line-2)"}`,
                     background: active ? "var(--accent-soft)" : "transparent",

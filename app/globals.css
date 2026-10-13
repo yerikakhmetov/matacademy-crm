@@ -2,10 +2,12 @@
 
 :root{
   --ground:#F6F7FB; --surface:#FFFFFF; --surface-2:#FBFCFE; --sidebar:#141A2E;
-  --ink:#161B29; --ink-2:#4A5468; --ink-3:#8A93A6; --line:#E7EAF2; --line-2:#EEF1F7;
-  --accent:#3A5AE0; --accent-soft:#EEF1FE; --accent-ink:#2A46C0;
+  --ink:#161B29; --ink-2:#4A5468; --ink-3:#5F6980; --line:#E7EAF2; --line-2:#EEF1F7;
+  --accent:#3A5AE0; --accent-soft:#EEF1FE; --accent-ink:#2A46C0; --btn-bg:var(--accent);
   --ok:#2F9E44; --ok-soft:#E7F6EA; --warn:#F08C00; --warn-soft:#FDF1DE; --bad:#E03131; --bad-soft:#FCEBEB;
-  --amber:#B4690E; --violet:#7048E8; --violet-soft:#F0ECFE; --teal:#0C8599; --teal-soft:#E3F4F6;
+  --amber:#8F5200; --violet:#7048E8; --violet-soft:#F0ECFE; --teal:#0C8599; --teal-soft:#E3F4F6;
+  /* текст на мягких фонах статусов — с контрастом не ниже 4.5:1 */
+  --ok-ink:#1E7A33; --bad-ink:#B42323; --teal-ink:#0A6B7B;
   --shadow:0 1px 2px rgba(20,26,46,.04),0 6px 20px rgba(20,26,46,.05);
   --shadow-lg:0 12px 40px rgba(20,26,46,.16);
   --r:12px; --r-sm:8px;
@@ -13,8 +15,9 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --ground:#0E1220; --surface:#161C2E; --surface-2:#1A2135; --sidebar:#0B0F1C;
-    --ink:#EAEDF6; --ink-2:#A6AEC4; --ink-3:#6C7591; --line:#28304a; --line-2:#222a42;
-    --accent:#6E88F5; --accent-soft:#1D2647; --accent-ink:#9DB0FF;
+    --ink:#EAEDF6; --ink-2:#A6AEC4; --ink-3:#8B94B0; --line:#28304a; --line-2:#222a42;
+    --accent:#6E88F5; --accent-soft:#1D2647; --accent-ink:#9DB0FF; --btn-bg:#4A66E4;
+    --ok-ink:#51C46B; --bad-ink:#F16A6A; --teal-ink:#3EB6C9;
     --ok:#51C46B; --ok-soft:#132a1c; --warn:#F0A73C; --warn-soft:#33260f; --bad:#F16A6A; --bad-soft:#331717;
     --amber:#E0A24A; --violet:#9B7BFF; --violet-soft:#241d40; --teal:#3EB6C9; --teal-soft:#0f2b30;
     --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
@@ -23,8 +26,9 @@
 }
 :root[data-theme="dark"]{
   --ground:#0E1220; --surface:#161C2E; --surface-2:#1A2135; --sidebar:#0B0F1C;
-  --ink:#EAEDF6; --ink-2:#A6AEC4; --ink-3:#6C7591; --line:#28304a; --line-2:#222a42;
-  --accent:#6E88F5; --accent-soft:#1D2647; --accent-ink:#9DB0FF;
+  --ink:#EAEDF6; --ink-2:#A6AEC4; --ink-3:#8B94B0; --line:#28304a; --line-2:#222a42;
+  --accent:#6E88F5; --accent-soft:#1D2647; --accent-ink:#9DB0FF; --btn-bg:#4A66E4;
+  --ok-ink:#51C46B; --bad-ink:#F16A6A; --teal-ink:#3EB6C9;
   --ok:#51C46B; --ok-soft:#132a1c; --warn:#F0A73C; --warn-soft:#33260f; --bad:#F16A6A; --bad-soft:#331717;
   --amber:#E0A24A; --violet:#9B7BFF; --violet-soft:#241d40; --teal:#3EB6C9; --teal-soft:#0f2b30;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
@@ -50,7 +54,7 @@ input,select,textarea{font-family:inherit}
 .logo svg{width:22px;height:22px}
 .brand b{font-family:var(--font-display),"Onest",system-ui,sans-serif;color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;display:block;line-height:1.1}
 .brand span{font-size:11px;color:#7C86A6;letter-spacing:.02em}
-.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#5E6789;padding:14px 10px 6px;font-weight:600}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#8D97B8;padding:14px 10px 6px;font-weight:600}
 .nav-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:#AEB6D0;font-weight:500;font-size:13.5px;width:100%;text-align:left;transition:.14s}
 .nav-item svg{width:18px;height:18px;flex:none;opacity:.85}
 .nav-item:hover{background:rgba(255,255,255,.05);color:#E6EAF6}
@@ -82,7 +86,7 @@ input,select,textarea{font-family:inherit}
 .icon-btn svg{width:18px;height:18px}
 .icon-btn .dot{position:absolute;top:8px;right:9px;width:7px;height:7px;background:var(--bad);border-radius:50%;border:2px solid var(--surface)}
 
-.btn{display:inline-flex;align-items:center;gap:7px;background:var(--accent);color:#fff;padding:9px 15px;border-radius:9px;font-weight:600;font-size:13px;box-shadow:0 2px 8px rgba(58,90,224,.28);border:none;transition:.14s}
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--btn-bg);color:#fff;padding:9px 15px;border-radius:9px;font-weight:600;font-size:13px;box-shadow:0 2px 8px rgba(58,90,224,.28);border:none;transition:.14s}
 .btn:hover{background:var(--accent-ink)}
 .btn:disabled{opacity:.6;cursor:default}
 .btn svg{width:16px;height:16px}
@@ -108,13 +112,13 @@ input,select,textarea{font-family:inherit}
 
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap}
 .chip .d{width:6px;height:6px;border-radius:50%}
-.c-ok{background:var(--ok-soft);color:var(--ok)} .c-ok .d{background:var(--ok)}
+.c-ok{background:var(--ok-soft);color:var(--ok-ink)} .c-ok .d{background:var(--ok)}
 .c-warn{background:var(--warn-soft);color:var(--amber)} .c-warn .d{background:var(--warn)}
-.c-bad{background:var(--bad-soft);color:var(--bad)} .c-bad .d{background:var(--bad)}
+.c-bad{background:var(--bad-soft);color:var(--bad-ink)} .c-bad .d{background:var(--bad)}
 .c-mut{background:var(--line-2);color:var(--ink-2)} .c-mut .d{background:var(--ink-3)}
 .c-acc{background:var(--accent-soft);color:var(--accent-ink)} .c-acc .d{background:var(--accent)}
 .c-vio{background:var(--violet-soft);color:var(--violet)} .c-vio .d{background:var(--violet)}
-.c-teal{background:var(--teal-soft);color:var(--teal)} .c-teal .d{background:var(--teal)}
+.c-teal{background:var(--teal-soft);color:var(--teal-ink)} .c-teal .d{background:var(--teal)}
 
 .card-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line-2)}
 .card-h h3{font-size:15px}
@@ -320,3 +324,35 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
 .err{background:var(--bad-soft);color:var(--bad);padding:10px 12px;border-radius:9px;font-size:13px;font-weight:600;margin-bottom:14px}
 .demo-hint{margin-top:20px;padding-top:18px;border-top:1px solid var(--line-2);font-size:12px;color:var(--ink-3);line-height:1.7}
 .demo-hint b{color:var(--ink-2)}
+
+/* Каркас загрузки (loading.tsx) */
+.skel{background:linear-gradient(90deg,var(--line-2) 0%,var(--line) 50%,var(--line-2) 100%);background-size:200% 100%;border-radius:8px;animation:skel 1.2s ease-in-out infinite}
+@keyframes skel{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
+/* Видимый фокус с клавиатуры (WCAG 2.4.7). Мышью кликнутые элементы его не показывают. */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sidebar :focus-visible{outline-color:#9DB0FF}
+.field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible,.search input:focus-visible{outline:2px solid var(--accent);outline-offset:0}
+
+/* Телефон: поля от 16px — иначе iPhone увеличивает страницу при каждом нажатии на поле */
+@media(max-width:760px){
+  .field input:not([type=checkbox]):not([type=radio]),.field select,.field textarea,.search input{font-size:16px}
+}
+/* Сенсорный экран: цели нажатия не меньше 44px (WCAG 2.5.8 / Apple HIG) */
+@media(pointer:coarse){
+  .btn,.nav-item,.seg a,.seg button{min-height:44px}
+  .icon-btn,.close-x{min-width:44px;min-height:44px}
+  .field input[type=checkbox],.field input[type=radio]{width:20px;height:20px}
+}
+
+/* Отметка посещаемости с телефона: кнопки сохранения всегда под рукой,
+   строка ученика — в две линии с крупными кнопками */
+.att-savebar{position:sticky;bottom:0;background:var(--surface);z-index:4;border-radius:0 0 var(--r) var(--r)}
+@media(max-width:560px){
+  .att-row{flex-wrap:wrap}
+  .att-btns{width:100%;padding-left:0}
+  .att-btns .chip{flex:1;min-height:44px;font-size:13px}
+  .att-savebar{flex-wrap:wrap}
+  .att-savebar .btn{flex:1;justify-content:center}
+}
