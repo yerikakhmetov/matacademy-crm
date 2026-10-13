@@ -211,9 +211,10 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
 
 // ---------- Куратор ----------
 //
-// Куратор не ведёт занятия, а закреплён за группами. Его зарплата — фиксированная
-// ставка с каждого ученика, который в этом месяце оплатил предмет группы куратора.
-// Ученик, ходящий на три предмета к одному куратору, приносит ему три ставки.
+// Куратор не ведёт занятия, а закреплён за группами. Его зарплата считается по каждой
+// группе отдельно: ставка группы × ученики этой группы, оплатившие её предмет в этом месяце.
+// Две группы математики — два отдельных начисления; ученик на трёх предметах у одного
+// куратора приносит три ставки. Ставка: своя у группы → у предмета → общая из настроек.
 // Удержание школы не применяется: ставка уже «на руки».
 // Если ученик в этом месяце ходил в несколько групп одного предмета, ставка делится
 // между группами пропорционально оплачиваемым занятиям. Без отметок — целиком той
@@ -221,17 +222,18 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
 
 export type PayrollCurator = {
   id: string;
-  groups: { id: string; subjectId: string | null; studentIds: string[] }[];
+  /** rate — своя ставка группы, ₸ с ученика; 0/нет = ставка предмета или общая */
+  groups: { id: string; subjectId: string | null; studentIds: string[]; rate?: number }[];
 };
 
-export type CuratorSubjectRow = { subjectId: string; seats: number; rate: number; amount: number };
+export type CuratorGroupRow = { groupId: string; subjectId: string; seats: number; rate: number; amount: number };
 
 export type CuratorRow = {
   curatorId: string;
   seats: number; // оплаченных ученико-предметов
   students: number; // уникальных учеников
   salary: number; // ₸ к выплате
-  bySubject: CuratorSubjectRow[];
+  byGroup: CuratorGroupRow[];
 };
 
 export type CuratorPayrollInput = {
@@ -248,7 +250,13 @@ export type CuratorPayrollInput = {
   allGroups?: { id: string; subjectId: string | null }[];
 };
 
-export function curatorRateFor(subjectId: string, defaultRate: number, subjectRates?: Map<string, number>): number {
+export function curatorRateFor(
+  subjectId: string,
+  defaultRate: number,
+  subjectRates?: Map<string, number>,
+  groupRate = 0
+): number {
+  if (groupRate > 0) return groupRate;
   const own = subjectRates?.get(subjectId) ?? 0;
   return Math.max(0, own > 0 ? own : defaultRate);
 }
@@ -267,47 +275,35 @@ export function computeCuratorRows({
 
   for (const c of curators) {
     const students = new Set<string>();
-    // Без отметок ученик в двух группах одного предмета у одного куратора — одна ставка
-    const seen = new Set<string>();
-    const bySubject = new Map<string, CuratorSubjectRow>();
-    const seatKeys = new Map<string, Set<string>>();
+    const byGroup: CuratorGroupRow[] = [];
 
     for (const g of c.groups) {
       if (!g.subjectId) continue;
-      const rate = curatorRateFor(g.subjectId, defaultRate, subjectRates);
+      const rate = curatorRateFor(g.subjectId, defaultRate, subjectRates, g.rate ?? 0);
       const members = new Set(g.studentIds);
       const ids = new Set([...g.studentIds, ...(attendedByGroup.get(g.id) ?? [])]);
+      const row: CuratorGroupRow = { groupId: g.id, subjectId: g.subjectId, seats: 0, rate, amount: 0 };
       for (const studentId of ids) {
         const k = feeKey(studentId, g.subjectId);
         if ((monthlyFee.get(k) ?? 0) <= 0) continue;
         const total = totals.get(k) ?? 0;
-        let frac: number;
-        if (total > 0) {
-          frac = (payable.get(payableKey(g.id, studentId)) ?? 0) / total;
-        } else {
-          if (!members.has(studentId) || seen.has(k)) continue;
-          seen.add(k);
-          frac = 1;
-        }
+        // Ходил в несколько групп предмета — ставка делится по занятиям в каждой.
+        // Отметок нет — ставка группе, где ученик числится.
+        const frac = total > 0 ? (payable.get(payableKey(g.id, studentId)) ?? 0) / total : members.has(studentId) ? 1 : 0;
         if (frac <= 0) continue;
         students.add(studentId);
-        let row = bySubject.get(g.subjectId);
-        if (!row) bySubject.set(g.subjectId, (row = { subjectId: g.subjectId, seats: 0, rate, amount: 0 }));
-        let seats = seatKeys.get(g.subjectId);
-        if (!seats) seatKeys.set(g.subjectId, (seats = new Set()));
-        seats.add(studentId);
-        row.seats = seats.size;
+        row.seats += 1;
         row.amount += rate * frac;
       }
+      if (row.seats > 0) byGroup.push({ ...row, amount: Math.round(row.amount) });
     }
 
-    const list = [...bySubject.values()].map((r) => ({ ...r, amount: Math.round(r.amount) }));
     rows.set(c.id, {
       curatorId: c.id,
-      seats: list.reduce((a, r) => a + r.seats, 0),
+      seats: byGroup.reduce((a, r) => a + r.seats, 0),
       students: students.size,
-      salary: Math.round(list.reduce((a, r) => a + r.amount, 0)),
-      bySubject: list,
+      salary: byGroup.reduce((a, r) => a + r.amount, 0),
+      byGroup,
     });
   }
   return rows;

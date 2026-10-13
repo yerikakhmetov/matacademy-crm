@@ -30,15 +30,15 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
   const settings = await getSettings();
   const feePct = settings.schoolFeePct;
 
-  const [teachers, records, live, curators, curatorLive, subjects] = await Promise.all([
+  const [teachers, records, live, curators, curatorLive, curatedGroups] = await Promise.all([
     prisma.teacher.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
     prisma.payrollRecord.findMany({ where: { year: sel.year, month: sel.month0 } }),
     gatherPayroll(sel.year, sel.month0, feePct),
     prisma.user.findMany({ where: { role: "CURATOR" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     gatherCuratorPayroll(sel.year, sel.month0, settings.curatorRate),
-    prisma.subject.findMany({ select: { id: true, name: true } }),
+    prisma.group.findMany({ where: { curatorId: { not: null } }, select: { id: true, name: true } }),
   ]);
-  const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+  const groupName = new Map(curatedGroups.map((g) => [g.id, g.name]));
   const curatorRows = curators.map((c) => ({ c, row: curatorLive.get(c.id) }));
   const curatorTotal = curatorRows.reduce((a, r) => a + (r.row?.salary ?? 0), 0);
 
@@ -126,7 +126,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
         <div className="card" style={{ marginTop: 16 }}>
           <div className="card-h">
             <h3>Кураторы</h3>
-            <span className="mut" style={{ fontSize: 12.5 }}>{money(curatorTotal)} · ставка {money(settings.curatorRate)} с ученика за предмет</span>
+            <span className="mut" style={{ fontSize: 12.5 }}>{money(curatorTotal)} · общая ставка {money(settings.curatorRate)} с ученика</span>
           </div>
           <div className="table-wrap">
             <table>
@@ -134,8 +134,8 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                 <tr>
                   <th>Куратор</th>
                   <th className="right">Учеников</th>
-                  <th className="right">Оплач. предметов</th>
-                  <th>По предметам</th>
+                  <th className="right">Оплач. мест</th>
+                  <th>По группам</th>
                   <th className="right">К выплате</th>
                 </tr>
               </thead>
@@ -153,8 +153,8 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     <td className="right mut num">{row?.students ?? 0}</td>
                     <td className="right mut num">{row?.seats ?? 0}</td>
                     <td className="mut" style={{ fontSize: 12.5 }}>
-                      {row && row.bySubject.length > 0
-                        ? row.bySubject.map((b) => `${subjectName.get(b.subjectId) ?? "—"}: ${b.seats} уч. · ${money(b.amount)}`).join(" · ")
+                      {row && row.byGroup.length > 0
+                        ? row.byGroup.map((b) => `${groupName.get(b.groupId) ?? "—"}: ${b.seats} уч. · ${money(b.amount)}`).join(" · ")
                         : "—"}
                     </td>
                     <td className="right money num" style={{ color: (row?.salary ?? 0) > 0 ? "var(--ok)" : "var(--ink-3)" }}>{money(row?.salary ?? 0)}</td>
@@ -167,10 +167,11 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
       )}
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        Куратор получает фиксированную ставку в месяц с каждого ученика своих групп, оплатившего предмет
-        (по оплаченным счетам): ученик с тремя предметами у одного куратора приносит три ставки. Если ученик
-        в этом месяце ходил в несколько групп одного предмета, ставка делится по числу занятий в каждой.
-        Общая ставка — в настройках, у предмета может быть своя. Удержание школы на неё не влияет.
+        Куратор получает по каждой своей группе: ставка группы × ученики группы, оплатившие месяц
+        (по оплаченным счетам). Две группы математики — два отдельных начисления. Ставка задаётся в карточке
+        группы; если там пусто — ставка предмета, затем общая из настроек. Если ученик в этом месяце ходил
+        в несколько групп одного предмета, ставка делится по числу занятий в каждой.
+        Удержание школы на неё не влияет.
         Расчёт кураторов всегда живой — «Зафиксировать месяц» относится к преподавателям.
       </p>
 

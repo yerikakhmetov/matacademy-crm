@@ -101,6 +101,9 @@ model Group {
   // Куратор группы: следит за посещаемостью и журналом, но не ведёт занятия.
   curatorId String?
   curator   User?     @relation("GroupCurator", fields: [curatorId], references: [id], onDelete: SetNull)
+  // Сколько куратор получает в месяц с каждого оплатившего ученика ЭТОЙ группы, ₸.
+  // 0 = ставка предмета, а если и её нет — общая из настроек.
+  curatorRate Int     @default(0)
   subjectId String?
   subject   Subject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   students  Student[]

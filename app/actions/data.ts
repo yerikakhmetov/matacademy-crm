@@ -513,6 +513,7 @@ export async function createGroup(formData: FormData) {
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
       curatorId: str(formData.get("curatorId")) || null,
+      curatorRate: Math.max(0, int(formData.get("curatorRate"))),
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
       startDate: groupStartDate(formData),
     },
@@ -536,6 +537,7 @@ export async function updateGroup(id: string, formData: FormData) {
       teacherId: str(formData.get("teacherId")) || null,
       subjectId: str(formData.get("subjectId")) || null,
       curatorId: str(formData.get("curatorId")) || null,
+      curatorRate: Math.max(0, int(formData.get("curatorRate"))),
       // дата хранится UTC-полуночью — так же, как считаются занятия месяца
       startDate: groupStartDate(formData),
     },

@@ -58,7 +58,8 @@ export function SubjectForm({ values }: { values?: Values }) {
         <input name="curatorRate" type="number" min={0} placeholder="общая из настроек" defaultValue={values?.curatorRate || ""} />
       </div>
       <p className="mut" style={{ fontSize: 12, margin: "-6px 0 10px" }}>
-        Сколько куратор получает в месяц с одного ученика, оплатившего этот предмет. Пусто или 0 — общая ставка из настроек.
+        Сколько куратор получает в месяц с одного ученика, оплатившего этот предмет, — для групп без своей ставки.
+        Пусто или 0 — общая ставка из настроек.
       </p>
       <div className="field">
         <label>Цвет</label>

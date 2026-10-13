@@ -28,14 +28,14 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
 
   if (curator) {
     const settings = await getSettings();
-    const [live, subjects] = await Promise.all([
+    const [live, myGroups] = await Promise.all([
       gatherCuratorPayrollRange(monthOpts, settings.curatorRate),
-      prisma.subject.findMany({ select: { id: true, name: true } }),
+      prisma.group.findMany({ where: { curatorId: session?.user?.id ?? "__none__" }, select: { id: true, name: true } }),
     ]);
     const userId = session?.user?.id ?? "";
     const months = monthOpts.map((m, i) => {
       const r = live[i].get(userId);
-      return { id: m.id, name: m.name, salary: r?.salary ?? 0, seats: r?.seats ?? 0, students: r?.students ?? 0, bySubject: r?.bySubject ?? [] };
+      return { id: m.id, name: m.name, salary: r?.salary ?? 0, seats: r?.seats ?? 0, students: r?.students ?? 0, byGroup: r?.byGroup ?? [] };
     });
     return (
       <CuratorSalary
@@ -43,7 +43,7 @@ export default async function MySalaryPage({ searchParams }: { searchParams: Pro
         monthOpts={monthOpts}
         selId={sel.id}
         defaultRate={settings.curatorRate}
-        subjectNames={Object.fromEntries(subjects.map((s) => [s.id, s.name]))}
+        groupNames={Object.fromEntries(myGroups.map((g) => [g.id, g.name]))}
       />
     );
   }

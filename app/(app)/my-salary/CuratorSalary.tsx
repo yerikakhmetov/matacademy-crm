@@ -1,8 +1,8 @@
 import { money } from "@/lib/format";
-import type { CuratorSubjectRow } from "@/lib/payroll-calc";
+import type { CuratorGroupRow } from "@/lib/payroll-calc";
 import { MonthSelect } from "../payroll/PayrollControls";
 
-type MonthRow = { id: string; name: string; salary: number; seats: number; students: number; bySubject: CuratorSubjectRow[] };
+type MonthRow = { id: string; name: string; salary: number; seats: number; students: number; byGroup: CuratorGroupRow[] };
 
 // Страница «Моя зарплата» для куратора: ставка × оплатившие ученико-предметы.
 export function CuratorSalary({
@@ -10,13 +10,13 @@ export function CuratorSalary({
   monthOpts,
   selId,
   defaultRate,
-  subjectNames,
+  groupNames,
 }: {
   months: MonthRow[];
   monthOpts: { id: string; name: string }[];
   selId: string;
   defaultRate: number;
-  subjectNames: Record<string, string>;
+  groupNames: Record<string, string>;
 }) {
   const cur = months.find((m) => m.id === selId) ?? months[0];
   const histMax = Math.max(1, ...months.map((h) => h.salary));
@@ -36,7 +36,7 @@ export function CuratorSalary({
 
       <div className="toolbar">
         <MonthSelect months={monthOpts} month={selId} path="/my-salary" />
-        <span className="proto-note">Ставка {money(defaultRate)} с ученика за предмет</span>
+        <span className="proto-note">Общая ставка {money(defaultRate)} с ученика</span>
       </div>
 
       <div className="two-col">
@@ -46,12 +46,12 @@ export function CuratorSalary({
             <dl className="dl">
               <dt>Учеников с оплатой</dt>
               <dd>{cur.students}</dd>
-              <dt>Оплаченных предметов</dt>
+              <dt>Оплаченных мест в группах</dt>
               <dd>{cur.seats}</dd>
-              {cur.bySubject.map((b) => (
-                <div key={b.subjectId} style={{ display: "contents" }}>
-                  <dt style={{ paddingLeft: 12 }}>{subjectNames[b.subjectId] ?? "—"}</dt>
-                  <dd className="num">{b.seats} уч. · {money(b.amount)}</dd>
+              {cur.byGroup.map((b) => (
+                <div key={b.groupId} style={{ display: "contents" }}>
+                  <dt style={{ paddingLeft: 12 }}>{groupNames[b.groupId] ?? "—"}</dt>
+                  <dd className="num">{b.seats} уч. × {money(b.rate)} = {money(b.amount)}</dd>
                 </div>
               ))}
               <dt>К выплате</dt>
@@ -77,9 +77,9 @@ export function CuratorSalary({
       </div>
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
-        За каждого ученика ваших групп, оплатившего предмет в этом месяце, начисляется ставка предмета.
-        Ученик с несколькими предметами приносит ставку за каждый. Если ученик в этом месяце ходил в несколько
-        групп одного предмета, ставка делится между группами по числу занятий.
+        По каждой вашей группе: ставка группы × ученики группы, оплатившие этот месяц. Ученик с несколькими
+        предметами приносит ставку в каждой своей группе. Если ученик в этом месяце ходил в несколько групп
+        одного предмета, ставка делится между группами по числу занятий.
       </p>
     </>
   );

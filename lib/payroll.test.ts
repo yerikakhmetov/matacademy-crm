@@ -289,20 +289,40 @@ test("куратор: неоплативший ученик не приноси�
   assert.equal(r.salary, 1000);
 });
 
-test("куратор: один ученик в двух группах одного предмета — одна ставка", () => {
+test("куратор: каждая группа считается отдельно — две группы математики, два начисления", () => {
   const c = curator([
-    { id: "g1", subjectId: "math", studentIds: ["s1"] },
-    { id: "g2", subjectId: "math", studentIds: ["s1"] },
+    { id: "g1", subjectId: "math", studentIds: ["s1", "s2"] },
+    { id: "g2", subjectId: "math", studentIds: ["s3"] },
   ]);
-  const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math")), defaultRate: 1000 }).get("c1")!;
-  assert.equal(r.salary, 1000);
+  const r = computeCuratorRows({
+    curators: [c],
+    monthlyFee: fees(feeKey("s1", "math"), feeKey("s2", "math"), feeKey("s3", "math")),
+    defaultRate: 1000,
+  }).get("c1")!;
+  assert.equal(r.salary, 3000);
+  assert.deepEqual(r.byGroup.map((g) => [g.groupId, g.seats, g.amount]), [["g1", 2, 2000], ["g2", 1, 1000]]);
+});
+
+test("куратор: своя ставка группы важнее ставки предмета и общей", () => {
+  const c = curator([
+    { id: "g1", subjectId: "math", studentIds: ["s1"], rate: 1500 },
+    { id: "g2", subjectId: "math", studentIds: ["s2"] },
+  ]);
+  const r = computeCuratorRows({
+    curators: [c],
+    monthlyFee: fees(feeKey("s1", "math"), feeKey("s2", "math")),
+    defaultRate: 1000,
+    subjectRates: new Map([["math", 1200]]),
+  }).get("c1")!;
+  assert.deepEqual(r.byGroup.map((g) => g.rate), [1500, 1200]);
+  assert.equal(r.salary, 2700);
 });
 
 test("куратор: группа без предмета и пустой список учеников — ноль", () => {
   const c = curator([{ id: "g1", subjectId: null, studentIds: ["s1"] }, { id: "g2", subjectId: "math", studentIds: [] }]);
   const r = computeCuratorRows({ curators: [c], monthlyFee: fees(feeKey("s1", "math")), defaultRate: 1000 }).get("c1")!;
   assert.equal(r.salary, 0);
-  assert.equal(r.bySubject.length, 0);
+  assert.equal(r.byGroup.length, 0);
 });
 
 // ---------- Оплаченные счета вместо абонементов ----------

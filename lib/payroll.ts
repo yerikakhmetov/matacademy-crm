@@ -219,6 +219,7 @@ export async function gatherCuratorPayrollRange(months: Month[], defaultRate: nu
         id: true,
         curatorId: true,
         subjectId: true,
+        curatorRate: true,
         students: { select: { id: true } },
         lessons: { select: { id: true } },
       },
@@ -237,7 +238,7 @@ export async function gatherCuratorPayrollRange(months: Month[], defaultRate: nu
     curatedGroupIds.add(g.id);
     let c = byCurator.get(g.curatorId);
     if (!c) byCurator.set(g.curatorId, (c = { id: g.curatorId, groups: [] }));
-    c.groups.push({ id: g.id, subjectId: g.subjectId, studentIds: g.students.map((s) => s.id) });
+    c.groups.push({ id: g.id, subjectId: g.subjectId, studentIds: g.students.map((s) => s.id), rate: g.curatorRate });
     for (const s of g.students) studentIds.add(s.id);
   }
   const curators = [...byCurator.values()];
