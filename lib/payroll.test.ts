@@ -304,3 +304,122 @@ test("куратор: группа без предмета и пустой сп�
   assert.equal(r.salary, 0);
   assert.equal(r.bySubject.length, 0);
 });
+
+// ---------- Оплаченные счета вместо абонементов ----------
+import { monthlyFeesFromPaid, subjectLessonTotals } from "./payroll-calc.ts";
+import { paidThrough } from "./payments.ts";
+
+const paid = (o: Partial<Parameters<typeof monthlyFeesFromPaid>[0][number]>) => ({
+  studentId: "s1", subjectId: "math", amount: 24000, ratio: 1, year: 2026, month0: 8, months: 1, ...o,
+});
+
+test("счёт: доля идёт только в свой месяц", () => {
+  const items = [paid({})];
+  assert.equal(monthlyFeesFromPaid(items, 2026, 8).get(feeKey("s1", "math")), 24000);
+  assert.equal(monthlyFeesFromPaid(items, 2026, 9).get(feeKey("s1", "math")), undefined);
+});
+
+test("счёт на 3 месяца делится поровну и не заходит в четвёртый", () => {
+  const items = [paid({ amount: 72000, months: 3, month0: 10 })]; // ноябрь–январь
+  assert.equal(monthlyFeesFromPaid(items, 2026, 10).get(feeKey("s1", "math")), 24000);
+  assert.equal(monthlyFeesFromPaid(items, 2027, 0).get(feeKey("s1", "math")), 24000);
+  assert.equal(monthlyFeesFromPaid(items, 2027, 1).get(feeKey("s1", "math")), undefined);
+});
+
+test("неоплаченный счёт зарплату не приносит, частичный — пропорционально", () => {
+  assert.equal(monthlyFeesFromPaid([paid({ ratio: 0 })], 2026, 8).size, 0);
+  assert.equal(monthlyFeesFromPaid([paid({ ratio: 0.5 })], 2026, 8).get(feeKey("s1", "math")), 12000);
+});
+
+test("два счёта за один месяц суммируются", () => {
+  const fees = monthlyFeesFromPaid([paid({ amount: 10000 }), paid({ amount: 14000 })], 2026, 8);
+  assert.equal(fees.get(feeKey("s1", "math")), 24000);
+});
+
+const twoTeachers = (): PayrollTeacher[] => [
+  { id: "t1", groups: [{ id: "gA", subjectId: "math", scheduledLessons: 12, studentIds: [] }] },
+  { id: "t2", groups: [{ id: "gB", subjectId: "math", scheduledLessons: 12, studentIds: ["s1"] }] },
+];
+
+test("переход между группами: доля делится по занятиям в каждой", () => {
+  const rows = computePayrollRows({
+    teachers: twoTeachers(),
+    payable: new Map([[payableKey("gA", "s1"), 6], [payableKey("gB", "s1"), 6]]),
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000]]),
+    feePct: 0,
+  });
+  assert.equal(rows.get("t1")!.salary, 12000);
+  assert.equal(rows.get("t2")!.salary, 12000);
+});
+
+test("переход между группами: неравные занятия, сумма не больше доли", () => {
+  const rows = computePayrollRows({
+    teachers: twoTeachers(),
+    payable: new Map([[payableKey("gA", "s1"), 3], [payableKey("gB", "s1"), 6]]),
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000]]),
+    feePct: 0,
+  });
+  assert.equal(rows.get("t1")!.salary, 6000); // 3 занятия × 2000
+  assert.equal(rows.get("t2")!.salary, 12000); // 6 занятий × 2000
+  assert.ok(rows.get("t1")!.salary + rows.get("t2")!.salary <= 24000);
+});
+
+test("ушедший из группы ученик: занятия этого месяца всё равно оплачиваются", () => {
+  const rows = computePayrollRows({
+    teachers: [twoTeachers()[0]], // gA, studentIds пуст
+    payable: new Map([[payableKey("gA", "s1"), 4]]),
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000]]),
+    feePct: 0,
+  });
+  assert.equal(rows.get("t1")!.salary, 8000);
+});
+
+test("subjectLessonTotals: суммирует занятия ученика по всем группам предмета", () => {
+  const totals = subjectLessonTotals(
+    [{ id: "gA", subjectId: "math" }, { id: "gB", subjectId: "math" }, { id: "gC", subjectId: "phys" }],
+    new Map([[payableKey("gA", "s1"), 3], [payableKey("gB", "s1"), 6], [payableKey("gC", "s1"), 5]])
+  );
+  assert.equal(totals.get(feeKey("s1", "math")), 9);
+  assert.equal(totals.get(feeKey("s1", "phys")), 5);
+});
+
+test("куратор: ставка делится между группами по занятиям", () => {
+  const curators: PayrollCurator[] = [
+    { id: "c1", groups: [{ id: "gA", subjectId: "math", studentIds: [] }] },
+    { id: "c2", groups: [{ id: "gB", subjectId: "math", studentIds: ["s1"] }] },
+  ];
+  const rows = computeCuratorRows({
+    curators,
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000]]),
+    defaultRate: 1000,
+    payable: new Map([[payableKey("gA", "s1"), 3], [payableKey("gB", "s1"), 9]]),
+    allGroups: [{ id: "gA", subjectId: "math" }, { id: "gB", subjectId: "math" }],
+  });
+  assert.equal(rows.get("c1")!.salary, 250);
+  assert.equal(rows.get("c2")!.salary, 750);
+});
+
+test("куратор: без отметок ставка целиком группе, где ученик числится", () => {
+  const rows = computeCuratorRows({
+    curators: [{ id: "c1", groups: [{ id: "gA", subjectId: "math", studentIds: ["s1"] }] }],
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000]]),
+    defaultRate: 1000,
+    payable: new Map(),
+    allGroups: [{ id: "gA", subjectId: "math" }],
+  });
+  assert.equal(rows.get("c1")!.salary, 1000);
+});
+
+test("paidThrough: конец последнего полностью оплаченного месяца", () => {
+  const d = (y: number, m0: number, day = 1) => new Date(Date.UTC(y, m0, day));
+  assert.equal(paidThrough([]), null);
+  assert.equal(paidThrough([{ amount: 24000, paidAmount: 12000, date: d(2026, 9), months: 1 }]), null);
+  assert.deepEqual(paidThrough([{ amount: 24000, paidAmount: 24000, date: d(2026, 9), months: 1 }]), d(2026, 9, 31));
+  assert.deepEqual(
+    paidThrough([
+      { amount: 24000, paidAmount: 24000, date: d(2026, 8), months: 1 },
+      { amount: 72000, paidAmount: 72000, date: d(2026, 9), months: 3 },
+    ]),
+    d(2026, 11, 31)
+  );
+});

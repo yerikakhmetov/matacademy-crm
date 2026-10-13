@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isTeacher } from "@/lib/teacher";
 import { requireAccess } from "@/lib/access";
-import { money, initials, avatarColor, formatDate, subStatus } from "@/lib/format";
+import { money, initials, avatarColor, formatDate } from "@/lib/format";
 import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
 import { refreshOverdue } from "@/app/actions/data";
@@ -23,35 +23,19 @@ export default async function RemindersPage() {
 
   await refreshOverdue();
 
-  const [overdue, pending, subs, groups, linkedCount] = await Promise.all([
+  const [overdue, pending, groups, linkedCount] = await Promise.all([
     prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true }, orderBy: { date: "asc" } }),
     prisma.payment.findMany({ where: { status: "PENDING" }, include: { student: true }, orderBy: { date: "asc" } }),
-    prisma.subscription.findMany({ where: { endDate: { not: null } }, include: { student: true }, orderBy: { endDate: "desc" } }),
     prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.student.count({ where: { telegramChatId: { not: null } } }),
   ]);
 
-  // Текущий абонемент на ученика (с самой поздней датой), истекающий в ближайшие 14 дней или уже истёкший
-  const seen = new Set<string>();
-  const expiring = subs
-    .filter((s) => {
-      if (seen.has(s.studentId)) return false;
-      seen.add(s.studentId);
-      const ss = subStatus(s.endDate);
-      return ss.daysLeft != null && ss.daysLeft <= 14;
-    })
-    .sort((a, b) => (a.endDate!.getTime() - b.endDate!.getTime()));
-
-  const total = overdue.length + pending.length + expiring.length;
+  const total = overdue.length + pending.length;
 
   const msgOverdue = (name: string, purpose: string, amount: number, days: number) =>
     `Здравствуйте! Напоминаем об оплате обучения в ${SCHOOL} (ученик: ${name}): ${purpose} — ${money(amount)}. Просрочено на ${days} дн. Пожалуйста, оплатите при возможности. Спасибо!`;
   const msgPending = (name: string, purpose: string, amount: number) =>
     `Здравствуйте! Напоминаем об оплате в ${SCHOOL} (ученик: ${name}): ${purpose} — ${money(amount)}. Ждём оплату. Спасибо!`;
-  const msgExpiring = (name: string, plan: string, end: Date, expired: boolean) =>
-    expired
-      ? `Здравствуйте! Абонемент «${plan}» ученика ${name} истёк ${formatDate(end)}. Готовы продлить? Ждём вас в ${SCHOOL}!`
-      : `Здравствуйте! Абонемент «${plan}» ученика ${name} истекает ${formatDate(end)}. Предлагаем продлить заранее. Спасибо, что вы с ${SCHOOL}!`;
 
   return (
     <>
@@ -183,69 +167,6 @@ export default async function RemindersPage() {
         </div>
       </div>
 
-      {/* Истекающие абонементы */}
-      <div className="card">
-        <div className="card-h">
-          <h3>Абонементы истекают</h3>
-          <span className="chip c-warn">
-            <span className="d" />
-            {expiring.length}
-          </span>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ученик</th>
-                <th>Абонемент</th>
-                <th>Статус</th>
-                <th className="right">Напомнить</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expiring.length === 0 && (
-                <tr>
-                  <td colSpan={4}>
-                    <div className="empty">Ближайших окончаний нет</div>
-                  </td>
-                </tr>
-              )}
-              {expiring.map((s) => {
-                const ss = subStatus(s.endDate);
-                const expired = (ss.daysLeft ?? 0) < 0;
-                return (
-                  <tr key={s.id}>
-                    <td>
-                      <div className="person">
-                        <div className="av2" style={{ background: avatarColor(s.student.name) }}>
-                          {initials(s.student.name)}
-                        </div>
-                        <div>
-                          <div className="nm">{s.student.name}</div>
-                          <div className="sub">{s.student.parentName ?? "родитель не указан"}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      {s.plan}
-                      <span className="mut"> · до {formatDate(s.endDate!)}</span>
-                    </td>
-                    <td>
-                      <span className={`chip ${ss.cls}`}>
-                        <span className="d" />
-                        {ss.label}
-                      </span>
-                    </td>
-                    <td>
-                      <ReminderActions phone={s.student.parentPhone} message={msgExpiring(s.student.name, s.plan, s.endDate!, expired)} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </>
   );
 }

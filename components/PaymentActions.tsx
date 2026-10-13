@@ -79,7 +79,7 @@ export function PaymentActions({
           </div>
           <div className="field">
             <label>Причина</label>
-            <input name="note" placeholder="Например: отказ от абонемента" />
+            <input name="note" placeholder="Например: отказ от обучения" />
           </div>
         </ModalButton>
       )}

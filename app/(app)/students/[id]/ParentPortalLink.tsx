@@ -30,7 +30,7 @@ export function ParentPortalLink({ studentId, token }: { studentId: string; toke
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <p className="mut" style={{ fontSize: 12.5, margin: 0 }}>
-        Постоянная ссылка для родителя — успеваемость, посещаемость, оплаты и абонемент. Вход не нужен.
+        Постоянная ссылка для родителя — успеваемость, посещаемость, оплаты. Вход не нужен.
       </p>
       <div
         style={{

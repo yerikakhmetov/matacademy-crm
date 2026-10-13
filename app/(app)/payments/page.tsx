@@ -81,7 +81,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     <>
       <div className="page-head">
         <div>
-          <h1>Оплаты и абонементы</h1>
+          <h1>Оплаты и счета</h1>
           <p>Движение средств по школе</p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

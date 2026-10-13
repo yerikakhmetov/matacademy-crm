@@ -31,7 +31,7 @@ export function SubjectForm({ values }: { values?: Values }) {
         </div>
       </div>
       <p className="mut" style={{ fontSize: 12, margin: "-6px 0 10px" }}>
-        По числу занятий платёж делится между предметами абонемента: занятие стоит одинаково в любом предмете.
+        По числу занятий платёж делится между предметами счёта: занятие стоит одинаково в любом предмете.
         {values?.price && values?.lessonsPerMonth
           ? ` Сейчас — ${Math.round(values.price / values.lessonsPerMonth).toLocaleString("ru-RU")} ₸ за занятие.`
           : ""}
@@ -78,7 +78,7 @@ export function SubjectForm({ values }: { values?: Values }) {
       </div>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--ink-2)" }}>
         <input type="checkbox" name="active" value="on" defaultChecked={values?.active ?? true} />
-        Активен (доступен для абонементов)
+        Активен (доступен для счетов)
       </label>
     </>
   );

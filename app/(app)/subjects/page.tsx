@@ -21,7 +21,7 @@ export default async function SubjectsPage() {
     prisma.subject.findMany({
       orderBy: [{ active: "desc" }, { name: "asc" }],
       include: {
-        _count: { select: { items: true, tests: true } },
+        _count: { select: { payItems: true, tests: true } },
         groups: { select: { id: true } },
         teachers: { select: { id: true, name: true } },
       },
@@ -36,7 +36,7 @@ export default async function SubjectsPage() {
       <div className="page-head">
         <div>
           <h1>Предметы и цены</h1>
-          <p>{subjects.filter((s) => s.active).length} активных предметов · цены и доли для абонементов</p>
+          <p>{subjects.filter((s) => s.active).length} активных предметов · цены и доли для счетов</p>
         </div>
         {editor && (
           <ModalButton label="Предмет" title="Новый предмет" action={createSubject}>
@@ -57,7 +57,7 @@ export default async function SubjectsPage() {
                 <th className="right">Ставка педагога</th>
                 <th className="right">Ставка куратора</th>
                 <th>Статус</th>
-                <th className="right">В абонементах</th>
+                <th className="right">В счетах</th>
                 {editor && <th style={{ width: 220 }}></th>}
               </tr>
             </thead>
@@ -111,14 +111,14 @@ export default async function SubjectsPage() {
                       {s.active ? "Активен" : "Скрыт"}
                     </span>
                   </td>
-                  <td className="right num">{s._count.items}</td>
+                  <td className="right num">{s._count.payItems}</td>
                   {editor && (
                     <td>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                         <ModalButton label="Изменить" title={`Предмет · ${s.name}`} icon="edit" buttonClass="btn ghost" action={updateSubject.bind(null, s.id)}>
                           <SubjectForm values={s} />
                         </ModalButton>
-                        <DeleteSubjectButton id={s.id} name={s.name} used={s._count.items > 0} />
+                        <DeleteSubjectButton id={s.id} name={s.name} used={s._count.payItems > 0} />
                       </div>
                     </td>
                   )}

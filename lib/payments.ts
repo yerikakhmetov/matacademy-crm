@@ -105,3 +105,15 @@ export function canFixReceived(cur: { amount: number; paidAmount: number; txs: E
   const refunds = cur.txs.filter((t) => t.kind === "REFUND");
   return payments.length === 1 && refunds.length === 0 && cur.paidAmount === cur.amount && payments[0].amount === cur.amount;
 }
+
+// До какого числа оплачено: последний день последнего месяца, покрытого полностью
+// оплаченным счётом (счёт на N месяцев покрывает N месяцев со своего). null — оплат нет.
+export function paidThrough(payments: { amount: number; paidAmount: number; date: Date; months: number }[]): Date | null {
+  let best: Date | null = null;
+  for (const p of payments) {
+    if (p.amount <= 0 || p.paidAmount < p.amount) continue;
+    const end = new Date(Date.UTC(p.date.getUTCFullYear(), p.date.getUTCMonth() + Math.max(1, p.months), 0));
+    if (!best || end > best) best = end;
+  }
+  return best;
+}

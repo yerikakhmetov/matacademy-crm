@@ -304,6 +304,9 @@ model Subject {
 }
 
 // Абонементы
+// УСТАРЕЛО (2026-10-13): абонементы больше не создаются и нигде не читаются.
+// Цена со скидками выставляется счётом (Payment.months), зарплата идёт только от оплаченных счетов.
+// Таблица оставлена как история; удалить отдельной миграцией, когда данные не понадобятся.
 model Subscription {
   id           String             @id @default(cuid())
   studentId    String
@@ -509,9 +512,16 @@ model Payment {
   paidAmount     Int @default(0) // фактически принято (сумма приходов) — кэш из PaymentTx
   refundedAmount Int @default(0) // фактически возвращено — кэш из PaymentTx
   status    String   @default("PAID") // PAID | PARTIAL | PENDING | OVERDUE
-  date      DateTime @default(now())
+  date      DateTime @default(now()) // месяц, за который выставлен счёт (первый, если месяцев несколько)
+  // На сколько месяцев счёт: доля предмета в зарплате делится поровну между ними,
+  // начиная с месяца date. Обычный счёт — 1.
+  months    Int      @default(1)
   items     PaymentItem[]
   txs       PaymentTx[]
+
+  @@index([studentId, status])
+  @@index([status, date])
+  @@index([date])
 }
 
 // Движение денег по счёту: приход или возврат, у каждого своя дата.

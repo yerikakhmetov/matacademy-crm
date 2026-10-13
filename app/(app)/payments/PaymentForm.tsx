@@ -24,7 +24,7 @@ export function PaymentForm({ students, fixedStudentId, subjects = [] }: { stude
       )}
       <div className="field">
         <label>Назначение</label>
-        <input name="purpose" placeholder="Абонемент · 6 мес" defaultValue="Абонемент" />
+        <input name="purpose" placeholder="Обучение · октябрь" defaultValue="Обучение" />
       </div>
       <div className="grid2">
         <div className="field">

@@ -51,7 +51,7 @@ export function CuratorSalary({
               {cur.bySubject.map((b) => (
                 <div key={b.subjectId} style={{ display: "contents" }}>
                   <dt style={{ paddingLeft: 12 }}>{subjectNames[b.subjectId] ?? "—"}</dt>
-                  <dd className="num">{b.seats} × {money(b.rate)} = {money(b.amount)}</dd>
+                  <dd className="num">{b.seats} уч. · {money(b.amount)}</dd>
                 </div>
               ))}
               <dt>К выплате</dt>
@@ -78,7 +78,8 @@ export function CuratorSalary({
 
       <p className="mut" style={{ fontSize: 12.5, marginTop: 14 }}>
         За каждого ученика ваших групп, оплатившего предмет в этом месяце, начисляется ставка предмета.
-        Ученик с несколькими предметами приносит ставку за каждый. Посещаемость на расчёт не влияет.
+        Ученик с несколькими предметами приносит ставку за каждый. Если ученик в этом месяце ходил в несколько
+        групп одного предмета, ставка делится между группами по числу занятий.
       </p>
     </>
   );

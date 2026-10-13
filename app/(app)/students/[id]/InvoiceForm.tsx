@@ -7,7 +7,8 @@ type Subject = { id: string; name: string; price: number; lessonsPerMonth: numbe
 
 const fmt = (n: number) => n.toLocaleString("ru-RU") + " ₸";
 
-export function SubscriptionForm({
+// Счёт за обучение: предметы по прайсу со скидками. Создаёт счёт со статусом «Ожидает».
+export function InvoiceForm({
   subjects,
   discounts,
   tiers,
@@ -71,8 +72,8 @@ export function SubscriptionForm({
     return (
       <>
         <div className="field">
-          <label>Название</label>
-          <input name="plan" placeholder="Абонемент" defaultValue="Абонемент" />
+          <label>Назначение</label>
+          <input name="plan" placeholder="Обучение" defaultValue="Обучение" />
         </div>
         <div className="grid2">
           <div className="field">
@@ -85,15 +86,11 @@ export function SubscriptionForm({
           </div>
         </div>
         <div className="field">
-          <label>Дата начала</label>
+          <label>За какой месяц (дата счёта)</label>
           <input name="startDate" type="date" defaultValue={today} />
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--ink-2)" }}>
-          <input type="checkbox" name="invoice" defaultChecked value="on" />
-          Выставить счёт на оплату
-        </label>
         <p className="mut" style={{ fontSize: 12, marginTop: 8 }}>
-          Добавьте предметы в разделе «Предметы и цены» — тогда абонемент считается автоматически со скидками.
+          Добавьте предметы в разделе «Предметы и цены» — тогда сумма считается автоматически со скидками.
         </p>
       </>
     );
@@ -136,7 +133,7 @@ export function SubscriptionForm({
           <input name="months" type="number" min={1} value={months} onChange={(e) => setMonths(Math.max(1, Number(e.target.value)))} />
         </div>
         <div className="field">
-          <label>Дата начала</label>
+          <label>За какой месяц (дата счёта)</label>
           <input name="startDate" type="date" defaultValue={today} />
         </div>
       </div>
@@ -244,10 +241,10 @@ export function SubscriptionForm({
         )}
       </div>
 
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "var(--ink-2)" }}>
-        <input type="checkbox" name="invoice" defaultChecked value="on" />
-        Выставить счёт на оплату (появится в «Оплатах» со статусом «Ожидает»)
-      </label>
+      <p className="mut" style={{ fontSize: 12, margin: 0 }}>
+        Счёт появится в «Оплатах» со статусом «Ожидает». Зарплата преподавателю и куратору начисляется только с оплаченной части;
+        счёт на несколько месяцев делится между ними поровну.
+      </p>
     </>
   );
 }

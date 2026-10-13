@@ -4,13 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { isTeacher } from "@/lib/teacher";
 import { auth } from "@/auth";
 import { canEditData, getAccess } from "@/lib/access";
-import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, subStatus } from "@/lib/format";
+import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PhotoUpload } from "@/components/PhotoUpload";
 import { ModalButton } from "@/components/ModalButton";
 import { StudentForm } from "../StudentForm";
 import { PaymentForm } from "../../payments/PaymentForm";
-import { SubscriptionForm } from "./SubscriptionForm";
+import { InvoiceForm } from "./InvoiceForm";
 import { DeleteStudentButton } from "./DeleteStudentButton";
 import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
@@ -19,7 +19,7 @@ import { PaymentActions } from "@/components/PaymentActions";
 import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { PaymentEditForm } from "../../payments/PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
-import { createPayment, createSubscription, updatePayment, updateStudent } from "@/app/actions/data";
+import { createInvoice, createPayment, updatePayment, updateStudent } from "@/app/actions/data";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,6 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
             items: { select: { subjectId: true } },
           },
         },
-        subscriptions: { orderBy: { startDate: "desc" } },
       },
     }),
     prisma.group.findMany({ orderBy: { name: "asc" } }),
@@ -83,7 +82,6 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   }
 
   const st = STUDENT_STATUS[student.status] ?? STUDENT_STATUS.ACTIVE;
-  const activeSub = student.subscriptions[0];
 
   return (
     <>
@@ -107,8 +105,8 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
             </ModalButton>
             {showMoney && (
               <>
-                <ModalButton label="Оформить абонемент" title={`Абонемент · ${student.name}`} icon="check" buttonClass="btn ghost" action={createSubscription.bind(null, student.id)}>
-                  <SubscriptionForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} promos={promos} />
+                <ModalButton label="Выставить счёт" title={`Счёт · ${student.name}`} icon="check" buttonClass="btn ghost" action={createInvoice.bind(null, student.id)}>
+                  <InvoiceForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} promos={promos} />
                 </ModalButton>
                 <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
                   <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} />
@@ -252,52 +250,6 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                   </>
                 )}
               </dl>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-h">
-              <h3>Абонементы</h3>
-              {activeSub && (() => {
-                const ss = subStatus(activeSub.endDate);
-                return (
-                  <span className={`chip ${ss.cls}`}>
-                    <span className="d" />
-                    {ss.label}
-                  </span>
-                );
-              })()}
-            </div>
-            <div style={{ padding: "6px 0" }}>
-              {student.subscriptions.length === 0 && <div className="empty">Абонементов пока нет</div>}
-              {student.subscriptions.map((sub) => {
-                const ss = subStatus(sub.endDate);
-                return (
-                  <div className="list-row" key={sub.id}>
-                    <div className="pay-ico" style={{ background: "var(--accent-soft)", color: "var(--accent)" }}>
-                      <span style={{ fontWeight: 800, fontSize: 13 }}>{sub.months}</span>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        {sub.plan}
-                        {sub.basePrice > sub.price && sub.basePrice > 0 && (
-                          <span className="chip c-ok" style={{ padding: "1px 7px", fontSize: 10.5 }}>
-                            <span className="d" />−{Math.round((1 - sub.price / sub.basePrice) * 100)}%
-                          </span>
-                        )}
-                      </div>
-                      <div className="mut" style={{ fontSize: 12 }}>
-                        {formatDate(sub.startDate)}{sub.endDate ? ` — ${formatDate(sub.endDate)}` : ""} · {money(sub.price)}
-                        {sub.basePrice > sub.price ? <span style={{ textDecoration: "line-through", marginLeft: 6, opacity: 0.6 }}>{money(sub.basePrice)}</span> : null}
-                      </div>
-                    </div>
-                    <span className={`chip ${ss.cls}`}>
-                      <span className="d" />
-                      {ss.label}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
           </div>
 

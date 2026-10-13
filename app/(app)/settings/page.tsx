@@ -57,7 +57,7 @@ export default async function SettingsPage() {
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
-            Тарифы абонементов
+            Тарифы
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
             По одному тарифу в строке в формате: <b>Название | месяцев | цена</b>. Например: <code>6 месяцев | 6 | 90000</code>
@@ -159,11 +159,7 @@ export default async function SettingsPage() {
             <label>Ожидает оплаты</label>
             <textarea name="tplPending" rows={2} defaultValue={s.tplPending} placeholder={DEFAULT_TEMPLATES.pending} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
           </div>
-          <div className="field">
-            <label>Абонемент истекает</label>
-            <textarea name="tplExpiring" rows={2} defaultValue={s.tplExpiring} placeholder={DEFAULT_TEMPLATES.expiring} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
-          </div>
-        </div>
+                  </div>
 
         <div className="card" style={{ padding: 22, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 8 }}>
@@ -238,7 +234,7 @@ export default async function SettingsPage() {
           Промокоды
         </div>
         <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
-          Разовые процентные скидки при оформлении абонемента. Применяются вместе с остальными скидками по выбранному правилу.
+          Разовые процентные скидки при выставлении счёта. Применяются вместе с остальными скидками по выбранному правилу.
         </p>
 
         {promos.length > 0 && (

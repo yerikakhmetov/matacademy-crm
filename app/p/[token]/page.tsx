@@ -6,7 +6,6 @@ import {
   initials,
   avatarColor,
   formatDate,
-  subStatus,
   scoreColor,
   gradeChipClass,
   GRADE_TYPE,
@@ -18,6 +17,7 @@ import { BarChart } from "@/components/BarChart";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
+import { paidThrough } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -35,13 +35,6 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
         include: { group: { select: { name: true, subject: { select: { name: true } } } } },
       },
       payments: { orderBy: { date: "desc" }, take: 8 },
-      // Оқушы бірнеше пәнге жазылады: барлық абонемент пәндер бөлінісімен керек,
-      // бұрын соңғысы ғана алынатын да, ата-ана бір пәнді ғана көретін.
-      subscriptions: {
-        orderBy: { startDate: "desc" },
-        take: 4,
-        include: { items: { select: { id: true, subjectName: true, amount: true } } },
-      },
     },
   });
   if (!student) notFound();
@@ -69,14 +62,9 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
     student.grades.length > 0
       ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
       : null;
-  const subs = student.subscriptions;
-  // Пәндер: алдымен абонементтегі бөліністен, болмаса топтардың пәнінен
-  const subjectNames = [
-    ...new Set([
-      ...subs.flatMap((s) => s.items.map((it) => it.subjectName)),
-      ...student.groups.map((g) => g.subject?.name).filter(Boolean),
-    ]),
-  ] as string[];
+  // Пәндер — оқушы жүрген топтардың пәндері; «қай күнге дейін төленген» — толық төленген шоттардан
+  const subjectNames = [...new Set(student.groups.map((g) => g.subject?.name).filter(Boolean))] as string[];
+  const paidUntil = paidThrough(student.payments);
   const groupsLabel =
     student.groups.map((g) => (g.subject?.name ? `${g.subject.name} (${g.name})` : g.name)).join(", ") ||
     t(locale, "common.noGroup");
@@ -157,7 +145,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
           </div>
           <div className="card">
             <div className="card-h">
-              <h3>{t(locale, "portal.subscription")}</h3>
+              <h3>{t(locale, "portal.subjects")}</h3>
               {subjectNames.length > 0 && (
                 <span className="chip c-mut">
                   <span className="d" />
@@ -165,39 +153,13 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 </span>
               )}
             </div>
-            <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
-              {subs.length === 0 && <div className="empty">{t(locale, "portal.noSubscription")}</div>}
-              {subs.map((s) => {
-                const st = subStatus(s.endDate);
-                return (
-                  <div key={s.id}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 600 }}>{s.plan}</span>
-                      <span className={`chip ${st.cls}`}><span className="d" />{st.label}</span>
-                    </div>
-                    <dl className="dl">
-                      <dt>{t(locale, "portal.validFor")}</dt>
-                      <dd>{formatDate(s.startDate)}{s.endDate ? ` — ${formatDate(s.endDate)}` : ""}</dd>
-                      <dt>{t(locale, "portal.price")}</dt>
-                      <dd>{money(s.price)}</dd>
-                    </dl>
-                    {/* Пәндер бөлінісі: оқушы бірнеше пәнге жазылса, әрқайсысының үлесі көрінеді */}
-                    {s.items.length > 0 && (
-                      <div style={{ marginTop: 10, borderTop: "1px solid var(--line-2)", paddingTop: 10 }}>
-                        <div className="mut" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 700, marginBottom: 6 }}>
-                          {t(locale, "portal.subjects")}
-                        </div>
-                        {s.items.map((it) => (
-                          <div key={it.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13.5, padding: "3px 0" }}>
-                            <span>{it.subjectName}</span>
-                            <span className="num mut">{money(it.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div style={{ padding: 18 }}>
+              <dl className="dl">
+                <dt>{t(locale, "portal.subjects")}</dt>
+                <dd>{subjectNames.length > 0 ? subjectNames.join(", ") : "—"}</dd>
+                <dt>{t(locale, "portal.paidThrough")}</dt>
+                <dd>{paidUntil ? formatDate(paidUntil) : t(locale, "portal.notPaidYet")}</dd>
+              </dl>
             </div>
           </div>
         </div>

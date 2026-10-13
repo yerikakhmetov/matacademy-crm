@@ -18,7 +18,7 @@ export function DeleteSubjectButton({ id, name, used }: { id: string; name: stri
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <span className="mut" style={{ fontSize: 12 }}>
-        {used ? "В проданных абонементах название сохранится. Удалить?" : "Удалить?"}
+        {used ? "В выставленных счетах название сохранится. Удалить?" : "Удалить?"}
       </span>
       <button className="btn ghost" type="button" disabled={pending} onClick={() => setConfirm(false)} style={{ padding: "5px 10px", fontSize: 12.5 }}>
         Нет

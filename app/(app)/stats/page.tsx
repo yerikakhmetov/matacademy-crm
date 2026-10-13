@@ -17,7 +17,7 @@ export default async function StatsPage() {
 
   const [
     users, students, activeStudents, groups, teachers, leads,
-    paidAgg, subs, parentsLinked, teacherLogins, changes7d, newStudents30d, grades, homework, attendance,
+    paidAgg, invoices, parentsLinked, teacherLogins, changes7d, newStudents30d, grades, homework, attendance,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.student.count(),
@@ -26,7 +26,7 @@ export default async function StatsPage() {
     prisma.teacher.count(),
     prisma.lead.count(),
     prisma.paymentTx.groupBy({ by: ["kind"], _sum: { amount: true } }),
-    prisma.subscription.count(),
+    prisma.payment.count(),
     prisma.student.count({ where: { telegramChatId: { not: null } } }),
     prisma.user.count({ where: { telegramUserId: { not: null } } }),
     prisma.auditLog.count({ where: { createdAt: { gte: daysAgo(7) } } }),
@@ -71,7 +71,7 @@ export default async function StatsPage() {
       bg: "var(--ok-soft)",
       items: [
         { k: "Всего оплачено", v: money(paidAgg.reduce((a, r) => a + txSign(r.kind) * (r._sum.amount ?? 0), 0)) },
-        { k: "Абонементов", v: String(subs) },
+        { k: "Счетов", v: String(invoices) },
         { k: "Лидов", v: String(leads) },
       ],
     },

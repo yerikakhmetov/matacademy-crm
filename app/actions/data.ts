@@ -212,7 +212,6 @@ export async function updateSettings(formData: FormData) {
     tariffs: JSON.stringify(tariffs),
     tplOverdue: String(formData.get("tplOverdue") ?? "").trim(),
     tplPending: String(formData.get("tplPending") ?? "").trim(),
-    tplExpiring: String(formData.get("tplExpiring") ?? "").trim(),
     // чекбокс "perm_<key>" присутствует = разрешено; отсутствует = запрещено
     managerDenied: MANAGER_PERMS.filter((p) => !formData.get(`perm_${p.key}`)).map((p) => p.key).join(","),
     discounts: String(formData.get("discounts") ?? "").trim(),
@@ -769,24 +768,22 @@ export async function deleteSubject(id: string) {
 }
 
 // ---------- Абонементы ----------
-export async function createSubscription(studentId: string, formData: FormData) {
+// Счёт за обучение по предметам: цена по прайсу со всеми скидками (пакет, спец-скидка,
+// персональная, брат/сестра, промокод). Счёт на N месяцев: доля предмета в зарплате
+// делится между этими месяцами (Payment.months). Абонементы больше не создаются.
+export async function createInvoice(studentId: string, formData: FormData) {
   await assertEditor("finance");
-  const months = int(formData.get("months")) || 1;
+  const months = Math.min(12, Math.max(1, int(formData.get("months")) || 1));
   const start = parseDate(formData.get("startDate")) ?? new Date();
-  const end = new Date(start);
-  end.setUTCMonth(end.getUTCMonth() + months);
-  const withInvoice = str(formData.get("invoice")) === "on";
 
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
 
   let plan: string;
   let price: number;
   let basePrice = 0;
-  let discountName: string | null = null;
   let discountPct = 0;
-  let multiPct = 0;
-  let promoCode: string | null = null;
   let promoApplyId: string | null = null;
+  let promoMaxUses = 0;
   let items: { subjectId: string; subjectName: string; base: number; amount: number }[] = [];
 
   if (subjectIds.length > 0) {
@@ -799,7 +796,6 @@ export async function createSubscription(studentId: string, formData: FormData) 
 
     const discName = str(formData.get("discount"));
     const disc = parseDiscounts(settings.discounts).find((d) => d.name === discName);
-    discountName = disc ? disc.name : null;
     discountPct = disc ? disc.percent : 0;
     // Порог за количество предметов: либо процент, либо фиксированная цена пакета.
     const tier = multiTierFor(chosen.length, parseMultiTiers(settings.multiDiscount));
@@ -826,8 +822,8 @@ export async function createSubscription(studentId: string, formData: FormData) 
       if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) throw new Error("Промокод исчерпан");
       if (promo.expiresAt && promo.expiresAt < new Date()) throw new Error("Срок действия промокода истёк");
       promoPct = promo.percent;
-      promoCode = promo.code;
       promoApplyId = promo.id;
+      promoMaxUses = promo.maxUses;
     }
 
     const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
@@ -838,63 +834,51 @@ export async function createSubscription(studentId: string, formData: FormData) 
       mode,
       packagePrice,
     });
-    // в абонементе храним эффективный процент — чтобы отчёты читались одинаково
-    multiPct = packagePrice != null ? pricing.packagePct : multiTierPct;
     basePrice = pricing.base;
     price = pricing.total;
     plan = chosen.map((s) => s.name).join(" + ");
     items = pricing.items.map((it) => ({ subjectId: it.id, subjectName: it.name, base: it.base, amount: it.amount }));
   } else {
     // Старый режим: ручная цена
-    plan = str(formData.get("plan")) || "Абонемент";
+    plan = str(formData.get("plan")) || "Обучение";
     price = int(formData.get("price"));
     basePrice = price;
   }
 
-  const subscription = await prisma.subscription.create({
-    data: {
-      studentId,
-      plan,
-      months,
-      price,
-      basePrice,
-      discountName,
-      discountPct,
-      multiPct,
-      promoCode,
-      startDate: start,
-      endDate: end,
-      status: "ACTIVE",
-      items: items.length > 0 ? { create: items } : undefined,
-    },
-  });
+  if (price <= 0) throw new Error("Сумма счёта должна быть больше нуля");
 
-  if (promoApplyId) {
-    await prisma.promoCode.update({ where: { id: promoApplyId }, data: { usedCount: { increment: 1 } } });
-  }
-
-  if (withInvoice && price > 0) {
-    // счёт наследует разбивку по предметам из абонемента (для дохода по предметам)
-    const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
-    await prisma.payment.create({
+  const purpose = months > 1 ? `${plan} · ${months} мес.` : plan;
+  const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
+  await prisma.$transaction(async (tx) => {
+    if (promoApplyId) {
+      // Лимит проверяется в той же записи: два одновременных счёта не превысят maxUses
+      const used = await tx.promoCode.updateMany({
+        where: promoMaxUses > 0 ? { id: promoApplyId, usedCount: { lt: promoMaxUses } } : { id: promoApplyId },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (used.count === 0) throw new Error("Промокод исчерпан");
+    }
+    // счёт хранит разбивку по предметам — по ней считаются доход по предметам и зарплата
+    await tx.payment.create({
       data: {
         studentId,
-        purpose: `Абонемент · ${plan}`,
+        purpose,
         amount: price,
         status: "PENDING",
         date: start,
+        months,
         items: payItems.length > 0 ? { create: payItems } : undefined,
       },
     });
-    await recalc(studentId);
-  }
+  });
+  await recalc(studentId);
 
   const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
   const savedLabel = basePrice > price && basePrice > 0 ? ` (−${Math.round((1 - price / basePrice) * 100)}%)` : "";
-  await logAudit("CREATE", "Абонемент", `${stSub?.name ?? ""} · ${plan}${savedLabel}`);
-  void subscription;
+  await logAudit("CREATE", "Счёт", `${stSub?.name ?? ""} · ${purpose} · ${money(price)}${savedLabel}`);
   revalidatePath(`/students/${studentId}`);
   revalidatePath("/students");
+  revalidatePath("/payments");
   revalidatePath("/dashboard");
 }
 

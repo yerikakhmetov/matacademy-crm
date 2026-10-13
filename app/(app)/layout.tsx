@@ -23,17 +23,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const notifications: { text: string; href: string; kind: string }[] = [];
   if (session.user.role !== "TEACHER") {
     const weekAgo = new Date(Date.now() - 7 * 86400000);
-    const in14 = new Date(Date.now() + 14 * 86400000);
-    const [overdueCount, newLeadsWeek, expiringCount] = await Promise.all([
+    const [overdueCount, newLeadsWeek] = await Promise.all([
       prisma.payment.count({ where: { status: "OVERDUE" } }),
       prisma.lead.count({ where: { createdAt: { gte: weekAgo } } }),
-      prisma.subscription.count({ where: { endDate: { gte: new Date(), lte: in14 } } }),
     ]);
     const isAdmin = session.user.role === "ADMIN";
     const seeFinance = isAdmin || !deniedPerms.includes("finance");
     const seeLeads = isAdmin || !deniedPerms.includes("leads");
     if (seeFinance && overdueCount) notifications.push({ text: `${overdueCount} просроченных оплат`, href: "/reminders", kind: "bad" });
-    if (seeFinance && expiringCount) notifications.push({ text: `${expiringCount} абонементов истекают скоро`, href: "/reminders", kind: "warn" });
     if (seeLeads && newLeadsWeek) notifications.push({ text: `${newLeadsWeek} новых лидов за неделю`, href: "/leads", kind: "acc" });
   }
 

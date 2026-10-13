@@ -8,7 +8,8 @@ import { isCurator } from "@/lib/curator";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { StudentLinks } from "./StudentLinks";
-import { DAYS, STUDENT_STATUS, formatDate, money, subStatus } from "@/lib/format";
+import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
+import { paidThrough } from "@/lib/payments";
 
 export const dynamic = "force-dynamic";
 
@@ -34,16 +35,14 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
           id: true, name: true, phone: true, grade: true, status: true,
           joinToken: true, portalToken: true,
           parentName: true, parentPhone: true, attendance: true, balance: true, photoUrl: true,
-          // до какого числа оплачено — по действующему абонементу
-          subscriptions: {
-            where: { status: "ACTIVE" },
-            orderBy: { endDate: "desc" },
-            take: 1,
-            select: { endDate: true, plan: true },
-          },
           // когда реально приносили деньги: движение, а не дата счёта
           payments: {
             select: {
+              // до какого числа оплачено — по полностью оплаченным счетам
+              amount: true,
+              paidAmount: true,
+              date: true,
+              months: true,
               txs: {
                 where: { kind: "PAYMENT" },
                 orderBy: { date: "desc" },
@@ -86,10 +85,14 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
   const enrolled = group.students.length;
   const pct = Math.min(100, Math.round((enrolled / group.capacity) * 100));
   const debtors = group.students.filter((s) => s.balance < 0);
-  // «оплатил» — есть действующий абонемент и нет непогашенного остатка по счетам
-  const paid = group.students.filter(
-    (s) => s.balance >= 0 && s.subscriptions.some((x) => !x.endDate || x.endDate.getTime() >= Date.now())
-  );
+  // «оплатил» — текущий месяц покрыт оплаченным счётом и нет непогашенного остатка
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(s.payments)]));
+  const paid = group.students.filter((s) => {
+    const until = paidUntil.get(s.id);
+    return s.balance >= 0 && until != null && until >= monthStart;
+  });
 
   const sameTime = group.lessons.length > 0 && group.lessons.every((l) => l.startTime === group.lessons[0].startTime);
   const scheduleText = group.lessons.length === 0
@@ -167,7 +170,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
               Оплатили
             </div>
             <div className="kval num">{paid.length}/{enrolled}</div>
-            <div className="ktrend">действующий абонемент</div>
+            <div className="ktrend">текущий месяц оплачен</div>
           </div>
         )}
         {showMoney && (
@@ -212,8 +215,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
               )}
               {group.students.map((s) => {
                 const st = STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE;
-                const sub = s.subscriptions[0] ?? null;
-                const subSt = sub ? subStatus(sub.endDate) : null;
+                const until = paidUntil.get(s.id) ?? null;
+                const covered = until != null && until >= monthStart;
                 // последний приход денег среди всех счетов ученика
                 const lastPay = s.payments
                   .flatMap((p) => p.txs)
@@ -248,13 +251,13 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                           {s.balance < 0 ? (
                             // долг важнее срока: по нему и звонят родителям
                             <span className="chip c-bad"><span className="d" />Долг {money(-s.balance)}</span>
-                          ) : sub ? (
-                            <span className={`chip ${subSt!.cls}`}>
+                          ) : until ? (
+                            <span className={`chip ${covered ? "c-ok" : "c-warn"}`}>
                               <span className="d" />
-                              {sub.endDate ? `до ${formatDate(sub.endDate)}` : subSt!.label}
+                              {`оплачено до ${formatDate(until)}`}
                             </span>
                           ) : (
-                            <span className="chip c-mut"><span className="d" />Нет абонемента</span>
+                            <span className="chip c-mut"><span className="d" />Нет оплат</span>
                           )}
                         </td>
                         <td className="mut">
