@@ -17,8 +17,7 @@ import { BarChart } from "@/components/BarChart";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
-import { paidThrough } from "@/lib/payments";
-import { schoolClock } from "@/lib/school-time";
+import { lessonsLeftBySubject } from "@/lib/payroll";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +27,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   const student = await prisma.student.findUnique({
     where: { portalToken: token },
     include: {
-      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } }, subject: { select: { name: true } } } },
+      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } }, subject: { select: { id: true, name: true } } } },
       grades: {
         orderBy: { date: "desc" },
         take: 12,
@@ -63,9 +62,14 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
     student.grades.length > 0
       ? Math.round(student.grades.reduce((a, g) => a + (g.score / g.maxScore) * 100, 0) / student.grades.length)
       : null;
-  // Пәндер — оқушы жүрген топтардың пәндері; «қай күнге дейін төленген» — толық төленген шоттардан
-  const subjectNames = [...new Set(student.groups.map((g) => g.subject?.name).filter(Boolean))] as string[];
-  const paidUntil = paidThrough(student.payments, schoolClock(settings.tzOffsetHours));
+  // Пәндер — оқушы жүрген топтардың пәндері. Төлем — сабақ пакеттері: әр пән бойынша
+  // қанша төленген сабақ қалды (lib/packages.ts)
+  const subjects = [...new Map(student.groups.filter((g) => g.subject).map((g) => [g.subject!.id, g.subject!])).values()];
+  const subjectNames = subjects.map((s) => s.name);
+  const leftBySubject = await Promise.all(
+    subjects.map(async (s) => ({ name: s.name, info: (await lessonsLeftBySubject([student.id], s.id)).get(student.id) }))
+  );
+  const anyPaid = leftBySubject.some((x) => (x.info?.total ?? 0) > 0);
   const groupsLabel =
     student.groups.map((g) => (g.subject?.name ? `${g.subject.name} (${g.name})` : g.name)).join(", ") ||
     t(locale, "common.noGroup");
@@ -158,8 +162,12 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
               <dl className="dl">
                 <dt>{t(locale, "portal.subjects")}</dt>
                 <dd>{subjectNames.length > 0 ? subjectNames.join(", ") : "—"}</dd>
-                <dt>{t(locale, "portal.paidThrough")}</dt>
-                <dd>{paidUntil ? formatDate(paidUntil) : t(locale, "portal.notPaidYet")}</dd>
+                <dt>{t(locale, "portal.lessonsLeft")}</dt>
+                <dd>
+                  {anyPaid
+                    ? leftBySubject.map((x) => `${x.name}: ${Math.max(0, x.info?.left ?? 0)} ${t(locale, "portal.lessonsUnit")}`).join(", ")
+                    : t(locale, "portal.notPaidYet")}
+                </dd>
               </dl>
             </div>
           </div>

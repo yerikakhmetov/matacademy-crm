@@ -22,8 +22,8 @@ import { canFixReceived } from "@/lib/payments";
 import { createInvoice, createPayment, updatePayment } from "@/app/actions/payments";
 import { updateStudent } from "@/app/actions/students";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
-import { schoolClock } from "@/lib/school-time";
-import { periodLabel } from "@/lib/period";
+import { invoicePeriodLabel } from "@/lib/period";
+import { nextStudyMonth } from "@/lib/packages";
 import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +93,7 @@ export default async function StudentDetail({
         })
       : Promise.resolve([]),
   ]);
-  const todayIso = schoolClock(settings.tzOffsetHours).toISOString().slice(0, 10);
+  const nextMonth = nextStudyMonth(student.payments);
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);
   const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
@@ -144,10 +144,10 @@ export default async function StudentDetail({
             {showMoney && (
               <>
                 <ModalButton label="Выставить счёт" title={`Счёт · ${student.name}`} icon="check" buttonClass="btn ghost" action={createInvoice.bind(null, student.id)}>
-                  <InvoiceForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} promos={promos} todayIso={todayIso} />
+                  <InvoiceForm subjects={activeSubjects} discounts={discounts} tiers={tiers} mode={mode} personalPct={personalPct} siblingPct={siblingPct} promos={promos} nextStudyMonth={nextMonth} />
                 </ModalButton>
                 <ModalButton label="Принять оплату" title={`Оплата · ${student.name}`} icon="money" action={createPayment}>
-                  <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} todayIso={todayIso} />
+                  <PaymentForm students={[student]} fixedStudentId={student.id} subjects={activeSubjects} nextStudyMonth={nextMonth} />
                 </ModalButton>
               </>
             )}
@@ -200,7 +200,7 @@ export default async function StudentDetail({
                       <tr key={p.id}>
                         <td className="td-text" style={{ fontWeight: 600 }}>{p.purpose}</td>
                         <td className="mut">{p.method ?? "—"}</td>
-                        <td className="mut">{periodLabel(p.date, p.months)}</td>
+                        <td className="mut">{invoicePeriodLabel(p)}</td>
                         <td>
                           <span className={`chip ${ps.cls}`}>
                             <span className="d" />
@@ -235,7 +235,6 @@ export default async function StudentDetail({
                                   students={allStudents}
                                   subjects={activeSubjects}
                                   canFixReceived={canFixReceived(p)}
-                                  todayIso={todayIso}
                                   value={{
                                     studentId: student.id,
                                     purpose: p.purpose,
@@ -244,6 +243,7 @@ export default async function StudentDetail({
                                     method: p.method,
                                     date: p.date,
                                     months: p.months,
+                                    studyMonth: p.studyMonth,
                                     subjectIds: p.items.map((i) => i.subjectId).filter((x): x is string => !!x),
                                   }}
                                 />

@@ -502,3 +502,22 @@ test("slotRunsOn: старый слот идёт до смены, новый —
   assert.equal(slotRunsOn(new Date(Date.UTC(2026, 9, 9)), { dayOfWeek: 5, archivedAt: ARCHIVED }), false);
   assert.equal(slotRunsOn(new Date(Date.UTC(2026, 9, 1)), { dayOfWeek: 4, activeFrom: CHANGED_ON }), false);
 });
+
+test("пакеты: зарплата по ценам списанных занятий, сверх пакета — без оплаты", () => {
+  const rows = computePayrollRows({
+    teachers: [{ id: "t1", groups: [{ id: "g1", subjectId: "math", scheduledLessons: 0, studentIds: ["s1", "s2"] }] }],
+    payable: new Map([[payableKey("g1", "s1"), 8], [payableKey("g1", "s2"), 3]]),
+    monthlyFee: new Map(),
+    feePct: 10,
+    packaged: new Map([
+      [payableKey("g1", "s1"), { value: 8 * 2000, covered: 8 }],
+      [payableKey("g1", "s2"), { value: 2000, covered: 1 }],
+    ]),
+  });
+  const r = rows.get("t1")!;
+  assert.equal(r.base, 18_000);
+  assert.equal(r.salary, 16_200);
+  assert.equal(r.studentsWithoutFee, 1);
+  assert.equal(r.details.find((x) => x.studentId === "s2" && x.noFee)?.lessons, 2);
+  assert.equal(Math.round(r.details.reduce((a, x) => a + x.amount, 0)), r.salary);
+});

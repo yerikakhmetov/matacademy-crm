@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PeriodPicker } from "@/components/PeriodPicker";
+import { StudyMonthPicker } from "@/components/StudyMonthPicker";
 import { multiTierFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
 
 type Subject = { id: string; name: string; price: number; lessonsPerMonth: number; color: string };
@@ -17,7 +17,7 @@ export function InvoiceForm({
   personalPct = 0,
   siblingPct = 0,
   promos = [],
-  todayIso,
+  nextStudyMonth,
 }: {
   subjects: Subject[];
   discounts: Discount[];
@@ -26,7 +26,7 @@ export function InvoiceForm({
   personalPct?: number;
   siblingPct?: number;
   promos?: { code: string; percent: number }[];
-  todayIso: string; // сегодня по часам школы
+  nextStudyMonth: number; // следующий месяц обучения ученика
 }) {
   const hasSubjects = subjects.length > 0;
 
@@ -81,7 +81,7 @@ export function InvoiceForm({
           <label>Стоимость (₸)</label>
           <input name="price" type="number" min={0} defaultValue={0} />
         </div>
-        <PeriodPicker todayIso={todayIso} />
+        <StudyMonthPicker defaultStudyMonth={nextStudyMonth} />
         <p className="mut" style={{ fontSize: 12, marginTop: 8 }}>
           Добавьте предметы в разделе «Предметы и цены» — тогда сумма считается автоматически со скидками.
         </p>
@@ -120,7 +120,7 @@ export function InvoiceForm({
         </div>
       </div>
 
-      <PeriodPicker todayIso={todayIso} months={months} onMonthsChange={setMonths} />
+      <StudyMonthPicker defaultStudyMonth={nextStudyMonth} months={months} onMonthsChange={setMonths} />
 
       {discounts.length > 0 && (
         <div className="field">

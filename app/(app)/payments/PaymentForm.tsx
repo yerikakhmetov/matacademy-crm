@@ -1,19 +1,20 @@
 import { PAYMENT_METHODS } from "@/lib/format";
-import { PeriodPicker } from "@/components/PeriodPicker";
+import { StudyMonthPicker } from "@/components/StudyMonthPicker";
 type StudentLite = { id: string; name: string };
 type Subject = { id: string; name: string; color: string };
 
-// todayIso — сегодня по часам школы: от него список месяцев «За какой месяц»
+// nextStudyMonth — следующий месяц обучения, если ученик известен (карточка ученика);
+// на странице оплат ученик выбирается в форме — номер подставит сервер.
 export function PaymentForm({
   students,
   fixedStudentId,
   subjects = [],
-  todayIso,
+  nextStudyMonth,
 }: {
   students: StudentLite[];
   fixedStudentId?: string;
   subjects?: Subject[];
-  todayIso: string;
+  nextStudyMonth?: number;
 }) {
   return (
     <>
@@ -37,7 +38,7 @@ export function PaymentForm({
       <div className="field">
         <label>Назначение</label>
         <input name="purpose" placeholder="Обучение" defaultValue="Обучение" />
-        <p className="mut" style={{ fontSize: 11.5, margin: "4px 0 0" }}>Месяц допишется сам — его выбирают ниже.</p>
+        <p className="mut" style={{ fontSize: 11.5, margin: "4px 0 0" }}>Месяц обучения допишется сам — его выбирают ниже.</p>
       </div>
       <div className="grid2">
         <div className="field">
@@ -53,7 +54,7 @@ export function PaymentForm({
           </select>
         </div>
       </div>
-      <PeriodPicker todayIso={todayIso} />
+      <StudyMonthPicker defaultStudyMonth={nextStudyMonth} />
       {subjects.length > 0 && (
         <div className="field">
           <label>За какие предметы (сумма делится пропорционально цене)</label>

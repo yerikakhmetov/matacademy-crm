@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import { settledRatio } from "./payments.ts";
 import {
   computeCuratorRows,
+  feeKey,
   computePayrollRows,
   isPayableAttendance,
   monthlyFeesFromPaid,
@@ -13,7 +14,9 @@ import {
   type PaidItem,
   type PayrollTeacher,
   type SubjectRate,
+  type PackagedPay,
 } from "./payroll-calc.ts";
+import { PACKAGE_BILLING_FROM, allocateVisits, creditFromItem, lessonsLeft, leftKey, packageBillingStart, type Credit, type LessonsLeft, type Visit } from "./packages.ts";
 
 // Сбор данных из БД для расчёта зарплаты. Сама арифметика — в ./payroll-calc.ts (покрыта тестами).
 export * from "./payroll-calc.ts";
@@ -68,6 +71,91 @@ async function loadMonthlyFees(studentIds: string[], rangeStart: Date, rangeEnd:
     }));
 
   return (year: number, month0: number) => monthlyFeesFromPaid(items, year, month0);
+}
+
+// Месяц считается по пакетам занятий (а не «доля ÷ занятий месяца»)?
+const isPackagedMonth = (year: number, month0: number) =>
+  year * 12 + month0 >= PACKAGE_BILLING_FROM.year * 12 + PACKAGE_BILLING_FROM.month0;
+
+// Пакеты занятий: оплачиваемые посещения с начала пакетов списываются с оплаченных
+// занятий по счетам (lib/packages.ts). Результат по месяцам:
+// monthKey -> payableKey(groupId, studentId) -> { сумма цен списанных занятий, сколько покрыто }.
+async function loadPackagedByMonth(
+  groups: { id: string; subjectId: string | null; lessonIds: string[] }[],
+  rangeEnd: Date
+): Promise<Map<string, Map<string, PackagedPay>>> {
+  const from = packageBillingStart();
+  const out = new Map<string, Map<string, PackagedPay>>();
+  if (rangeEnd <= from) return out;
+  const lessonInfo = new Map<string, { groupId: string; subjectId: string }>();
+  for (const g of groups) if (g.subjectId) for (const l of g.lessonIds) lessonInfo.set(l, { groupId: g.id, subjectId: g.subjectId });
+  if (lessonInfo.size === 0) return out;
+
+  // все оплачиваемые посещения с начала пакетов: остаток пакета зависит от всей истории
+  const att = await prisma.attendance.findMany({
+    where: { lessonId: { in: [...lessonInfo.keys()] }, date: { gte: from, lt: rangeEnd } },
+    select: { lessonId: true, studentId: true, present: true, excused: true, date: true },
+  });
+  const visits: Visit[] = [];
+  for (const a of att) {
+    const li = lessonInfo.get(a.lessonId);
+    if (!li || !isPayableAttendance(a.present, a.excused)) continue;
+    visits.push({ studentId: a.studentId, subjectId: li.subjectId, groupId: li.groupId, date: a.date });
+  }
+  if (visits.length === 0) return out;
+
+  const credits = await loadCredits([...new Set(visits.map((v) => v.studentId))]);
+  for (const a of allocateVisits(credits, visits)) {
+    if (a.date >= rangeEnd) continue;
+    const mk = utcKey(a.date);
+    let m = out.get(mk);
+    if (!m) out.set(mk, (m = new Map()));
+    const k = payableKey(a.groupId, a.studentId);
+    const cur = m.get(k) ?? { value: 0, covered: 0 };
+    if (a.paymentId) {
+      cur.value += a.value;
+      cur.covered += 1;
+    }
+    m.set(k, cur);
+  }
+  return out;
+}
+
+// Оплаченные занятия учеников по всем их счетам с разбивкой по предметам.
+// Старые календарные счета (studyMonth = null) дают занятия только за месяцы
+// с начала пакетов: более ранние месяцы уже оплачены по старым правилам.
+export async function loadCredits(studentIds: string[]): Promise<Credit[]> {
+  if (studentIds.length === 0) return [];
+  const startIdx = PACKAGE_BILLING_FROM.year * 12 + PACKAGE_BILLING_FROM.month0;
+  const items = await prisma.paymentItem.findMany({
+    where: { subjectId: { not: null }, payment: { paidAmount: { gt: 0 }, studentId: { in: studentIds } } },
+    select: {
+      subjectId: true,
+      amount: true,
+      subject: { select: { lessonsPerMonth: true } },
+      payment: {
+        select: { id: true, studentId: true, date: true, months: true, studyMonth: true, amount: true, paidAmount: true, refundedAmount: true },
+      },
+    },
+  });
+  const credits: Credit[] = [];
+  for (const it of items) {
+    const p = it.payment;
+    const idx = p.date.getUTCFullYear() * 12 + p.date.getUTCMonth();
+    const c = creditFromItem({
+      paymentId: p.id,
+      studentId: p.studentId,
+      subjectId: it.subjectId!,
+      itemAmount: it.amount,
+      months: p.months,
+      lessonsPerMonth: it.subject?.lessonsPerMonth ?? 0,
+      ratio: settledRatio(p.amount, p.paidAmount, p.refundedAmount),
+      order: p.date.getTime(),
+      skipMonths: p.studyMonth == null ? Math.max(0, startIdx - idx) : 0,
+    });
+    if (c) credits.push(c);
+  }
+  return credits;
 }
 
 // Оплачиваемые посещения по месяцам: monthKey -> payableKey(groupId, studentId) -> число.
@@ -168,6 +256,12 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
     m.set(gid, (m.get(gid) ?? 0) + 1);
   }
 
+  // Пакеты считаются по всем группам с предметом: посещения в группе без
+  // преподавателя тоже списывают занятия из пакета ученика
+  const packagedByMonth = months.some((m) => isPackagedMonth(m.year, m.month0))
+    ? await loadPackagedByMonth(await allSubjectGroups(), rangeEnd)
+    : new Map<string, Map<string, PackagedPay>>();
+
   return months.map(({ year, month0 }) => {
     const mk = mKey(year, month0);
     const monthlyFee = feesFor(year, month0);
@@ -193,8 +287,17 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
       monthlyFee,
       rates,
       feePct,
+      packaged: isPackagedMonth(year, month0) ? (packagedByMonth.get(mk) ?? new Map()) : undefined,
     });
   });
+}
+
+async function allSubjectGroups() {
+  const gs = await prisma.group.findMany({
+    where: { subjectId: { not: null } },
+    select: { id: true, subjectId: true, lessons: { select: { id: true } } },
+  });
+  return gs.map((g) => ({ id: g.id, subjectId: g.subjectId, lessonIds: g.lessons.map((l) => l.id) }));
 }
 
 // Месячная зарплата всех преподавателей за (year, month0). feePct — удержание школы, %.
@@ -253,19 +356,58 @@ export async function gatherCuratorPayrollRange(months: Month[], defaultRate: nu
   const feesFor = await loadMonthlyFees([...studentIds], rangeStart, rangeEnd);
   const allGroups = groups.map((g) => ({ id: g.id, subjectId: g.subjectId }));
 
-  return months.map(({ year, month0 }) =>
-    computeCuratorRows({
-      curators,
-      monthlyFee: feesFor(year, month0),
-      defaultRate,
-      subjectRates,
-      payable: payableByMonth.get(mKey(year, month0)) ?? new Map(),
-      allGroups,
-    })
-  );
+  const packagedByMonth = months.some((m) => isPackagedMonth(m.year, m.month0))
+    ? await loadPackagedByMonth(groups.map((g) => ({ id: g.id, subjectId: g.subjectId, lessonIds: g.lessons.map((l) => l.id) })), rangeEnd)
+    : new Map<string, Map<string, PackagedPay>>();
+  const subjectOf = new Map(groups.map((g) => [g.id, g.subjectId]));
+
+  return months.map(({ year, month0 }) => {
+    if (!isPackagedMonth(year, month0)) {
+      return computeCuratorRows({
+        curators,
+        monthlyFee: feesFor(year, month0),
+        defaultRate,
+        subjectRates,
+        payable: payableByMonth.get(mKey(year, month0)) ?? new Map(),
+        allGroups,
+      });
+    }
+    // Пакеты: ученик «оплатил» месяц в группе, если хоть одно его посещение в ней
+    // в этом месяце покрыто оплаченным занятием; ставка делится по покрытым занятиям.
+    const covered = new Map<string, number>();
+    const paidMarker = new Map<string, number>();
+    for (const [k, p] of packagedByMonth.get(mKey(year, month0)) ?? new Map<string, PackagedPay>()) {
+      if (p.covered <= 0) continue;
+      covered.set(k, p.covered);
+      const [gid, sid] = k.split("|");
+      const subj = subjectOf.get(gid);
+      if (subj) paidMarker.set(feeKey(sid, subj), 1);
+    }
+    return computeCuratorRows({ curators, monthlyFee: paidMarker, defaultRate, subjectRates, payable: covered, allGroups });
+  });
 }
 
 export async function gatherCuratorPayroll(year: number, month0: number, defaultRate: number): Promise<Map<string, CuratorRow>> {
   const [rows] = await gatherCuratorPayrollRange([{ year, month0 }], defaultRate);
   return rows ?? new Map();
+}
+
+// Остаток оплаченных занятий по предмету у учеников (для страницы группы и портала):
+// studentId -> { left, total, unpaid }. Посещения считаются во всех группах предмета.
+export async function lessonsLeftBySubject(studentIds: string[], subjectId: string): Promise<Map<string, LessonsLeft>> {
+  const out = new Map<string, LessonsLeft>();
+  if (studentIds.length === 0) return out;
+  const [credits, att] = await Promise.all([
+    loadCredits(studentIds),
+    prisma.attendance.findMany({
+      where: { studentId: { in: studentIds }, date: { gte: packageBillingStart() }, lesson: { group: { subjectId } } },
+      select: { studentId: true, present: true, excused: true, date: true, lesson: { select: { groupId: true } } },
+    }),
+  ]);
+  const visits: Visit[] = att
+    .filter((a) => isPayableAttendance(a.present, a.excused))
+    .map((a) => ({ studentId: a.studentId, subjectId, groupId: a.lesson.groupId, date: a.date }));
+  const left = lessonsLeft(credits.filter((c) => c.subjectId === subjectId), visits);
+  for (const id of studentIds) out.set(id, left.get(leftKey(id, subjectId)) ?? { left: 0, total: 0, unpaid: 0 });
+  return out;
 }

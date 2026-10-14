@@ -10,6 +10,8 @@ import { Icon } from "@/components/Icon";
 import { StudentLinks } from "./StudentLinks";
 import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
 import { paidThrough, subjectShareOfTx } from "@/lib/payments";
+import { lessonsLeftBySubject } from "@/lib/payroll";
+import type { LessonsLeft } from "@/lib/packages";
 import { getSettings } from "@/lib/settings";
 import { schoolClock } from "@/lib/school-time";
 import { cardCols } from "@/lib/card-table";
@@ -101,10 +103,15 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
     s.payments
       .map((p) => ({ ...p, share: subjectId ? p.items.filter((i) => i.subjectId === subjectId).reduce((a, i) => a + i.amount, 0) : p.amount }))
       .filter((p) => p.share > 0);
+  // Группа с предметом: оплата — пакеты занятий, показываем остаток оплаченных занятий.
+  // Без предмета — по-старому, «оплачено до» по календарным счетам.
+  const left = subjectId ? await lessonsLeftBySubject(group.students.map((s) => s.id), subjectId) : null;
   const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(subjectPayments(s), now)]));
   const paid = group.students.filter((s) => {
+    if (s.balance < 0) return false;
+    if (left) return (left.get(s.id)?.left ?? 0) > 0;
     const until = paidUntil.get(s.id);
-    return s.balance >= 0 && until != null && until >= monthStart;
+    return until != null && until >= monthStart;
   });
 
   const sameTime = group.lessons.length > 0 && group.lessons.every((l) => l.startTime === group.lessons[0].startTime);
@@ -183,7 +190,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
               Оплатили
             </div>
             <div className="kval num">{paid.length}/{enrolled}</div>
-            <div className="ktrend">текущий месяц оплачен</div>
+            <div className="ktrend">{left ? "есть оплаченные занятия" : "текущий месяц оплачен"}</div>
           </div>
         )}
         {showMoney && (
@@ -264,6 +271,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                           {s.balance < 0 ? (
                             // долг важнее срока: по нему и звонят родителям
                             <span className="chip c-bad"><span className="d" />Долг {money(-s.balance)}</span>
+                          ) : left ? (
+                            <LessonsLeftChip info={left.get(s.id)} />
                           ) : until ? (
                             <span className={`chip ${covered ? "c-ok" : "c-warn"}`}>
                               <span className="d" />
@@ -306,5 +315,27 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
         </div>
       </div>
     </>
+  );
+}
+
+// Остаток пакета занятий ученика по предмету группы.
+// Мало осталось (≤ 2) — жёлтым: пора напомнить об оплате следующего месяца.
+function LessonsLeftChip({ info }: { info?: LessonsLeft }) {
+  if (!info || (info.total === 0 && info.unpaid === 0)) {
+    return <span className="chip c-mut"><span className="d" />Нет оплат</span>;
+  }
+  if (info.left <= 0) {
+    return (
+      <span className={`chip ${info.unpaid > 0 ? "c-bad" : "c-warn"}`}>
+        <span className="d" />
+        {info.unpaid > 0 ? `без оплаты: ${info.unpaid} зан.` : "пакет закончился"}
+      </span>
+    );
+  }
+  return (
+    <span className={`chip ${info.left <= 2 ? "c-warn" : "c-ok"}`} title={`Оплачено занятий: ${info.total}`}>
+      <span className="d" />
+      осталось {info.left} зан.
+    </span>
   );
 }

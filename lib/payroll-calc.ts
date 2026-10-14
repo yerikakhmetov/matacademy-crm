@@ -131,7 +131,14 @@ export type PayrollInput = {
   rates?: Map<string, SubjectRate>;
   /** удержание школы, % (к ставке не применяется — ставка уже «на руки») */
   feePct: number;
+  /**
+   * Оплата пакетами (с PACKAGE_BILLING_FROM): payableKey -> сумма цен списанных занятий
+   * и сколько посещений покрыто оплатой. Если задано, заменяет «долю ÷ занятий месяца».
+   */
+  packaged?: Map<string, PackagedPay>;
 };
+
+export type PackagedPay = { value: number; covered: number };
 
 // Оплаченная доля предмета по счёту. year/month0 — месяц, за который выставлен счёт.
 export type PaidItem = {
@@ -192,7 +199,7 @@ export function subjectLessonTotals(
   return totals;
 }
 
-export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePct }: PayrollInput): Map<string, PayrollRow> {
+export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePct, packaged }: PayrollInput): Map<string, PayrollRow> {
   const net = Math.max(0, 100 - Math.max(0, feePct)) / 100;
   const rows = new Map<string, PayrollRow>();
   const totals = subjectLessonTotals(teachers.flatMap((t) => t.groups), payable);
@@ -211,7 +218,7 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
       const rate = rates?.get(g.subjectId);
       const byRate = rate != null && rate.amount > 0 && rate.lessons > 0;
       const divisor = g.scheduledLessons;
-      if (!byRate && divisor <= 0) continue;
+      if (!byRate && !packaged && divisor <= 0) continue;
       // Текущий состав плюс те, кто ходил в этом месяце и уже ушёл из группы
       const ids = new Set([...g.studentIds, ...(attendedByGroup.get(g.id) ?? [])]);
       for (const studentId of ids) {
@@ -224,6 +231,21 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
           rateGross += amount;
           details.push({ groupId: g.id, studentId, lessons: pl, amount });
           studs.add(studentId);
+          continue;
+        }
+        if (packaged) {
+          // Пакеты: каждое посещение уже оценено ценой списанного занятия
+          const p = packaged.get(payableKey(g.id, studentId)) ?? { value: 0, covered: 0 };
+          if (p.covered > 0) {
+            shareGross += p.value;
+            details.push({ groupId: g.id, studentId, lessons: p.covered, amount: p.value * net });
+            studs.add(studentId);
+          }
+          if (p.covered < pl) {
+            // сверх оплаченного пакета — ходил без оплаты
+            noFee.add(studentId);
+            details.push({ groupId: g.id, studentId, lessons: pl - p.covered, amount: 0, noFee: true });
+          }
           continue;
         }
         const fee = monthlyFee.get(feeKey(studentId, g.subjectId)) ?? 0;

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { netRevenue } from "@/lib/revenue";
 import { getSettings } from "@/lib/settings";
 import { schoolClock, schoolMonthStart } from "@/lib/school-time";
-import { periodLabel } from "@/lib/period";
+import { invoicePeriodLabel } from "@/lib/period";
 import { auth } from "@/auth";
 import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
@@ -48,7 +48,6 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const tz = (await getSettings()).tzOffsetHours;
   const clock = schoolClock(tz);
   const monthFrom = schoolMonthStart(clock.getUTCFullYear(), clock.getUTCMonth(), tz);
-  const todayIso = clock.toISOString().slice(0, 10);
 
   const [payments, total, students, subjects, revenue, owing, paidCount] = await Promise.all([
     prisma.payment.findMany({
@@ -107,7 +106,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         </Link>
         {editor && (
           <ModalButton label="Принять оплату" title="Приём оплаты" icon="money" action={createPayment}>
-            <PaymentForm students={students} subjects={subjects} todayIso={todayIso} />
+            <PaymentForm students={students} subjects={subjects} />
           </ModalButton>
         )}
         </div>
@@ -174,7 +173,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td className="td-text">{p.purpose}</td>
                     <td className="mut">{p.method ?? "—"}</td>
-                    <td className="mut">{periodLabel(p.date, p.months)}</td>
+                    <td className="mut">{invoicePeriodLabel(p)}</td>
                     <td>
                       <span className={`chip ${ps.cls}`}>
                         <span className="d" />
@@ -213,7 +212,6 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               students={students}
                               subjects={subjects}
                               canFixReceived={canFixReceived(p)}
-                              todayIso={todayIso}
                               value={{
                                 studentId: p.studentId,
                                 purpose: p.purpose,
@@ -222,6 +220,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                                 method: p.method,
                                 date: p.date,
                                 months: p.months,
+                                studyMonth: p.studyMonth,
                                 subjectIds: p.items.map((i) => i.subjectId).filter((x): x is string => !!x),
                               }}
                             />

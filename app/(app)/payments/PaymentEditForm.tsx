@@ -1,5 +1,6 @@
 import { PAYMENT_METHODS, money } from "@/lib/format";
-import { PeriodPicker } from "@/components/PeriodPicker";
+import { StudyMonthPicker } from "@/components/StudyMonthPicker";
+import { periodLabel } from "@/lib/period";
 
 type StudentLite = { id: string; name: string };
 type Subject = { id: string; name: string; color: string };
@@ -10,7 +11,6 @@ export function PaymentEditForm({
   subjects = [],
   value,
   canFixReceived,
-  todayIso,
 }: {
   students: StudentLite[];
   subjects?: Subject[];
@@ -22,9 +22,9 @@ export function PaymentEditForm({
     method: string | null;
     date: Date;
     months: number;
+    studyMonth: number | null;
     subjectIds: string[];
   };
-  todayIso: string; // сегодня по часам школы
   /** оплата принята одним движением целиком — принятая сумма исправляется вместе со счётом */
   canFixReceived: boolean;
 }) {
@@ -58,8 +58,14 @@ export function PaymentEditForm({
           </select>
         </div>
       </div>
-      {/* Период счёта; дата, когда принесли деньги, здесь не меняется — она в кассе дня */}
-      <PeriodPicker todayIso={todayIso} defaultMonth={value.date} defaultMonths={value.months} />
+      {/* Месяц обучения; дата, когда принесли деньги, здесь не меняется — она в кассе дня */}
+      {value.studyMonth == null && (
+        <p className="mut" style={{ fontSize: 12, margin: "0 0 6px" }}>
+          Старый счёт за календарный период: <b>{periodLabel(value.date, value.months)}</b>. Укажите месяц обучения,
+          чтобы перевести его на пакеты занятий.
+        </p>
+      )}
+      <StudyMonthPicker defaultStudyMonth={value.studyMonth} defaultMonths={value.months} />
 
       {canFixReceived ? (
         <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
