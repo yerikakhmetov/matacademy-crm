@@ -150,7 +150,7 @@ export default async function SettingsPage() {
             Шаблоны напоминаний (Telegram)
           </div>
           <p className="mut" style={{ fontSize: 12.5, margin: "0 0 14px" }}>
-            Плейсхолдеры подставятся автоматически: <code>{"{school}"}</code> <code>{"{name}"}</code> <code>{"{purpose}"}</code> <code>{"{amount}"}</code> <code>{"{days}"}</code> <code>{"{plan}"}</code> <code>{"{date}"}</code>. Пусто — используется стандартный текст.
+            Плейсхолдеры подставятся автоматически: <code>{"{school}"}</code> <code>{"{name}"}</code> <code>{"{purpose}"}</code> <code>{"{amount}"}</code> <code>{"{days}"}</code> <code>{"{lessons}"}</code>. Пусто — используется стандартный текст.
           </p>
           <div className="field" style={{ marginBottom: 14 }}>
             <label>Долг (просрочка)</label>
@@ -159,6 +159,10 @@ export default async function SettingsPage() {
           <div className="field" style={{ marginBottom: 14 }}>
             <label>Ожидает оплаты</label>
             <textarea name="tplPending" rows={2} defaultValue={s.tplPending} placeholder={DEFAULT_TEMPLATES.pending} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+          </div>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>Заканчиваются оплаченные занятия (один раз на каждую оплату)</label>
+            <textarea name="tplExpiring" rows={2} defaultValue={s.tplExpiring} placeholder={DEFAULT_TEMPLATES.expiring} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
           </div>
                   </div>
 

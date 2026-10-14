@@ -469,6 +469,19 @@ model LoginToken {
   createdAt DateTime @default(now())
 }
 
+// Родителю уже напомнили, что по предмету заканчиваются оплаченные занятия.
+// Ключ — сколько всего занятий оплачено (total): новая оплата меняет total,
+// и следующее напоминание снова возможно. Без этого cron слал бы его каждый день.
+model PackageNotice {
+  id        String   @id @default(cuid())
+  studentId String
+  subjectId String
+  total     Int
+  sentAt    DateTime @default(now())
+
+  @@unique([studentId, subjectId, total])
+}
+
 // Неудачные попытки входа по паролю: после 10 за 15 минут вход на этот email
 // временно закрыт — подбор пароля перебором становится бессмысленным.
 model LoginFailure {
@@ -489,7 +502,7 @@ model Settings {
   tariffs    String   @default("[]") // JSON: [{plan, months, price}]
   tplOverdue String   @default("") // шаблон: долг
   tplPending String   @default("") // шаблон: ожидает оплаты
-  tplExpiring String  @default("") // шаблон: абонемент истекает
+  tplExpiring String  @default("") // шаблон: заканчиваются оплаченные занятия (пакет)
   managerDenied String @default("") // запрещённые менеджеру модули (ключи через запятую)
   discounts     String @default("") // спец-скидки: "название | процент" построчно
   multiDiscount String @default("") // скидки за несколько предметов: "кол-во | процент" построчно

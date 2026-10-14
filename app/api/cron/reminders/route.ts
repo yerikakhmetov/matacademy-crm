@@ -3,6 +3,7 @@ import { collectReminders } from "@/lib/reminders";
 import { sendTelegram, telegramConfigured } from "@/lib/telegram";
 import { sendWhatsappTemplate, whatsappConfigured, normalizePhone } from "@/lib/whatsapp";
 import { markOverdue } from "@/lib/overdue";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,11 @@ export async function GET(req: NextRequest) {
     }
     unreachable++;
   }
+
+  // Пакеты отмечаем как «напомнили» — и отправленные, и без канала связи: администратор
+  // увидел их в сводке, повторять каждый день не нужно. Новая оплата даст новый total.
+  const notices = items.flatMap((i) => i.notices ?? []);
+  if (notices.length > 0) await prisma.packageNotice.createMany({ data: notices, skipDuplicates: true });
 
   // Сводка администратору школы (в Telegram)
   const adminChat = process.env.TELEGRAM_ADMIN_CHAT_ID;

@@ -8,8 +8,7 @@ import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
 import { markOverdue } from "@/lib/overdue";
 import { cardCols } from "@/lib/card-table";
-import { lessonsLeftAll } from "@/lib/payroll";
-import { leftKey, packageAlerts } from "@/lib/packages";
+import { collectPackageAlerts, packageItemText } from "@/lib/reminders";
 
 export const dynamic = "force-dynamic";
 
@@ -34,35 +33,9 @@ export default async function RemindersPage() {
   ]);
 
   // Пакет занятий заканчивается: ученики, которым пора оплатить следующий месяц обучения
-  const active = await prisma.student.findMany({
-    where: { status: "ACTIVE", groups: { some: { subjectId: { not: null } } } },
-    select: {
-      id: true,
-      name: true,
-      parentName: true,
-      parentPhone: true,
-      groups: { where: { subjectId: { not: null } }, select: { subject: { select: { id: true, name: true } } } },
-    },
-    orderBy: { name: "asc" },
-  });
-  // предметы неоплаченных счетов: по ним напоминание уже есть ниже, второй раз не нужно
-  const openItems = await prisma.paymentItem.findMany({
-    where: { paymentId: { in: [...overdue, ...pending].map((p) => p.id) }, subjectId: { not: null } },
-    select: { subjectId: true, payment: { select: { studentId: true } } },
-  });
-  const openInvoice = new Set(openItems.map((it) => leftKey(it.payment.studentId, it.subjectId!)));
-  const left = await lessonsLeftAll(active.map((s) => s.id));
-  const alerts = packageAlerts(
-    active.flatMap((s) => s.groups.map((g) => ({ studentId: s.id, subjectId: g.subject!.id }))),
-    left,
-    openInvoice
-  );
-  const subjectName = new Map(active.flatMap((s) => s.groups.map((g) => [g.subject!.id, g.subject!.name] as const)));
-  const ending = active.filter((s) => alerts.has(s.id)).map((s) => ({ ...s, items: alerts.get(s.id)! }));
-  const itemText = (it: { subjectId: string; left: number; unpaid: number }) =>
-    it.unpaid > 0 ? `${subjectName.get(it.subjectId)}: без оплаты ${it.unpaid} зан.` : `${subjectName.get(it.subjectId)}: осталось ${it.left} зан.`;
-  const msgEnding = (name: string, items: { subjectId: string; left: number; unpaid: number }[]) =>
-    `Здравствуйте! Напоминаем из ${SCHOOL} (ученик: ${name}): ${items.map(itemText).join("; ")}. ` +
+  const ending = await collectPackageAlerts();
+  const msgEnding = (name: string, items: { subjectName: string; left: number; unpaid: number }[]) =>
+    `Здравствуйте! Напоминаем из ${SCHOOL} (ученик: ${name}): заканчиваются оплаченные занятия (${items.map(packageItemText).join("; ")}). ` +
     `Чтобы занятия шли без перерыва, пожалуйста, оплатите следующий месяц обучения. Спасибо!`;
 
   const total = overdue.length + pending.length + ending.length;
@@ -175,7 +148,7 @@ export default async function RemindersPage() {
                 </tr>
               )}
               {ending.map((s) => (
-                <tr key={s.id}>
+                <tr key={s.studentId}>
                   <td>
                     <div className="person">
                       <div className="av2" style={{ background: avatarColor(s.name) }}>{initials(s.name)}</div>
@@ -188,9 +161,14 @@ export default async function RemindersPage() {
                   <td className="td-text">
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {s.items.map((it) => (
-                        <span key={it.subjectId} className={`chip ${it.unpaid > 0 ? "c-bad" : "c-warn"}`}>
+                        <span
+                          key={it.subjectId}
+                          className={`chip ${it.unpaid > 0 ? "c-bad" : "c-warn"}`}
+                          title={it.notifiedAt ? `Напоминание в Telegram отправлено ${formatDate(it.notifiedAt)}` : undefined}
+                        >
                           <span className="d" />
-                          {itemText(it)}
+                          {packageItemText(it)}
+                          {it.notifiedAt ? " · ✓ напомнили" : ""}
                         </span>
                       ))}
                     </div>

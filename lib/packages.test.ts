@@ -82,5 +82,5 @@ test("напоминания: мало занятий или ходит без �
   const enrolled = ["a", "b", "c", "d", "e"].map((studentId) => ({ studentId, subjectId: "math" }));
   const res = packageAlerts(enrolled, left, new Set([leftKey("d", "math")]));
   assert.deepEqual([...res.keys()], ["a", "c"]);
-  assert.deepEqual(res.get("c"), [{ subjectId: "math", left: 0, unpaid: 3 }]);
+  assert.deepEqual(res.get("c"), [{ subjectId: "math", left: 0, unpaid: 3, total: 0 }]);
 });

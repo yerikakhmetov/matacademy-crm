@@ -22,6 +22,7 @@ export async function updateSettings(formData: FormData) {
     tariffs: JSON.stringify(tariffs),
     tplOverdue: String(formData.get("tplOverdue") ?? "").trim(),
     tplPending: String(formData.get("tplPending") ?? "").trim(),
+    tplExpiring: String(formData.get("tplExpiring") ?? "").trim(),
     // чекбокс "perm_<key>" присутствует = разрешено; отсутствует = запрещено
     managerDenied: MANAGER_PERMS.filter((p) => !formData.get(`perm_${p.key}`)).map((p) => p.key).join(","),
     discounts: String(formData.get("discounts") ?? "").trim(),
