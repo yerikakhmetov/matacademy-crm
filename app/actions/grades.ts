@@ -7,7 +7,7 @@ import { canEditData } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParent, notifyStudentsDirect } from "@/lib/notify";
-import { int, parseDate, str, dateOrToday } from "./_shared";
+import { assertCanManageGroup, assertStudentInGroup, int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Оценки ----------
 // Ставить оценку может админ/менеджер или учитель группы ученика.
@@ -28,6 +28,11 @@ export async function addGrade(studentId: string, formData: FormData) {
   // За какую группу оценка: страница «Успеваемость» всегда открыта на конкретной
   // группе. Без этого оценка всплывала бы во всех группах ученика.
   const gradeGroupId = str(formData.get("groupId")) || null;
+  // группа оценки — своя и ученика: иначе оценка всплыла бы в чужой группе
+  if (gradeGroupId) {
+    await assertCanManageGroup(gradeGroupId);
+    await assertStudentInGroup(studentId, gradeGroupId);
+  }
   const score = int(formData.get("score"));
   const maxScore = Math.max(1, int(formData.get("maxScore")) || 100);
   await prisma.grade.create({

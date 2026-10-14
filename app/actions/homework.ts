@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParents, notifyStudentsDirect, studentIdsOfGroup } from "@/lib/notify";
 import { getStudentIdForUser } from "@/lib/teacher";
-import { assertCanManageGroup, parseDate, str } from "./_shared";
+import { assertCanManageGroup, assertStudentInGroup, parseDate, str } from "./_shared";
 
 // ---------- Домашние задания ----------
 export async function addHomework(groupId: string, formData: FormData) {
@@ -54,6 +54,7 @@ export async function toggleHomeworkDone(homeworkId: string, studentId: string) 
   const hw = await prisma.homework.findUnique({ where: { id: homeworkId } });
   if (!hw) return;
   await assertCanManageGroup(hw.groupId);
+  await assertStudentInGroup(studentId, hw.groupId);
   const existing = await prisma.homeworkDone.findUnique({
     where: { homeworkId_studentId: { homeworkId, studentId } },
   });

@@ -220,8 +220,20 @@ export async function setTestGroups(testId: string, formData: FormData) {
   const groupIds = [...new Set([...(test.groupId ? [test.groupId] : []), ...picked])];
   for (const gid of groupIds) await assertCanManageGroup(gid);
 
+  // Убираем только те группы, которыми пользователь может управлять: преподаватель, сохраняя
+  // свои группы, не должен отвязывать от теста группы коллег (их нет в его списке).
+  const attached = await prisma.testGroup.findMany({ where: { testId, groupId: { notIn: groupIds } }, select: { groupId: true } });
+  const removable: string[] = [];
+  for (const a of attached) {
+    try {
+      await assertCanManageGroup(a.groupId);
+      removable.push(a.groupId);
+    } catch {
+      // чужая группа — остаётся привязанной
+    }
+  }
+  if (removable.length > 0) await prisma.testGroup.deleteMany({ where: { testId, groupId: { in: removable } } });
   // У каждой группы свой день теста: поле date_<groupId>; пусто — общая дата
-  await prisma.testGroup.deleteMany({ where: { testId, groupId: { notIn: groupIds } } });
   for (const groupId of groupIds) {
     const date = parseDate(formData.get(`date_${groupId}`));
     await prisma.testGroup.upsert({

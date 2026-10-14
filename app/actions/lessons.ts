@@ -9,7 +9,7 @@ import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { recalcAttendance } from "@/lib/attendance";
 import { isCuratorOfGroup } from "@/lib/curator";
-import { UserError, asResult, assertEditor, int, parseDate, str } from "./_shared";
+import { UserError, asResult, assertEditor, assertStudentInGroup, int, parseDate, str } from "./_shared";
 
 // ---------- Расписание ----------
 export async function createLesson(formData: FormData) {
@@ -77,6 +77,7 @@ export async function scheduleMakeup(formData: FormData) {
   if (!lessonId || !studentId || !missedDate || !plannedAt) throw new Error("Заполните ученика, занятие и даты");
 
   const { session, lesson } = await assertCanMarkLesson(lessonId);
+  await assertStudentInGroup(studentId, lesson.groupId);
   await prisma.makeup.upsert({
     where: { studentId_lessonId_missedDate: { studentId, lessonId, missedDate } },
     create: {

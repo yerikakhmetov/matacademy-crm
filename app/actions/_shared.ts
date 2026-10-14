@@ -53,6 +53,13 @@ export async function assertCanManageGroup(groupId: string) {
   throw new Error("Недостаточно прав");
 }
 
+// Ученик действительно в этой группе. Права на группу проверяются отдельно, но без этой
+// проверки преподаватель своей группы мог бы ставить отметки чужому ученику по его id.
+export async function assertStudentInGroup(studentId: string, groupId: string) {
+  const n = await prisma.group.count({ where: { id: groupId, students: { some: { id: studentId } } } });
+  if (n === 0) throw new Error("Ученик не из этой группы");
+}
+
 // Ошибка, которую должен увидеть пользователь. Брошенный текст в продакшне до браузера
 // не доходит, поэтому формы получают его как результат: { error }.
 export class UserError extends Error {}
