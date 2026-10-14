@@ -141,33 +141,7 @@ export function TimedTest({
           {t(locale, "test.answeredOf", { n: answered, total: questions.length })}
           {saving ? ` · ${t(locale, "test.saving")}` : ""}
         </div>
-        {!confirming && (
-          <button className="btn" type="button" onClick={() => setConfirming(true)}>
-            <Icon name="check" size={16} />
-            {t(locale, "test.submit")}
-          </button>
-        )}
       </div>
-
-      {hint && !confirming && (
-        <p className="mut" style={{ fontSize: 12, margin: "-4px 2px 12px" }}>{hint}</p>
-      )}
-
-      {confirming && (
-        <div className="card" role="alertdialog" aria-live="assertive" style={{ padding: 14, marginBottom: 12, borderColor: "var(--accent)" }}>
-          <p style={{ margin: "0 0 10px", fontWeight: 600 }}>
-            {t(locale, "test.confirmSubmit", { n: answered, total: questions.length })}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button className="btn" type="button" onClick={finish}>
-              {t(locale, "test.confirmYes")}
-            </button>
-            <button className="btn ghost" type="button" onClick={() => setConfirming(false)}>
-              {t(locale, "test.confirmNo")}
-            </button>
-          </div>
-        </div>
-      )}
 
       {failed.size > 0 && (
         <div className="err" role="alert" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -213,6 +187,38 @@ export function TimedTest({
           </div>
         </div>
       ))}
+
+      {/* Отправка — в самом конце теста, после всех вопросов, и только с подтверждением */}
+      <div className="card" style={{ padding: 16, marginBottom: 12 }}>
+        {confirming ? (
+          <div role="alertdialog" aria-live="assertive" aria-labelledby="confirm-submit">
+            <p id="confirm-submit" style={{ margin: "0 0 6px", fontWeight: 600 }}>
+              {t(locale, "test.confirmSubmit", { n: answered, total: questions.length })}
+            </p>
+            {answered < questions.length && (
+              <p style={{ margin: "0 0 10px", color: "var(--warn-ink, var(--amber))", fontWeight: 600, fontSize: 13 }}>
+                {t(locale, "test.unansweredN", { n: questions.length - answered })}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn" type="button" onClick={finish}>
+                {t(locale, "test.confirmYes")}
+              </button>
+              <button className="btn ghost" type="button" onClick={() => setConfirming(false)}>
+                {t(locale, "test.confirmNo")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {hint && <p className="mut" style={{ fontSize: 12.5, margin: "0 0 10px" }}>{hint}</p>}
+            <button className="btn" type="button" onClick={() => setConfirming(true)} style={{ width: "100%", justifyContent: "center", padding: 12 }}>
+              <Icon name="check" size={16} />
+              {t(locale, "test.submit")}
+            </button>
+          </>
+        )}
+      </div>
 
       <p className="mut" style={{ fontSize: 12, textAlign: "center" }}>
         {t(locale, "test.autosaveNote")}

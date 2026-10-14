@@ -155,7 +155,14 @@ async function main() {
   // --- Тест: один пройден, один открыт сейчас ---
   // text — читаемый текст (списки, аналитика), textTex — формула для экрана теста (KaTeX).
   // Словесная часть — в \text{…}, как набирают преподаватели в редакторе теста.
-  const q = (text: string, textTex: string, options: string[], correct: number, order: number) => ({ text, textTex, options, correct, order });
+  const q = (text: string, textTex: string, options: string[], correct: number, order: number, optionsTex: string[] = []) => ({
+    text,
+    textTex,
+    options,
+    correct,
+    order,
+    optionsTex,
+  });
   const doneTest = await prisma.test.create({
     data: {
       title: "Квадратные уравнения",
@@ -187,9 +194,9 @@ async function main() {
       questions: {
         create: [
           q("|−7| равен", "|-7| \\text{ равен}", ["7", "−7", "0", "49"], 0, 0),
-          q("Решите |x| = 3", "\\text{Решите } |x|=3", ["±3", "3", "−3", "нет решений"], 0, 1),
-          q("|x − 2| < 1 при", "|x-2|<1 \\text{ при}", ["1 < x < 3", "x < 1", "x > 3", "x = 2"], 0, 2),
-          q("|a|·|b| равно", "|a|\\cdot|b| \\text{ равно}", ["|ab|", "ab", "a + b", "|a + b|"], 0, 3),
+          q("Решите |x| = 3", "\\text{Решите } |x|=3", ["±3", "3", "−3", "нет решений"], 0, 1, ["\\pm 3", "3", "-3", "\\text{нет решений}"]),
+          q("|x − 2| < 1 при", "|x-2|<1 \\text{ при}", ["1 < x < 3", "x < 1", "x > 3", "x = 2"], 0, 2, ["1<x<3", "x<1", "x>3", "x=2"]),
+          q("|a|·|b| равно", "|a|\\cdot|b| \\text{ равно}", ["|ab|", "ab", "a + b", "|a + b|"], 0, 3, ["|ab|", "ab", "a+b", "|a+b|"]),
         ],
       },
     },
