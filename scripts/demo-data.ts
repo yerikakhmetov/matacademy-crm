@@ -16,6 +16,10 @@ const DEMO_LOGINS = {
   curator: { email: "curator@matacademy.kz", password: "curator123" },
 };
 
+// Ссылка-ключ портала родителя демо-ученика. Только для локального демо: на рабочей
+// базе ключи случайные (newToken), этот скрипт туда не запускается.
+const DEMO_PARENT_TOKEN = "demo-parent";
+
 const utcDay = (y: number, m0: number, d: number) => new Date(Date.UTC(y, m0, d));
 
 async function main() {
@@ -88,7 +92,15 @@ async function main() {
   const studentUser = await prisma.user.create({
     data: { name: me.name, email: DEMO_LOGINS.student.email, passwordHash: hash(DEMO_LOGINS.student.password), role: "STUDENT" },
   });
-  await prisma.student.update({ where: { id: me.id }, data: { userId: studentUser.id, groups: { set: [fresh[0], fresh[2], fresh[4]].map((g) => ({ id: g.id })) } } });
+  await prisma.student.update({
+    where: { id: me.id },
+    data: {
+      userId: studentUser.id,
+      groups: { set: [fresh[0], fresh[2], fresh[4]].map((g) => ({ id: g.id })) },
+      // постоянная ссылка для родителя: /p/demo-parent (для показа портала родителя)
+      portalToken: DEMO_PARENT_TOKEN,
+    },
+  });
 
   // --- Посещаемость с 1 сентября по вчера ---
   const today = utcDay(2026, 9, 13);
