@@ -43,7 +43,14 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
       groupLinks: {
         select: {
           date: true,
-          group: { select: { id: true, name: true, lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } } } },
+          group: {
+            select: {
+              id: true,
+              name: true,
+              lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } },
+              students: { where: { status: "ACTIVE" }, select: { id: true, name: true } },
+            },
+          },
         },
       },
       subject: { select: { name: true, color: true, teachers: { select: { userId: true } } } },
@@ -69,6 +76,30 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
 
   // Разбор онлайн-прохождений: где группа спотыкается
   const attempts = test.attempts;
+
+  // Кто ещё не сдал: ученики всех групп теста без сданной попытки. «Начал» — попытка
+  // есть, но не отправлена (закрыл вкладку, ещё проходит) — им стоит напомнить.
+  const doneIds = new Set(attempts.map((a) => a.studentId));
+  const startedIds = new Set(
+    (await prisma.testAttempt.findMany({ where: { testId: test.id, finished: false }, select: { studentId: true } })).map((a) => a.studentId)
+  );
+  // группы теста: привязки, а у старых тестов — только основная группа
+  const testGroups = test.groupLinks.map((l) => l.group);
+  if (test.group && !testGroups.some((g) => g.id === test.group!.id)) {
+    testGroups.unshift({ id: test.group.id, name: test.group.name, lessons: test.group.lessons, students: test.group.students });
+  }
+  const pendingByGroup = testGroups
+    .map((group) => ({
+      group,
+      students: group.students
+        .filter((st) => !doneIds.has(st.id))
+        .map((st) => ({ ...st, started: startedIds.has(st.id) }))
+        .sort((a, b) => Number(b.started) - Number(a.started) || a.name.localeCompare(b.name)),
+      total: group.students.length,
+    }))
+    .filter((g) => g.total > 0);
+  const pendingCount = pendingByGroup.reduce((n, g) => n + g.students.length, 0);
+  const assignedCount = pendingByGroup.reduce((n, g) => n + g.total, 0);
   const stats = questionStats(
     test.questions.map((q) => ({ correct: q.correct, optionsCount: q.options.length })),
     attempts.map((a) => ({ answers: a.answers }))
@@ -313,6 +344,43 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </>
+      )}
+
+      {test.questions.length > 0 && assignedCount > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-h">
+            <h3>Ещё не сдали</h3>
+            <span className={`chip ${pendingCount === 0 ? "c-ok" : "c-warn"}`}>
+              <span className="d" />
+              {pendingCount === 0 ? "сдали все" : `${pendingCount} из ${assignedCount}`}
+            </span>
+          </div>
+          <div style={{ padding: "6px 18px 14px" }}>
+            {pendingCount === 0 && <div className="mut" style={{ fontSize: 13 }}>Все ученики групп теста его сдали.</div>}
+            {pendingByGroup
+              .filter((g) => g.students.length > 0)
+              .map((g) => (
+                <div key={g.group.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line-2)" }}>
+                  <div className="mut" style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                    {g.group.name} · не сдали {g.students.length} из {g.total}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {g.students.map((st) => (
+                      <span key={st.id} className={`chip ${st.started ? "c-warn" : "c-mut"}`} title={st.started ? "Начал, но не отправил" : "Не открывал тест"}>
+                        <span className="d" />
+                        {st.name}
+                        {st.started ? " · начал" : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
+              «Начал» — открыл тест и ответил, но не нажал «Отправить». Ответы сохранены: когда он отправит
+              (или выйдет время у теста с таймером), результат появится выше.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Ввод баллов — только если тест привязан к группе */}
