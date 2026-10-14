@@ -59,6 +59,7 @@ const NAV_TEACHER: Item[] = [
 // Куратор: свои группы, их расписание и журнал. Из денег видит только свою зарплату.
 const NAV_CURATOR: Item[] = [
   { section: "Куратор" },
+  { href: "/dashboard", icon: "dashboard", label: "Главная" },
   { href: "/schedule", icon: "schedule", label: "Расписание" },
   { href: "/journal", icon: "check", label: "Журнал" },
   { href: "/my-students", icon: "students", label: "Мои ученики" },
