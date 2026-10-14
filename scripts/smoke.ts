@@ -100,7 +100,16 @@ async function main() {
     ...(test ? [`/tests/${test.id}`] : []),
     ...(pay ? [`/receipt/${pay.id}`] : []),
   ];
-  const cabinet = ["/cabinet", "/cabinet?tab=tests", "/cabinet?tab=grades", "/cabinet?tab=tasks", "/cabinet?tab=schedule", ...(test ? [`/cabinet/test/${test.id}`] : [])];
+  // тест, доступный ученику с входом (его группы), — иначе страница теста просто перенаправит в кабинет
+  const prisma2 = new PrismaClient();
+  const myTest = st
+    ? await prisma2.test.findFirst({
+        where: { OR: [{ group: { students: { some: { id: st.id } } } }, { groupLinks: { some: { group: { students: { some: { id: st.id } } } } } }] },
+        select: { id: true },
+      })
+    : null;
+  await prisma2.$disconnect();
+  const cabinet = ["/cabinet", "/cabinet?tab=tests", "/cabinet?tab=grades", "/cabinet?tab=tasks", "/cabinet?tab=schedule", ...(myTest ? [`/cabinet/test/${myTest.id}`] : [])];
 
   let failed = 0;
   for (const role of ["admin", "manager", "teacher", "curator", "student"]) {
