@@ -368,10 +368,23 @@ export async function startTestAttempt(testId: string) {
   revalidatePath(`/cabinet/test/${testId}`);
 }
 
+// Попытка теста без таймера начинается с первого ответа (кнопки «Начать» нет).
+// Только создаём отсутствующую: сданную попытку здесь не трогаем никогда — запоздавший
+// запрос сохранения после «Сдать» иначе стёр бы результат. Пересдача — явно, через startTestAttempt.
+async function ensureUntimedAttempt(testId: string, studentId: string, questions: number) {
+  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  if (existing) return existing;
+  return prisma.testAttempt.create({
+    data: { testId, studentId, answers: new Array(questions).fill(-1), total: questions, startedAt: new Date(), finished: false },
+  });
+}
+
 // Сохранение ответа по ходу теста: если вкладка закроется, ответы уже на сервере.
 export async function saveTestAnswer(testId: string, index: number, choice: number) {
   const { studentId, test } = await assertCanTakeTest(testId);
-  const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  const attempt = test.timeLimitMin
+    ? await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } })
+    : await ensureUntimedAttempt(testId, studentId, test.questions.length);
   if (!attempt || attempt.finished) return;
   if (index < 0 || index >= test.questions.length) return;
   if (!Number.isInteger(choice) || choice < -1) return;
@@ -386,7 +399,10 @@ export async function saveTestAnswer(testId: string, index: number, choice: numb
 // Завершить попытку по сохранённым ответам — вызывается по кнопке и когда время вышло.
 export async function finishTestAttempt(testId: string) {
   const { studentId, test, groupId } = await assertCanTakeTest(testId);
-  const attempt = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } });
+  // без таймера сдать можно и не ответив ни на что — тогда попытка создаётся пустой
+  const attempt = test.timeLimitMin
+    ? await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } } })
+    : await ensureUntimedAttempt(testId, studentId, test.questions.length);
   if (!attempt || attempt.finished) return;
 
   const { total, correctCount, score } = scoreAnswers(test.questions, attempt.answers, test.maxScore);
@@ -405,59 +421,6 @@ export async function finishTestAttempt(testId: string) {
       update: { score, maxScore: test.maxScore, topic: test.title },
     }),
   ]);
-  revalidatePath(`/cabinet/test/${testId}`);
-  revalidatePath("/cabinet");
-  revalidatePath(`/tests/${testId}`);
-  revalidatePath("/grades");
-}
-
-// Ученик проходит тест (одна попытка): авто-проверка по правильным ответам.
-export async function submitTestAttempt(testId: string, formData: FormData) {
-  // Та же проверка, что и при старте: группа ученика, её день и расписание
-  const { studentId, test, groupId } = await assertCanTakeTest(testId);
-  const session = await auth();
-
-  // Тест с таймером сдаётся только через попытку (start → save → finish), где сервер проверяет время
-  if (test.timeLimitMin) throw new Error("Этот тест проходится с таймером — нажмите «Начать»");
-
-  // Одна попытка, если преподаватель не разрешил проходить заново
-  const existing = await prisma.testAttempt.findUnique({ where: { testId_studentId: { testId, studentId } }, select: { finished: true } });
-  if (existing?.finished && !test.allowRetake) throw new Error("Тест уже пройден");
-
-  const answers = test.questions.map((q) => {
-    const raw = formData.get(`q_${q.id}`);
-    const n = raw == null ? -1 : parseInt(String(raw), 10);
-    return isNaN(n) ? -1 : n;
-  });
-  const total = test.questions.length;
-  const correctCount = test.questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
-  const score = Math.round((correctCount / total) * test.maxScore);
-
-  // Попытка и оценка пишутся вместе: не бывает сданного теста без оценки
-  await prisma.$transaction([
-    prisma.testAttempt.upsert({
-      where: { testId_studentId: { testId, studentId } },
-      create: { testId, studentId, answers, correctCount, total, score, finished: true },
-      update: { answers, correctCount, total, score, finished: true, submittedAt: new Date() },
-    }),
-    // Результат сразу становится оценкой за тест
-    prisma.grade.upsert({
-      where: { testId_studentId: { testId, studentId } },
-      create: {
-        studentId,
-        testId,
-        groupId,
-        topic: test.title,
-        type: "TEST",
-        score,
-        maxScore: test.maxScore,
-        date: new Date(),
-        createdBy: session?.user?.name ?? null,
-      },
-      update: { score, maxScore: test.maxScore, topic: test.title },
-    }),
-  ]);
-
   revalidatePath(`/cabinet/test/${testId}`);
   revalidatePath("/cabinet");
   revalidatePath(`/tests/${testId}`);

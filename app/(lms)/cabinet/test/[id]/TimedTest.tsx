@@ -18,26 +18,30 @@ function mmss(ms: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-// Тест с ограничением по времени. Каждый ответ сразу уходит на сервер,
-// поэтому закрытая вкладка не обнуляет работу: когда время выйдет,
-// результат посчитается по сохранённым ответам.
+// Прохождение теста. Каждый ответ сразу уходит на сервер, поэтому закрытая вкладка
+// или обновлённая страница не обнуляют работу. С таймером (deadlineIso) — когда время
+// выйдет, результат посчитается по сохранённым ответам; без таймера (null) — только по «Сдать».
+// «Сдать» всегда с подтверждением: «отвечено N из M».
 export function TimedTest({
   testId,
   questions,
   initialAnswers,
   deadlineIso,
   locale,
+  hint,
 }: {
   testId: string;
   questions: TimedQuestion[];
   initialAnswers: number[];
-  deadlineIso: string;
+  deadlineIso: string | null;
   locale: Locale;
+  /** подсказка под панелью (без таймера: «попытка одна» / «можно пересдать») */
+  hint?: string;
 }) {
   const router = useRouter();
-  const deadline = new Date(deadlineIso).getTime();
+  const deadline = deadlineIso ? new Date(deadlineIso).getTime() : null;
   const [answers, setAnswers] = useState<number[]>(initialAnswers);
-  const [left, setLeft] = useState(() => deadline - Date.now());
+  const [left, setLeft] = useState(() => (deadline == null ? Infinity : deadline - Date.now()));
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState<Map<number, number>>(new Map()); // index -> выбор, который не сохранился
   const [confirming, setConfirming] = useState(false);
@@ -58,6 +62,7 @@ export function TimedTest({
   };
 
   useEffect(() => {
+    if (deadline == null) return; // без таймера отсчёта нет
     const id = setInterval(() => {
       const ms = deadline - Date.now();
       setLeft(ms);
@@ -121,15 +126,17 @@ export function TimedTest({
           borderColor: urgent ? "var(--bad)" : "var(--line)",
         }}
       >
-        <div
-          className="num"
-          role="timer"
-          aria-label={t(locale, "test.timeLeft")}
-          style={{ fontSize: 22, fontWeight: 800, color: urgent ? "var(--bad)" : "var(--ink)" }}
-        >
-          {urgent && <span aria-hidden="true">⏱ </span>}
-          {mmss(left)}
-        </div>
+        {deadline != null && (
+          <div
+            className="num"
+            role="timer"
+            aria-label={t(locale, "test.timeLeft")}
+            style={{ fontSize: 22, fontWeight: 800, color: urgent ? "var(--bad)" : "var(--ink)" }}
+          >
+            {urgent && <span aria-hidden="true">⏱ </span>}
+            {mmss(left)}
+          </div>
+        )}
         <div className="mut" style={{ fontSize: 12.5, flex: 1, minWidth: 0 }}>
           {t(locale, "test.answeredOf", { n: answered, total: questions.length })}
           {saving ? ` · ${t(locale, "test.saving")}` : ""}
@@ -141,6 +148,10 @@ export function TimedTest({
           </button>
         )}
       </div>
+
+      {hint && !confirming && (
+        <p className="mut" style={{ fontSize: 12, margin: "-4px 2px 12px" }}>{hint}</p>
+      )}
 
       {confirming && (
         <div className="card" role="alertdialog" aria-live="assertive" style={{ padding: 14, marginBottom: 12, borderColor: "var(--accent)" }}>

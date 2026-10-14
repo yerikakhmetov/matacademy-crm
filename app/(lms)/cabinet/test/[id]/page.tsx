@@ -7,7 +7,7 @@ import { isTestOpen, shuffleForSeed } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
-import { finishTestAttempt, startTestAttempt, submitTestAttempt } from "@/app/actions/tests";
+import { finishTestAttempt, startTestAttempt } from "@/app/actions/tests";
 import { Formula } from "@/components/Formula";
 import { renderQuestion } from "@/lib/math-render";
 import { TimedTest } from "./TimedTest";
@@ -106,7 +106,14 @@ export default async function CabinetTest({
             <p className="mut" style={{ fontSize: 13, margin: 0, flex: 1 }}>
               {t(locale, "test.retakeNote")}
             </p>
-            <Link className="btn ghost" href={`/cabinet/test/${test.id}?retake=1`}>{t(locale, "test.retake")}</Link>
+            {timed ? (
+              <Link className="btn ghost" href={`/cabinet/test/${test.id}?retake=1`}>{t(locale, "test.retake")}</Link>
+            ) : (
+              // без таймера пересдача начинается явно: сданная попытка обнуляется только по этой кнопке
+              <form action={startTestAttempt.bind(null, test.id)}>
+                <button className="btn ghost" type="submit">{t(locale, "test.retake")}</button>
+              </form>
+            )}
           </div>
         )}
 
@@ -199,33 +206,26 @@ export default async function CabinetTest({
   }
 
   // ── Прохождение теста без ограничения по времени ──
+  // Тот же экран, что и с таймером, только без отсчёта: ответы сохраняются по ходу,
+  // «Сдать» — с подтверждением. Попытка создаётся с первым ответом.
+  const ordered = test.shuffle
+    ? shuffleForSeed(test.questions.map((q, i) => ({ q, i })), `${test.id}|${studentId}`)
+    : test.questions.map((q, i) => ({ q, i }));
+  const inProgress = attempt && !attempt.finished ? attempt : null;
   return (
     <div>
       {header}
-      <form action={submitTestAttempt.bind(null, test.id)}>
-        {(test.shuffle ? shuffleForSeed(test.questions, `${test.id}|${studentId}`) : test.questions).map((q, i) => (
-          <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
-            <div style={{ fontWeight: 600, marginBottom: 10 }}>{i + 1}. <Formula html={renderQuestion(q).textHtml} /></div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {q.options.map((opt, oi) => (
-                <label key={oi} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "1.5px solid var(--line-2)", cursor: "pointer" }}>
-                  <input type="radio" name={`q_${q.id}`} value={oi} />
-                  <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
-                  <span style={{ flex: 1 }}><Formula html={renderQuestion(q).optionsHtml[oi]} /></span>
-                </label>
-              ))}
-            </div>
-          </div>
-        ))}
-        <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 12, position: "sticky", bottom: 12 }}>
-          <p className="mut" style={{ fontSize: 12, margin: 0, flex: 1 }}>
-            {test.allowRetake
-              ? t(locale, "test.retakeHint")
-              : t(locale, "test.onceHint")}
-          </p>
-          <button className="btn" type="submit"><Icon name="check" size={16} />{t(locale, "test.submit")}</button>
-        </div>
-      </form>
+      <TimedTest
+        testId={test.id}
+        locale={locale}
+        deadlineIso={null}
+        hint={test.allowRetake ? t(locale, "test.retakeHint") : t(locale, "test.onceHint")}
+        initialAnswers={test.questions.map((_, i) => inProgress?.answers[i] ?? -1)}
+        questions={ordered.map(({ q, i }) => {
+          const r = renderQuestion(q);
+          return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml };
+        })}
+      />
     </div>
   );
 }
