@@ -37,7 +37,7 @@ export function PhotoUpload({
   photoUrl,
   size = 72,
 }: {
-  entity: "student" | "teacher";
+  entity: "student" | "teacher" | "parent"; // parent — фото родителя ученика id
   id: string;
   name: string;
   photoUrl?: string | null;

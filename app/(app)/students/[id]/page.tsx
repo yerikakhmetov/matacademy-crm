@@ -415,6 +415,11 @@ export default async function StudentDetail({
                 Фото ученика
               </div>
               <PhotoUpload entity="student" id={student.id} name={student.name} photoUrl={student.photoUrl} size={64} />
+              {/* фото родителя: видно ему в портале («Здравствуйте, …!») и здесь, в профиле */}
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, margin: "16px 0 12px" }}>
+                Фото родителя
+              </div>
+              <PhotoUpload entity="parent" id={student.id} name={student.parentName ?? "Родитель"} photoUrl={student.parentPhotoUrl} size={64} />
             </div>
           )}
 

@@ -21,7 +21,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   const entity = String(form.get("entity") ?? "");
   const id = String(form.get("id") ?? "");
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
-  if (entity !== "student" && entity !== "teacher") return NextResponse.json({ error: "Неверный тип" }, { status: 400 });
+  // parent — фото родителя, хранится у ученика (id — id ученика)
+  if (entity !== "student" && entity !== "teacher" && entity !== "parent") return NextResponse.json({ error: "Неверный тип" }, { status: 400 });
   // Браузер пересжимает фото в JPEG до 512px — всё остальное (SVG, HTML, огромные файлы) не фото
   if (file.size > MAX_PHOTO_BYTES) return NextResponse.json({ error: "Фото больше 2 МБ" }, { status: 400 });
   if (!isJpeg(new Uint8Array(await file.slice(0, 3).arrayBuffer()))) {
@@ -45,6 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       contentType: "image/jpeg",
     });
     if (entity === "student") await prisma.student.update({ where: { id }, data: { photoUrl: blob.url } });
+    else if (entity === "parent") await prisma.student.update({ where: { id }, data: { parentPhotoUrl: blob.url } });
     else await prisma.teacher.update({ where: { id }, data: { photoUrl: blob.url } });
     return NextResponse.json({ url: blob.url });
   } catch (e) {
