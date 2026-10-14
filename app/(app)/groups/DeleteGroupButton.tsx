@@ -9,14 +9,15 @@ export function DeleteGroupButton({ id, name, hasStudents }: { id: string; name:
 
   if (!confirm) {
     return (
-      <button className="btn ghost" type="button" onClick={() => setConfirm(true)} style={{ color: "var(--bad)" }}>
+      // редкое и опасное действие: тихая ссылка справа, а не кнопка наравне с «Редактировать»
+      <button className="link-danger" type="button" onClick={() => setConfirm(true)} style={{ marginLeft: "auto" }}>
         Удалить
       </button>
     );
   }
 
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginLeft: "auto" }}>
       <span className="mut" style={{ fontSize: 12 }}>
         {hasStudents ? "Ученики открепятся. Удалить?" : "Удалить?"}
       </span>

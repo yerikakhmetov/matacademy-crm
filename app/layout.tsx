@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope, Onest } from "next/font/google";
 import "./globals.css";
+import { getLocale } from "@/lib/locale";
 import "katex/dist/katex.min.css"; // набор формул в тестах
 
 const manrope = Manrope({
@@ -19,9 +20,11 @@ export const metadata: Metadata = {
   description: "CRM для офлайн-школы математики",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // язык документа = язык интерфейса: экранные дикторы и переносы слов в казахском режиме
+  const locale = await getLocale();
   return (
-    <html lang="ru">
+    <html lang={locale}>
       <body
         style={
           {

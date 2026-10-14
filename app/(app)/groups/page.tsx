@@ -26,7 +26,7 @@ export default async function GroupsPage() {
   const [groups, teachers, subjects] = await Promise.all([
     prisma.group.findMany({
       where: groupWhereFor({ teacher, teacherId: myTeacherId, curator, groupIds: curGroupIds }),
-      include: { teacher: true, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: { where: { archivedAt: null } } },
+      include: { teacher: true, curator: { select: { name: true } }, subject: { select: { name: true, color: true } }, _count: { select: { students: true } }, lessons: { where: { archivedAt: null } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.teacher.findMany({ orderBy: { name: "asc" } }),
@@ -76,6 +76,8 @@ export default async function GroupsPage() {
           const enrolled = g._count.students;
           const pct = Math.min(100, Math.round((enrolled / g.capacity) * 100));
           const full = enrolled >= g.capacity;
+          // учеников больше, чем мест: показываем насколько, а не просто «полная»
+          const over = enrolled - g.capacity;
           const slots = [...g.lessons].sort(
             (a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)
           );
@@ -132,6 +134,13 @@ export default async function GroupsPage() {
                   <br />
                   <span className="v">{g.teacher?.name ?? "—"}</span>
                 </div>
+                {g.curator && (
+                  <div>
+                    <span className="k">Куратор</span>
+                    <br />
+                    <span className="v">{g.curator.name}</span>
+                  </div>
+                )}
                 <div>
                   <span className="k">Наполнен.</span>
                   <br />
@@ -143,7 +152,7 @@ export default async function GroupsPage() {
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, fontSize: 11.5 }}>
                   <span className="mut">Мест занято</span>
-                  <span style={{ fontWeight: 700, color: full ? "var(--bad)" : g.color }}>{full ? "Группа полная" : pct + "%"}</span>
+                  <span style={{ fontWeight: 700, color: full ? "var(--bad)" : g.color }}>{over > 0 ? `Переполнена +${over}` : full ? "Группа полная" : pct + "%"}</span>
                 </div>
                 <div className="bar">
                   <span style={{ width: `${pct}%`, background: full ? "var(--bad)" : g.color }} />

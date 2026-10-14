@@ -123,7 +123,7 @@ export function Sidebar({
             >
               <Icon name={item.icon} />
               {item.label}
-              {item.badgeKey && counts[item.badgeKey] > 0 && <span className="badge">{counts[item.badgeKey]}</span>}
+              {item.badgeKey && counts[item.badgeKey] > 0 && <span className={item.badgeKey === "students" ? "badge neutral" : "badge"}>{counts[item.badgeKey]}</span>}
             </Link>
           )
         )}
