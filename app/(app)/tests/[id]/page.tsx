@@ -17,6 +17,7 @@ import { getSettings } from "@/lib/settings";
 import { DeleteTestButton } from "./DeleteTestButton";
 import { SaveTestButton } from "./SaveTestButton";
 import { RefreshQuestionsForm } from "./RefreshQuestionsForm";
+import { RemindPendingButton } from "./RemindPendingButton";
 import { TestAccessButton } from "./TestAccessButton";
 
 export const dynamic = "force-dynamic";
@@ -375,6 +376,11 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
                   </div>
                 </div>
               ))}
+            {canManage && pendingCount > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <RemindPendingButton testId={test.id} pending={pendingCount} />
+              </div>
+            )}
             <p className="mut" style={{ fontSize: 12, margin: "10px 0 0" }}>
               «Начал» — открыл тест и ответил, но не нажал «Отправить». Ответы сохранены: когда он отправит
               (или выйдет время у теста с таймером), результат появится выше.

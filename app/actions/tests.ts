@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 import { getSettings } from "@/lib/settings";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
+import { canEditData } from "@/lib/access";
+import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { parseTestSource } from "@/lib/test-import";
 import { assertCanManageGroup, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 
@@ -436,4 +438,71 @@ export async function deleteTest(id: string) {
   await logAudit("DELETE", "Тест", test.title);
   revalidatePath("/tests");
   revalidatePath("/grades");
+}
+
+// Напомнить ученикам, которые ещё не сдали тест (в группах, где он уже открыт):
+// родителю — в его Telegram, ученику — если он привязал Telegram к кабинету.
+// Права — как у страницы теста: админ/менеджер, преподаватель группы или предмета.
+export async function remindTestPending(testId: string): Promise<{ error?: string; students?: number; sent?: number }> {
+  const session = await auth();
+  if (!session?.user) return { error: "Требуется вход" };
+  const test = await prisma.test.findUnique({
+    where: { id: testId },
+    select: {
+      title: true,
+      date: true,
+      availableFrom: true,
+      group: {
+        select: {
+          id: true,
+          teacher: { select: { userId: true } },
+          lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } },
+          students: { where: { status: "ACTIVE" }, select: { id: true, name: true } },
+        },
+      },
+      subject: { select: { teachers: { select: { userId: true } } } },
+      groupLinks: {
+        select: {
+          date: true,
+          group: {
+            select: {
+              id: true,
+              lessons: { where: { archivedAt: null }, select: { dayOfWeek: true, startTime: true } },
+              students: { where: { status: "ACTIVE" }, select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+      attempts: { where: { finished: true }, select: { studentId: true } },
+    },
+  });
+  if (!test) return { error: "Тест не найден" };
+  const uid = session.user.id;
+  const allowed =
+    (await canEditData(session.user.role)) ||
+    test.group?.teacher?.userId === uid ||
+    !!test.subject?.teachers.some((t) => t.userId === uid);
+  if (!allowed) return { error: "Недостаточно прав" };
+
+  const settings = await getSettings();
+  const done = new Set(test.attempts.map((a) => a.studentId));
+  const now = new Date();
+  const pending = new Map<string, string>();
+  // группы теста: привязки, а у старых тестов — только основная группа
+  const links = test.groupLinks.map((l) => ({ date: l.date, group: l.group }));
+  if (test.group && !links.some((l) => l.group.id === test.group!.id)) links.push({ date: null, group: test.group });
+  for (const l of links) {
+    // тест ещё не открылся этой группе — напоминать рано
+    if (!isTestOpen(l.date ?? test.date, l.group.lessons, now, settings.tzOffsetHours, test.availableFrom)) continue;
+    for (const st of l.group.students) if (!done.has(st.id)) pending.set(st.id, st.name);
+  }
+  if (pending.size === 0) return { students: 0, sent: 0 };
+
+  let sent = 0;
+  for (const [id, name] of pending) {
+    sent += await notifyParents([id], `${settings.schoolName}: ${name} ещё не сдал(а) тест «${test.title}». Его можно пройти в кабинете ученика.`);
+    sent += await notifyStudentsDirect([id], `${settings.schoolName}: не забудьте сдать тест «${test.title}» — он ждёт вас в кабинете.`);
+  }
+  await logAudit("UPDATE", "Тест", `${test.title} — напоминание не сдавшим: ${pending.size}, отправлено ${sent}`);
+  return { students: pending.size, sent };
 }
