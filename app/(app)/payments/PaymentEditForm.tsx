@@ -1,4 +1,5 @@
 import { PAYMENT_METHODS, money } from "@/lib/format";
+import { PeriodPicker } from "@/components/PeriodPicker";
 
 type StudentLite = { id: string; name: string };
 type Subject = { id: string; name: string; color: string };
@@ -9,6 +10,7 @@ export function PaymentEditForm({
   subjects = [],
   value,
   canFixReceived,
+  todayIso,
 }: {
   students: StudentLite[];
   subjects?: Subject[];
@@ -19,8 +21,10 @@ export function PaymentEditForm({
     paidAmount: number;
     method: string | null;
     date: Date;
+    months: number;
     subjectIds: string[];
   };
+  todayIso: string; // сегодня по часам школы
   /** оплата принята одним движением целиком — принятая сумма исправляется вместе со счётом */
   canFixReceived: boolean;
 }) {
@@ -54,10 +58,8 @@ export function PaymentEditForm({
           </select>
         </div>
       </div>
-      <div className="field">
-        <label>Дата</label>
-        <input name="date" type="date" defaultValue={value.date.toISOString().slice(0, 10)} />
-      </div>
+      {/* Период счёта; дата, когда принесли деньги, здесь не меняется — она в кассе дня */}
+      <PeriodPicker todayIso={todayIso} defaultMonth={value.date} defaultMonths={value.months} />
 
       {canFixReceived ? (
         <p className="mut" style={{ fontSize: 12.5, margin: "0 0 12px" }}>

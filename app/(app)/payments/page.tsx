@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { netRevenue } from "@/lib/revenue";
 import { getSettings } from "@/lib/settings";
 import { schoolClock, schoolMonthStart } from "@/lib/school-time";
+import { periodLabel } from "@/lib/period";
 import { auth } from "@/auth";
 import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
@@ -47,6 +48,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   const tz = (await getSettings()).tzOffsetHours;
   const clock = schoolClock(tz);
   const monthFrom = schoolMonthStart(clock.getUTCFullYear(), clock.getUTCMonth(), tz);
+  const todayIso = clock.toISOString().slice(0, 10);
 
   const [payments, total, students, subjects, revenue, owing, paidCount] = await Promise.all([
     prisma.payment.findMany({
@@ -105,7 +107,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         </Link>
         {editor && (
           <ModalButton label="Принять оплату" title="Приём оплаты" icon="money" action={createPayment}>
-            <PaymentForm students={students} subjects={subjects} />
+            <PaymentForm students={students} subjects={subjects} todayIso={todayIso} />
           </ModalButton>
         )}
         </div>
@@ -138,13 +140,13 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
       <div className="card">
         <div className="table-wrap">
-          <table {...cardCols(["Ученик", "Назначение", "Способ", "Дата", "Статус", "Сумма", editor && ""])}>
+          <table {...cardCols(["Ученик", "Назначение", "Способ", "Период", "Статус", "Сумма", editor && ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>
                 <th>Назначение</th>
                 <th>Способ</th>
-                <th>Дата</th>
+                <th>Период</th>
                 <th>Статус</th>
                 <th className="right">Сумма</th>
                 {editor && <th></th>}
@@ -172,7 +174,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td className="td-text">{p.purpose}</td>
                     <td className="mut">{p.method ?? "—"}</td>
-                    <td className="mut">{formatDate(p.date)}</td>
+                    <td className="mut">{periodLabel(p.date, p.months)}</td>
                     <td>
                       <span className={`chip ${ps.cls}`}>
                         <span className="d" />
@@ -211,6 +213,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               students={students}
                               subjects={subjects}
                               canFixReceived={canFixReceived(p)}
+                              todayIso={todayIso}
                               value={{
                                 studentId: p.studentId,
                                 purpose: p.purpose,
@@ -218,6 +221,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                                 paidAmount: p.paidAmount,
                                 method: p.method,
                                 date: p.date,
+                                months: p.months,
                                 subjectIds: p.items.map((i) => i.subjectId).filter((x): x is string => !!x),
                               }}
                             />

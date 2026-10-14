@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PeriodPicker } from "@/components/PeriodPicker";
 import { multiTierFor, computePricing, type Discount, type MultiTier, type DiscountMode } from "@/lib/pricing";
 
 type Subject = { id: string; name: string; price: number; lessonsPerMonth: number; color: string };
@@ -16,6 +17,7 @@ export function InvoiceForm({
   personalPct = 0,
   siblingPct = 0,
   promos = [],
+  todayIso,
 }: {
   subjects: Subject[];
   discounts: Discount[];
@@ -24,8 +26,8 @@ export function InvoiceForm({
   personalPct?: number;
   siblingPct?: number;
   promos?: { code: string; percent: number }[];
+  todayIso: string; // сегодня по часам школы
 }) {
-  const today = new Date().toISOString().slice(0, 10);
   const hasSubjects = subjects.length > 0;
 
   const [picked, setPicked] = useState<string[]>([]);
@@ -75,20 +77,11 @@ export function InvoiceForm({
           <label>Назначение</label>
           <input name="plan" placeholder="Обучение" defaultValue="Обучение" />
         </div>
-        <div className="grid2">
-          <div className="field">
-            <label>Месяцев</label>
-            <input name="months" type="number" min={1} defaultValue={1} />
-          </div>
-          <div className="field">
-            <label>Стоимость (₸)</label>
-            <input name="price" type="number" min={0} defaultValue={0} />
-          </div>
-        </div>
         <div className="field">
-          <label>За какой месяц (дата счёта)</label>
-          <input name="startDate" type="date" defaultValue={today} />
+          <label>Стоимость (₸)</label>
+          <input name="price" type="number" min={0} defaultValue={0} />
         </div>
+        <PeriodPicker todayIso={todayIso} />
         <p className="mut" style={{ fontSize: 12, marginTop: 8 }}>
           Добавьте предметы в разделе «Предметы и цены» — тогда сумма считается автоматически со скидками.
         </p>
@@ -127,16 +120,7 @@ export function InvoiceForm({
         </div>
       </div>
 
-      <div className="grid2">
-        <div className="field">
-          <label>Месяцев</label>
-          <input name="months" type="number" min={1} value={months} onChange={(e) => setMonths(Math.max(1, Number(e.target.value)))} />
-        </div>
-        <div className="field">
-          <label>За какой месяц (дата счёта)</label>
-          <input name="startDate" type="date" defaultValue={today} />
-        </div>
-      </div>
+      <PeriodPicker todayIso={todayIso} months={months} onMonthsChange={setMonths} />
 
       {discounts.length > 0 && (
         <div className="field">

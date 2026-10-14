@@ -9,6 +9,27 @@ import { getSettings, parseDiscounts, parseMultiTiers, multiTierFor, computePric
 import { recalc } from "@/lib/overdue";
 import { maxRefundable, outstanding, paymentStatus, planPaymentEdit } from "@/lib/payments";
 import { UserError, asResult, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
+import { MAX_PERIOD_MONTHS, parsePeriodMonth, periodLabel, periodStartDate } from "@/lib/period";
+import { schoolToday } from "@/lib/school-time";
+
+// Период из формы «За какой месяц / На сколько месяцев». Старые формы присылали
+// дату (startDate/date) — её тоже понимаем; ничего нет — fallback.
+async function periodFromForm(formData: FormData, fallback: { date: Date; months: number } | null) {
+  const monthsRaw = int(formData.get("months"));
+  const months = Math.min(MAX_PERIOD_MONTHS, Math.max(1, monthsRaw || fallback?.months || 1));
+  const month = parsePeriodMonth(str(formData.get("periodMonth")));
+  if (month) {
+    const today = schoolToday((await getSettings()).tzOffsetHours);
+    // правка счёта без смены месяца оставляет его дату как была (не двигает срок оплаты)
+    if (fallback && fallback.date.getUTCFullYear() === month.getUTCFullYear() && fallback.date.getUTCMonth() === month.getUTCMonth()) {
+      return { date: fallback.date, months };
+    }
+    return { date: periodStartDate(month, today), months };
+  }
+  const legacy = parseDate(formData.get("startDate") ?? formData.get("date"));
+  if (legacy) return { date: legacy, months };
+  return fallback ? { date: fallback.date, months } : { date: await dateOrToday(null), months };
+}
 
 // ---------- Абонементы ----------
 // Счёт за обучение по предметам: цена по прайсу со всеми скидками (пакет, спец-скидка,
@@ -20,8 +41,7 @@ export async function createInvoice(studentId: string, formData: FormData) {
 
 async function createInvoiceImpl(studentId: string, formData: FormData) {
   await assertEditor("finance");
-  const months = Math.min(12, Math.max(1, int(formData.get("months")) || 1));
-  const start = await dateOrToday(formData.get("startDate"));
+  const { date: start, months } = await periodFromForm(formData, null);
 
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
 
@@ -94,7 +114,7 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
 
   if (price <= 0) throw new UserError("Сумма счёта должна быть больше нуля");
 
-  const purpose = months > 1 ? `${plan} · ${months} мес.` : plan;
+  const purpose = `${plan} · ${periodLabel(start, months)}`;
   const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
   await prisma.$transaction(async (tx) => {
     if (promoApplyId) {
@@ -152,12 +172,17 @@ export async function createPayment(formData: FormData) {
 
   const method = str(formData.get("method")) || null;
   const paidNow = status === "PAID" ? amount : 0;
+  // За какой месяц платят: предоплата за декабрь должна попасть в декабрь,
+  // а не в месяц, когда принесли деньги (дата прихода — в движении ниже)
+  const period = await periodFromForm(formData, null);
   await prisma.payment.create({
     data: {
       studentId,
-      purpose: str(formData.get("purpose")) || "Оплата",
+      purpose: `${str(formData.get("purpose")) || "Оплата"} · ${periodLabel(period.date, period.months)}`,
       method,
       amount,
+      date: period.date,
+      months: period.months,
       status,
       paidAmount: paidNow,
       items: payItems.length > 0 ? { create: payItems } : undefined,
@@ -176,9 +201,6 @@ export async function createPayment(formData: FormData) {
 }
 
 const STALE_PAYMENT = "Счёт уже изменился (возможно, оплату приняли в другой вкладке). Обновите страницу.";
-
-const sameUtcDay = (a: Date, b: Date) =>
-  a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
 
 // Отметить счёт оплаченным (гасит долг)
 // Принять оплату по счёту: сумма по умолчанию — весь остаток (кнопка «Оплачен»),
@@ -323,7 +345,7 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   const alsoReceived = true;
   const method = str(formData.get("method")) || null;
   const purpose = str(formData.get("purpose")) || payment.purpose;
-  const date = parseDate(formData.get("date")) ?? payment.date;
+  const { date, months } = await periodFromForm(formData, { date: payment.date, months: payment.months });
 
   const plan = planPaymentEdit(
     { amount: payment.amount, paidAmount: payment.paidAmount, refundedAmount: payment.refundedAmount, txs: payment.txs },
@@ -348,15 +370,9 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   await prisma.$transaction(async (tx) => {
     if (plan.mode === "single") {
       // Сумму прихода исправляем вместе со счётом, иначе доход месяца останется неверным.
-      // Дату прихода двигаем, только если счёт и приход были созданы одним днём («Принять оплату»):
-      // счёт за сентябрь, оплаченный в октябре, при исправлении опечатки не должен
-      // перетаскивать октябрьский доход в сентябрь.
-      const received = payment.txs.find((t) => t.id === plan.txId);
-      const createdTogether = received != null && sameUtcDay(received.date, payment.date);
-      await tx.paymentTx.update({
-        where: { id: plan.txId },
-        data: createdTogether ? { amount, method, date } : { amount, method },
-      });
+      // Дату прихода не трогаем: правка периода счёта («за какой месяц») не должна
+      // переносить уже полученные деньги в другой месяц дохода.
+      await tx.paymentTx.update({ where: { id: plan.txId }, data: { amount, method } });
     }
     await tx.paymentItem.deleteMany({ where: { paymentId } });
     await tx.payment.update({
@@ -367,6 +383,7 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
         method,
         amount,
         date,
+        months,
         paidAmount: plan.paidAmount,
         status: paymentStatus(amount, plan.paidAmount, date),
         items: payItems.length > 0 ? { create: payItems } : undefined,
@@ -378,6 +395,9 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   if (amount !== payment.amount) changes.push(`${money(payment.amount)} → ${money(amount)}`);
   if (studentId !== payment.studentId) changes.push("другой ученик");
   if ((method ?? "") !== (payment.method ?? "")) changes.push(`способ: ${method ?? "—"}`);
+  const oldPeriod = periodLabel(payment.date, payment.months);
+  const newPeriod = periodLabel(date, months);
+  if (oldPeriod !== newPeriod) changes.push(`период: ${oldPeriod} → ${newPeriod}`);
   await logAudit(
     "UPDATE",
     "Оплата",
