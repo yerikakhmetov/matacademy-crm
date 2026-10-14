@@ -411,3 +411,25 @@ export async function lessonsLeftBySubject(studentIds: string[], subjectId: stri
   for (const id of studentIds) out.set(id, left.get(leftKey(id, subjectId)) ?? { left: 0, total: 0, unpaid: 0 });
   return out;
 }
+
+// Остаток оплаченных занятий у всех (или указанных) учеников по всем предметам:
+// leftKey(studentId, subjectId) -> { left, total, unpaid }. Для напоминаний об оплате.
+export async function lessonsLeftAll(studentIds: string[]): Promise<Map<string, LessonsLeft>> {
+  if (studentIds.length === 0) return new Map();
+  const [credits, att, groups] = await Promise.all([
+    loadCredits(studentIds),
+    prisma.attendance.findMany({
+      where: { studentId: { in: studentIds }, date: { gte: packageBillingStart() }, lesson: { group: { subjectId: { not: null } } } },
+      select: { studentId: true, present: true, excused: true, date: true, lesson: { select: { groupId: true } } },
+    }),
+    prisma.group.findMany({ where: { subjectId: { not: null } }, select: { id: true, subjectId: true } }),
+  ]);
+  const subjectOf = new Map(groups.map((g) => [g.id, g.subjectId!]));
+  const visits: Visit[] = [];
+  for (const a of att) {
+    const subjectId = subjectOf.get(a.lesson.groupId);
+    if (!subjectId || !isPayableAttendance(a.present, a.excused)) continue;
+    visits.push({ studentId: a.studentId, subjectId, groupId: a.lesson.groupId, date: a.date });
+  }
+  return lessonsLeft(credits, visits);
+}

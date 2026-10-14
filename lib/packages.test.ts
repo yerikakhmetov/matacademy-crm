@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocateVisits, creditFromItem, lessonsLeft, leftKey, nextStudyMonth, studyMonthLabel, type Visit } from "./packages.ts";
+import { allocateVisits, creditFromItem, lessonsLeft, leftKey, nextStudyMonth, packageAlerts, studyMonthLabel, type Visit } from "./packages.ts";
 
 const d = (m0: number, day: number) => new Date(Date.UTC(2026, m0, day));
 const credit = (over: Partial<Parameters<typeof creditFromItem>[0]> = {}) =>
@@ -70,4 +70,17 @@ test("подпись и следующий месяц обучения", () => {
   // два старых календарных счёта (сентябрь, октябрь) — следующий «3-й месяц»
   assert.equal(nextStudyMonth([{ studyMonth: null, months: 1 }, { studyMonth: null, months: 1 }]), 3);
   assert.equal(nextStudyMonth([{ studyMonth: null, months: 2 }, { studyMonth: 3, months: 1 }]), 4);
+});
+
+test("напоминания: мало занятий или ходит без оплаты, но не если счёт уже выставлен", () => {
+  const left = new Map([
+    [leftKey("a", "math"), { left: 1, total: 12, unpaid: 0 }],
+    [leftKey("b", "math"), { left: 7, total: 12, unpaid: 0 }],
+    [leftKey("c", "math"), { left: 0, total: 0, unpaid: 3 }],
+    [leftKey("d", "math"), { left: 0, total: 12, unpaid: 0 }],
+  ]);
+  const enrolled = ["a", "b", "c", "d", "e"].map((studentId) => ({ studentId, subjectId: "math" }));
+  const res = packageAlerts(enrolled, left, new Set([leftKey("d", "math")]));
+  assert.deepEqual([...res.keys()], ["a", "c"]);
+  assert.deepEqual(res.get("c"), [{ subjectId: "math", left: 0, unpaid: 3 }]);
 });

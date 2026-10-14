@@ -81,6 +81,11 @@ const ru = {
   "cabinet.present": "Был",
   "cabinet.excused": "Уважительная",
   "cabinet.missed": "Пропуск",
+  "cabinet.paidLessons": "Оплаченные занятия",
+  "cabinet.lessonsLeftN": "осталось {n}",
+  "cabinet.unpaidN": "без оплаты: {n}",
+  "cabinet.packageEnded": "занятия закончились",
+  "cabinet.packageNote": "1 месяц обучения — 12 занятий (по обязательным предметам 8). Пропуск по уважительной причине не списывает занятие.",
   "cabinet.excusedNote": "Пропуски по уважительной причине не влияют на процент посещаемости.",
 
   // домашние задания
@@ -226,6 +231,11 @@ const kk: Record<MsgKey, string> = {
   "cabinet.present": "Келді",
   "cabinet.excused": "Себепті",
   "cabinet.missed": "Себепсіз",
+  "cabinet.paidLessons": "Төленген сабақтар",
+  "cabinet.lessonsLeftN": "{n} сабақ қалды",
+  "cabinet.unpaidN": "төлемсіз: {n}",
+  "cabinet.packageEnded": "сабақтар бітті",
+  "cabinet.packageNote": "1 оқу айы — 12 сабақ (міндетті пәндерде 8). Себепті пропуск сабақты азайтпайды.",
   "cabinet.excusedNote": "Себепті қалған сабақ қатысу пайызына әсер етпейді.",
 
   "hw.title": "Үй тапсырмасы",

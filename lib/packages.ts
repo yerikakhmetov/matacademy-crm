@@ -131,3 +131,31 @@ export function nextStudyMonth(invoices: { studyMonth: number | null; months: nu
   }
   return Math.max(last, legacy) + 1;
 }
+
+// Кому пора напомнить об оплате следующего месяца обучения: по предметам, на которые
+// ученик сейчас ходит, осталось ≤ threshold оплаченных занятий или он уже ходит без оплаты.
+// Если по предмету уже выставлен неоплаченный счёт — он и так в списке «ожидают оплаты».
+export const PACKAGE_ALERT_THRESHOLD = 2;
+export type PackageAlertItem = { subjectId: string; left: number; unpaid: number };
+
+export function packageAlerts(
+  enrolled: { studentId: string; subjectId: string }[],
+  left: Map<string, LessonsLeft>,
+  openInvoice: Set<string>, // leftKey(student, subject) с неоплаченным счётом
+  threshold = PACKAGE_ALERT_THRESHOLD
+): Map<string, PackageAlertItem[]> {
+  const out = new Map<string, PackageAlertItem[]>();
+  const seen = new Set<string>();
+  for (const e of enrolled) {
+    const k = key(e.studentId, e.subjectId);
+    if (seen.has(k) || openInvoice.has(k)) continue;
+    seen.add(k);
+    const info = left.get(k) ?? { left: 0, total: 0, unpaid: 0 };
+    const ending = info.unpaid > 0 || (info.total > 0 && info.left <= threshold);
+    if (!ending) continue;
+    const list = out.get(e.studentId) ?? [];
+    list.push({ subjectId: e.subjectId, left: Math.max(0, info.left), unpaid: info.unpaid });
+    out.set(e.studentId, list);
+  }
+  return out;
+}

@@ -12,6 +12,8 @@ import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
+import { lessonsLeftAll } from "@/lib/payroll";
+import { leftKey } from "@/lib/packages";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
   const student = await prisma.student.findUnique({
     where: { id: studentId },
     include: {
-      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } } } },
+      groups: { include: { teacher: true, lessons: { where: { archivedAt: null } }, subject: { select: { id: true, name: true } } } },
       grades: {
         orderBy: { date: "desc" },
         take: 10,
@@ -158,6 +160,14 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
     .reverse()
     .map((g) => ({ label: shortDate(new Date(g.date)), value: Math.round((g.score / g.maxScore) * 100) }));
 
+  // Сколько оплаченных занятий осталось по предметам (месяц обучения — пакет занятий).
+  // Считаем только для главной вкладки: там это и показывается.
+  const subjects = [...new Map(student.groups.filter((g) => g.subject).map((g) => [g.subject!.id, g.subject!])).values()];
+  const leftMap = tab === "home" && subjects.length > 0 ? await lessonsLeftAll([studentId]) : new Map();
+  const paidLessons = subjects
+    .map((s) => ({ ...s, ...(leftMap.get(leftKey(studentId, s.id)) ?? { left: 0, total: 0, unpaid: 0 }) }))
+    .filter((p) => p.total > 0 || p.unpaid > 0);
+
   // «Сегодня» — по часовому поясу школы: сервер работает в UTC, и в Алматы с 00 до 05
   // кабинет показывал вчерашние занятия. Даты сроков хранятся UTC-полуночью — сравниваем так же.
   const schoolNow = new Date(Date.now() + tz * 3_600_000);
@@ -262,6 +272,27 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
           <div className="klabel"><span className="kico" style={{ background: "var(--violet-soft)", color: "var(--violet)" }}><Icon name="chart" size={16} /></span>{t(locale, "cabinet.avgScore")}</div>
           <div className="kval num" style={{ color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>{avg != null ? `${avg}%` : "—"}</div>
         </div>
+
+      {paidLessons.length > 0 && (
+        <div className="card" style={{ marginTop: 16, gridColumn: "1 / -1" }}>
+          <div className="card-h"><h3>{t(locale, "cabinet.paidLessons")}</h3></div>
+          <div style={{ padding: "6px 18px 14px" }}>
+            {paidLessons.map((p) => (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--line-2)", fontSize: 13.5 }}>
+                <span style={{ fontWeight: 600 }}>{p.name}</span>
+                <span className="num" style={{ fontWeight: 600, whiteSpace: "nowrap", color: p.unpaid > 0 ? "var(--bad)" : p.left <= 2 ? "var(--warn)" : "var(--ok)" }}>
+                  {p.unpaid > 0
+                    ? t(locale, "cabinet.unpaidN", { n: p.unpaid })
+                    : p.left > 0
+                      ? t(locale, "cabinet.lessonsLeftN", { n: p.left })
+                      : t(locale, "cabinet.packageEnded")}
+                </span>
+              </div>
+            ))}
+            <p className="mut" style={{ fontSize: 11.5, margin: "10px 0 0" }}>{t(locale, "cabinet.packageNote")}</p>
+          </div>
+        </div>
+      )}
       </div>
 
         </>

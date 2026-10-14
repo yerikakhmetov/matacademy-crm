@@ -8,6 +8,8 @@ import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
 import { markOverdue } from "@/lib/overdue";
 import { cardCols } from "@/lib/card-table";
+import { lessonsLeftAll } from "@/lib/payroll";
+import { leftKey, packageAlerts } from "@/lib/packages";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +33,39 @@ export default async function RemindersPage() {
     prisma.student.count({ where: { telegramChatId: { not: null } } }),
   ]);
 
-  const total = overdue.length + pending.length;
+  // Пакет занятий заканчивается: ученики, которым пора оплатить следующий месяц обучения
+  const active = await prisma.student.findMany({
+    where: { status: "ACTIVE", groups: { some: { subjectId: { not: null } } } },
+    select: {
+      id: true,
+      name: true,
+      parentName: true,
+      parentPhone: true,
+      groups: { where: { subjectId: { not: null } }, select: { subject: { select: { id: true, name: true } } } },
+    },
+    orderBy: { name: "asc" },
+  });
+  // предметы неоплаченных счетов: по ним напоминание уже есть ниже, второй раз не нужно
+  const openItems = await prisma.paymentItem.findMany({
+    where: { paymentId: { in: [...overdue, ...pending].map((p) => p.id) }, subjectId: { not: null } },
+    select: { subjectId: true, payment: { select: { studentId: true } } },
+  });
+  const openInvoice = new Set(openItems.map((it) => leftKey(it.payment.studentId, it.subjectId!)));
+  const left = await lessonsLeftAll(active.map((s) => s.id));
+  const alerts = packageAlerts(
+    active.flatMap((s) => s.groups.map((g) => ({ studentId: s.id, subjectId: g.subject!.id }))),
+    left,
+    openInvoice
+  );
+  const subjectName = new Map(active.flatMap((s) => s.groups.map((g) => [g.subject!.id, g.subject!.name] as const)));
+  const ending = active.filter((s) => alerts.has(s.id)).map((s) => ({ ...s, items: alerts.get(s.id)! }));
+  const itemText = (it: { subjectId: string; left: number; unpaid: number }) =>
+    it.unpaid > 0 ? `${subjectName.get(it.subjectId)}: без оплаты ${it.unpaid} зан.` : `${subjectName.get(it.subjectId)}: осталось ${it.left} зан.`;
+  const msgEnding = (name: string, items: { subjectId: string; left: number; unpaid: number }[]) =>
+    `Здравствуйте! Напоминаем из ${SCHOOL} (ученик: ${name}): ${items.map(itemText).join("; ")}. ` +
+    `Чтобы занятия шли без перерыва, пожалуйста, оплатите следующий месяц обучения. Спасибо!`;
+
+  const total = overdue.length + pending.length + ending.length;
 
   const msgOverdue = (name: string, purpose: string, amount: number, days: number) =>
     `Здравствуйте! Напоминаем об оплате обучения в ${SCHOOL} (ученик: ${name}): ${purpose} — ${money(amount)}. Просрочено на ${days} дн. Пожалуйста, оплатите при возможности. Спасибо!`;
@@ -109,6 +143,63 @@ export default async function RemindersPage() {
                   </tr>
                 );
               })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Пакет заканчивается */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-h">
+          <h3>Заканчиваются оплаченные занятия</h3>
+          <span className="chip c-warn">
+            <span className="d" />
+            {ending.length}
+          </span>
+        </div>
+        <div className="table-wrap">
+          <table {...cardCols(["Ученик", "Занятия", ""])}>
+            <thead>
+              <tr>
+                <th>Ученик</th>
+                <th>Занятия</th>
+                <th className="right">Напомнить</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ending.length === 0 && (
+                <tr>
+                  <td colSpan={3}>
+                    <div className="empty">У всех хватает оплаченных занятий</div>
+                  </td>
+                </tr>
+              )}
+              {ending.map((s) => (
+                <tr key={s.id}>
+                  <td>
+                    <div className="person">
+                      <div className="av2" style={{ background: avatarColor(s.name) }}>{initials(s.name)}</div>
+                      <div>
+                        <div className="nm">{s.name}</div>
+                        <div className="sub">{s.parentName ?? "родитель не указан"}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="td-text">
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {s.items.map((it) => (
+                        <span key={it.subjectId} className={`chip ${it.unpaid > 0 ? "c-bad" : "c-warn"}`}>
+                          <span className="d" />
+                          {itemText(it)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
+                  <td>
+                    <ReminderActions phone={s.parentPhone} message={msgEnding(s.name, s.items)} />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
