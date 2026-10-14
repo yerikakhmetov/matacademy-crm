@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
-import { gatherPayrollRange } from "@/lib/payroll";
+import { gatherPayrollRange, prepaidAll } from "@/lib/payroll";
 import { getSettings } from "@/lib/settings";
 import { lastSchoolMonths, schoolMonthKey, schoolMonthStart } from "@/lib/school-time";
 import { txSign, txsSince } from "@/lib/revenue";
@@ -38,6 +38,13 @@ export default async function ReportsPage() {
     }),
   ]);
   const feePct = settings.schoolFeePct;
+  // Предоплата: оплачено, но ещё не проведено (пакеты занятий) — только при доступе к финансам
+  const prepaid = money$ ? await prepaidAll() : new Map<string, { lessons: number; amount: number }>();
+  const prepaidNames = prepaid.size
+    ? new Map((await prisma.subject.findMany({ where: { id: { in: [...prepaid.keys()] } }, select: { id: true, name: true } })).map((x) => [x.id, x.name]))
+    : new Map<string, string>();
+  const prepaidRows = [...prepaid].map(([id, v]) => ({ name: prepaidNames.get(id) ?? "—", ...v })).sort((a, b) => b.amount - a.amount);
+  const prepaidTotal = prepaidRows.reduce((a, r) => a + r.amount, 0);
   const expensesPeriod = money$
     ? await prisma.expense.findMany({ where: { date: { gte: since } }, select: { amount: true, date: true } })
     : [];
@@ -257,6 +264,34 @@ export default async function ReportsPage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {money$ && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>Предоплата: оплачено, но не проведено</h3>
+            <span className="chip c-mut"><span className="d" />Итого: {money(Math.round(prepaidTotal))}</span>
+          </div>
+          <div className="funnel">
+            {prepaidRows.length === 0 && <div className="empty">Все оплаченные занятия уже проведены</div>}
+            {prepaidRows.map((r) => (
+              <div className="frow" key={r.name}>
+                <div className="fl">{r.name}</div>
+                <div className="ftrack">
+                  <div className="ffill" style={{ width: `${Math.round((r.amount / (prepaidRows[0]?.amount || 1)) * 100)}%`, background: "var(--accent)" }} />
+                </div>
+                <div className="fv num" style={{ width: 150 }}>
+                  {money(Math.round(r.amount))}
+                  <span className="mut" style={{ fontSize: 11, marginLeft: 6 }}>{r.lessons} зан.</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mut" style={{ fontSize: 12, padding: "0 18px 14px", margin: 0 }}>
+            Деньги за занятия, которые ученики уже оплатили, но ещё не прошли. Это обязательство школы: если
+            ученик уйдёт, их, скорее всего, придётся вернуть. Считается по пакетам с октября 2026.
+          </p>
         </div>
       )}
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { allocateVisits, creditFromItem, lessonsLeft, leftKey, nextStudyMonth, packageAlerts, studyMonthLabel, type Visit } from "./packages.ts";
+import { allocateVisits, creditFromItem, lessonsLeft, leftKey, nextStudyMonth, packageAlerts, prepaidBySubject, studyMonthLabel, type Visit } from "./packages.ts";
 
 const d = (m0: number, day: number) => new Date(Date.UTC(2026, m0, day));
 const credit = (over: Partial<Parameters<typeof creditFromItem>[0]> = {}) =>
@@ -86,4 +86,14 @@ test("напоминания: мало занятий или ходит без �
   // (здесь у d счёта нет, и его закончившийся пакет тоже в списке)
   assert.deepEqual([...packageAlerts(enrolled, left, new Set([leftKey("c", "math")])).keys()], ["a", "c", "d"]);
   assert.deepEqual(res.get("c"), [{ subjectId: "math", left: 0, unpaid: 3, total: 0 }]);
+});
+
+test("предоплата: остаток занятий × цена, по предметам", () => {
+  const math = credit({ paymentId: "m", itemAmount: 24_000 }); // 12 по 2 000
+  const hist = creditFromItem({ paymentId: "h", studentId: "s", subjectId: "hist", itemAmount: 16_000, months: 1, lessonsPerMonth: 8, ratio: 1, order: 1 })!;
+  const res = prepaidBySubject([math, hist], visits(5)); // 5 занятий математики
+  assert.deepEqual(res.get("math"), { lessons: 7, amount: 14_000 });
+  assert.deepEqual(res.get("hist"), { lessons: 8, amount: 16_000 });
+  // всё отработано — предоплаты нет
+  assert.equal(prepaidBySubject([math], visits(14)).has("math"), false);
 });

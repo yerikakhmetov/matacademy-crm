@@ -17,7 +17,7 @@ import {
   type SubjectRate,
   type PackagedPay,
 } from "./payroll-calc.ts";
-import { PACKAGE_BILLING_FROM, allocateVisits, creditFromItem, lessonsLeft, leftKey, packageBillingStart, type Credit, type LessonsLeft, type Visit } from "./packages.ts";
+import { PACKAGE_BILLING_FROM, allocateVisits, creditFromItem, lessonsLeft, leftKey, packageBillingStart, prepaidBySubject, type Credit, type LessonsLeft, type Visit } from "./packages.ts";
 
 // Сбор данных из БД для расчёта зарплаты. Сама арифметика — в ./payroll-calc.ts (покрыта тестами).
 export * from "./payroll-calc.ts";
@@ -444,4 +444,27 @@ export async function lessonsLeftAll(studentIds: string[]): Promise<Map<string, 
     visits.push({ studentId: a.studentId, subjectId, groupId: a.lesson.groupId, date: a.date });
   }
   return lessonsLeft(credits, visits);
+}
+
+// Предоплата по всей школе: subjectId -> { занятий, ₸ } оплачено, но ещё не проведено.
+export async function prepaidAll(): Promise<Map<string, { lessons: number; amount: number }>> {
+  const students = await prisma.student.findMany({ where: { payments: { some: { paidAmount: { gt: 0 } } } }, select: { id: true } });
+  const ids = students.map((s) => s.id);
+  if (ids.length === 0) return new Map();
+  const [credits, att, groups] = await Promise.all([
+    loadCredits(ids),
+    prisma.attendance.findMany({
+      where: { studentId: { in: ids }, date: { gte: packageBillingStart() }, lesson: { group: { subjectId: { not: null } } } },
+      select: { studentId: true, present: true, excused: true, date: true, lesson: { select: { groupId: true } } },
+    }),
+    prisma.group.findMany({ where: { subjectId: { not: null } }, select: { id: true, subjectId: true } }),
+  ]);
+  const subjectOf = new Map(groups.map((g) => [g.id, g.subjectId!]));
+  const visits: Visit[] = [];
+  for (const a of att) {
+    const subjectId = subjectOf.get(a.lesson.groupId);
+    if (!subjectId || !isPayableAttendance(a.present, a.excused)) continue;
+    visits.push({ studentId: a.studentId, subjectId, groupId: a.lesson.groupId, date: a.date });
+  }
+  return prepaidBySubject(credits, visits);
 }

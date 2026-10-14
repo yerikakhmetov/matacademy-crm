@@ -162,3 +162,25 @@ export function packageAlerts(
   }
   return out;
 }
+
+// Предоплата: деньги за оплаченные, но ещё не проведённые занятия — по каждому
+// предмету сумма «остаток занятий × цена занятия». Это обязательство школы:
+// если ученик уйдёт, эти деньги, скорее всего, придётся вернуть.
+export function prepaidBySubject(credits: Credit[], visits: Visit[]): Map<string, { lessons: number; amount: number }> {
+  const used = new Map<string, number>(); // paymentId|subjectId -> списано
+  for (const a of allocateVisits(credits, visits)) {
+    if (!a.paymentId) continue;
+    const k = `${a.paymentId}|${a.subjectId}`;
+    used.set(k, (used.get(k) ?? 0) + 1);
+  }
+  const out = new Map<string, { lessons: number; amount: number }>();
+  for (const c of credits) {
+    const left = c.lessons - (used.get(`${c.paymentId}|${c.subjectId}`) ?? 0);
+    if (left <= 0) continue;
+    const r = out.get(c.subjectId) ?? { lessons: 0, amount: 0 };
+    r.lessons += left;
+    r.amount += left * c.value;
+    out.set(c.subjectId, r);
+  }
+  return out;
+}
