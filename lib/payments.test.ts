@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  rescaleItems,
   subjectShareOfTx,
   canFixReceived,
   planPaymentEdit,
@@ -127,4 +128,12 @@ test("доля предмета в приходе: пропорциональн�
   // счёт на один предмет — весь приход его
   assert.equal(subjectShareOfTx(24_000, 24_000, 24_000), 24_000);
   assert.equal(subjectShareOfTx(10_000, 0, 5_000), 0);
+});
+
+test("правка суммы счёта сохраняет пропорцию предметов (скидочная разбивка не теряется)", () => {
+  const items = [{ s: "math", amount: 24_300 }, { s: "hist", amount: 16_200 }];
+  assert.deepEqual(rescaleItems(items, 40_500), items);
+  const r = rescaleItems(items, 20_250);
+  assert.deepEqual(r.map((x) => x.amount), [12_150, 8_100]);
+  assert.equal(rescaleItems(items, 33_333).reduce((a, x) => a + x.amount, 0), 33_333);
 });

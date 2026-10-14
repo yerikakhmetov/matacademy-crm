@@ -135,6 +135,8 @@ export function nextStudyMonth(invoices: { studyMonth: number | null; months: nu
 // Кому пора напомнить об оплате следующего месяца обучения: по предметам, на которые
 // ученик сейчас ходит, осталось ≤ threshold оплаченных занятий или он уже ходит без оплаты.
 // Если по предмету уже выставлен неоплаченный счёт — он и так в списке «ожидают оплаты».
+// Но если ученик уже ходит без оплаты, напоминаем всё равно: открытый счёт мог быть
+// старым забытым, а занятия идут неоплаченными.
 export const PACKAGE_ALERT_THRESHOLD = 2;
 export type PackageAlertItem = { subjectId: string; left: number; unpaid: number; total: number };
 
@@ -148,9 +150,10 @@ export function packageAlerts(
   const seen = new Set<string>();
   for (const e of enrolled) {
     const k = key(e.studentId, e.subjectId);
-    if (seen.has(k) || openInvoice.has(k)) continue;
+    if (seen.has(k)) continue;
     seen.add(k);
     const info = left.get(k) ?? { left: 0, total: 0, unpaid: 0 };
+    if (openInvoice.has(k) && info.unpaid === 0) continue;
     const ending = info.unpaid > 0 || (info.total > 0 && info.left <= threshold);
     if (!ending) continue;
     const list = out.get(e.studentId) ?? [];

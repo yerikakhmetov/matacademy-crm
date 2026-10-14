@@ -82,5 +82,8 @@ test("напоминания: мало занятий или ходит без �
   const enrolled = ["a", "b", "c", "d", "e"].map((studentId) => ({ studentId, subjectId: "math" }));
   const res = packageAlerts(enrolled, left, new Set([leftKey("d", "math")]));
   assert.deepEqual([...res.keys()], ["a", "c"]);
+  // открытый счёт не скрывает того, кто уже ходит без оплаты
+  // (здесь у d счёта нет, и его закончившийся пакет тоже в списке)
+  assert.deepEqual([...packageAlerts(enrolled, left, new Set([leftKey("c", "math")])).keys()], ["a", "c", "d"]);
   assert.deepEqual(res.get("c"), [{ subjectId: "math", left: 0, unpaid: 3, total: 0 }]);
 });

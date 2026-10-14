@@ -592,6 +592,9 @@ model PaymentItem {
   subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: SetNull)
   subjectName String // снимок названия
   amount      Int      @default(0)
+  // Снимок «занятий в месяце» предмета на момент счёта: цена занятия = amount ÷ (months × это).
+  // Если потом поменять число занятий у предмета, старые счета не пересчитываются. null — берётся у предмета.
+  lessonsPerMonth Int?
 
   @@index([paymentId])
   @@index([subjectId])

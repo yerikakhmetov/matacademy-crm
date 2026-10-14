@@ -33,25 +33,32 @@ export async function GET(req: NextRequest) {
   let sentTelegram = 0;
   let sentWhatsapp = 0;
   let unreachable = 0;
+  // Пакеты отмечаем как «напомнили» сразу после отправки: если функцию оборвёт таймаут,
+  // уже отправленные не уйдут повторно. Неудачная отправка не отмечается — повторим завтра.
+  // Без канала связи — отмечаем: администратор увидит ученика в сводке один раз.
+  const markNotified = async (it: (typeof items)[number]) => {
+    if (it.notices?.length) await prisma.packageNotice.createMany({ data: it.notices, skipDuplicates: true });
+  };
   for (const it of items) {
     if (tg && it.chatId) {
-      if (await sendTelegram(it.chatId, it.message)) sentTelegram++;
+      if (await sendTelegram(it.chatId, it.message)) {
+        sentTelegram++;
+        await markNotified(it);
+      }
       continue;
     }
     const digits = normalizePhone(it.phone);
     if (wa && digits) {
       const r = await sendWhatsappTemplate(digits, it.studentName, it.waDetail);
-      if (r.ok) sentWhatsapp++;
-      else if (r.error) waErrors.push(r.error);
+      if (r.ok) {
+        sentWhatsapp++;
+        await markNotified(it);
+      } else if (r.error) waErrors.push(r.error);
       continue;
     }
     unreachable++;
+    await markNotified(it);
   }
-
-  // Пакеты отмечаем как «напомнили» — и отправленные, и без канала связи: администратор
-  // увидел их в сводке, повторять каждый день не нужно. Новая оплата даст новый total.
-  const notices = items.flatMap((i) => i.notices ?? []);
-  if (notices.length > 0) await prisma.packageNotice.createMany({ data: notices, skipDuplicates: true });
 
   // Сводка администратору школы (в Telegram)
   const adminChat = process.env.TELEGRAM_ADMIN_CHAT_ID;

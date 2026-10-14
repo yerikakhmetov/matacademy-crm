@@ -144,3 +144,19 @@ export function subjectShareOfTx(txAmount: number, paymentAmount: number, subjec
   if (paymentAmount <= 0 || subjectItemAmount <= 0) return 0;
   return Math.round((txAmount * Math.min(subjectItemAmount, paymentAmount)) / paymentAmount);
 }
+
+// Сумму счёта исправили, а предметы те же: доли предметов масштабируем в прежней
+// пропорции. Пересчёт «по весам с нуля» стёр бы разбивку со скидками из счёта
+// и тем самым поменял бы цену занятия для преподавателей. Остаток — последней строке.
+export function rescaleItems<T extends { amount: number }>(items: T[], newAmount: number): T[] {
+  const old = items.reduce((a, i) => a + i.amount, 0);
+  if (items.length === 0) return [];
+  if (old <= 0) return items.map((it, i) => ({ ...it, amount: i === items.length - 1 ? newAmount : 0 }));
+  let acc = 0;
+  return items.map((it, i) => {
+    if (i === items.length - 1) return { ...it, amount: newAmount - acc };
+    const v = Math.round((it.amount * newAmount) / old);
+    acc += v;
+    return { ...it, amount: v };
+  });
+}

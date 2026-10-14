@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
 import { getSettings, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitAmount, isDiscountMode } from "@/lib/settings";
 import { recalc } from "@/lib/overdue";
-import { maxRefundable, outstanding, paymentStatus, planPaymentEdit } from "@/lib/payments";
+import { maxRefundable, outstanding, paymentStatus, planPaymentEdit, rescaleItems } from "@/lib/payments";
 import { UserError, asResult, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 import { MAX_PERIOD_MONTHS, invoicePeriodLabel } from "@/lib/period";
 import { nextStudyMonth, studyMonthLabel } from "@/lib/packages";
@@ -48,7 +48,7 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
   let discountPct = 0;
   let promoApplyId: string | null = null;
   let promoMaxUses = 0;
-  let items: { subjectId: string; subjectName: string; base: number; amount: number }[] = [];
+  let items: { subjectId: string; subjectName: string; base: number; amount: number; lessonsPerMonth: number | null }[] = [];
 
   if (subjectIds.length > 0) {
     // Новый режим: комбо-абонемент по предметам со скидками
@@ -101,7 +101,13 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
     basePrice = pricing.base;
     price = pricing.total;
     plan = chosen.map((s) => s.name).join(" + ");
-    items = pricing.items.map((it) => ({ subjectId: it.id, subjectName: it.name, base: it.base, amount: it.amount }));
+    items = pricing.items.map((it) => ({
+      subjectId: it.id,
+      subjectName: it.name,
+      base: it.base,
+      amount: it.amount,
+      lessonsPerMonth: chosen.find((s) => s.id === it.id)?.lessonsPerMonth ?? null,
+    }));
   } else {
     // Старый режим: ручная цена
     plan = str(formData.get("plan")) || "Обучение";
@@ -112,7 +118,7 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
   if (price <= 0) throw new UserError("Сумма счёта должна быть больше нуля");
 
   const purpose = `${plan} · ${studyMonthLabel(studyMonth, months)}`;
-  const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount }));
+  const payItems = items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, amount: it.amount, lessonsPerMonth: it.lessonsPerMonth }));
   await prisma.$transaction(async (tx) => {
     if (promoApplyId) {
       // Лимит проверяется в той же записи: два одновременных счёта не превысят maxUses
@@ -158,14 +164,19 @@ export async function createPayment(formData: FormData) {
   // Разбивка платежа по выбранным предметам — пропорционально числу занятий,
   // теми же весами, что и доли абонемента (см. splitWeights в lib/pricing.ts)
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
-  let payItems: { subjectId: string; subjectName: string; amount: number }[] = [];
+  let payItems: { subjectId: string; subjectName: string; amount: number; lessonsPerMonth: number | null }[] = [];
   if (subjectIds.length > 0) {
     const subs = await prisma.subject.findMany({
       where: { id: { in: subjectIds } },
       select: { id: true, name: true, price: true, lessonsPerMonth: true },
     });
     const chosen = subjectIds.map((id) => subs.find((s) => s.id === id)).filter(Boolean) as typeof subs;
-    payItems = splitAmount(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
+    payItems = splitAmount(amount, chosen).map((r) => ({
+      subjectId: r.id,
+      subjectName: r.name,
+      amount: r.amount,
+      lessonsPerMonth: chosen.find((x) => x.id === r.id)?.lessonsPerMonth ?? null,
+    }));
   }
 
   const method = str(formData.get("method")) || null;
@@ -333,7 +344,11 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   await assertEditor("finance");
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { txs: { select: { id: true, kind: true, amount: true, date: true } }, student: { select: { name: true } } },
+    include: {
+      txs: { select: { id: true, kind: true, amount: true, date: true } },
+      student: { select: { name: true } },
+      items: { select: { subjectId: true, subjectName: true, amount: true, lessonsPerMonth: true } },
+    },
   });
   if (!payment) throw new Error("Счёт не найден");
 
@@ -354,17 +369,32 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   );
   if (!plan.ok) throw new UserError(plan.error);
 
-  // Разбивка по предметам пересчитывается от новой суммы: по ней считается
-  // доля предмета и зарплата преподавателя.
+  // Разбивка по предметам: по ней считается цена занятия для преподавателя.
+  // Предметы те же — сохраняем строки счёта (со скидочной разбивкой и снимком числа занятий),
+  // сумма поменялась — масштабируем их в прежней пропорции. Пересчёт «с нуля» — только
+  // если поменялся набор предметов.
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
-  let payItems: { subjectId: string; subjectName: string; amount: number }[] = [];
-  if (subjectIds.length > 0) {
+  const sameSubjects =
+    payment.items.length > 0 &&
+    [...new Set(subjectIds)].sort().join("|") === payment.items.map((i) => i.subjectId ?? "").sort().join("|");
+  let payItems: { subjectId: string; subjectName: string; amount: number; lessonsPerMonth: number | null }[] = [];
+  if (sameSubjects) {
+    payItems = rescaleItems(
+      payment.items.map((i) => ({ subjectId: i.subjectId!, subjectName: i.subjectName, amount: i.amount, lessonsPerMonth: i.lessonsPerMonth })),
+      amount
+    );
+  } else if (subjectIds.length > 0) {
     const subs = await prisma.subject.findMany({
       where: { id: { in: subjectIds } },
       select: { id: true, name: true, price: true, lessonsPerMonth: true },
     });
     const chosen = subjectIds.map((id) => subs.find((x) => x.id === id)).filter(Boolean) as typeof subs;
-    payItems = splitAmount(amount, chosen).map((r) => ({ subjectId: r.id, subjectName: r.name, amount: r.amount }));
+    payItems = splitAmount(amount, chosen).map((r) => ({
+      subjectId: r.id,
+      subjectName: r.name,
+      amount: r.amount,
+      lessonsPerMonth: chosen.find((x) => x.id === r.id)?.lessonsPerMonth ?? null,
+    }));
   }
 
   await prisma.$transaction(async (tx) => {

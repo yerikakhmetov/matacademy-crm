@@ -122,8 +122,8 @@ async function loadPackagedByMonth(
 }
 
 // Оплаченные занятия учеников по всем их счетам с разбивкой по предметам.
-// Старые календарные счета (studyMonth = null) дают занятия только за месяцы
-// с начала пакетов: более ранние месяцы уже оплачены по старым правилам.
+// Старые календарные счета дают занятия только за свои месяцы с начала пакетов:
+// более ранние месяцы уже оплачены по старым правилам.
 export async function loadCredits(studentIds: string[]): Promise<Credit[]> {
   if (studentIds.length === 0) return [];
   const startIdx = PACKAGE_BILLING_FROM.year * 12 + PACKAGE_BILLING_FROM.month0;
@@ -132,6 +132,7 @@ export async function loadCredits(studentIds: string[]): Promise<Credit[]> {
     select: {
       subjectId: true,
       amount: true,
+      lessonsPerMonth: true,
       subject: { select: { lessonsPerMonth: true } },
       payment: {
         select: { id: true, studentId: true, date: true, months: true, studyMonth: true, amount: true, paidAmount: true, refundedAmount: true },
@@ -148,10 +149,13 @@ export async function loadCredits(studentIds: string[]): Promise<Credit[]> {
       subjectId: it.subjectId!,
       itemAmount: it.amount,
       months: p.months,
-      lessonsPerMonth: it.subject?.lessonsPerMonth ?? 0,
+      // снимок на момент счёта; у старых строк без снимка — текущее значение предмета
+      lessonsPerMonth: it.lessonsPerMonth ?? it.subject?.lessonsPerMonth ?? 0,
       ratio: settledRatio(p.amount, p.paidAmount, p.refundedAmount),
       order: p.date.getTime(),
-      skipMonths: p.studyMonth == null ? Math.max(0, startIdx - idx) : 0,
+      // Месяцы до начала пакетов уже оплачены по старым правилам. Для новых счетов (дата
+      // не раньше октября) это 0; номер месяца, вписанный в старый счёт, не даёт ему лишних занятий.
+      skipMonths: Math.max(0, startIdx - idx),
     });
     if (c) credits.push(c);
   }
