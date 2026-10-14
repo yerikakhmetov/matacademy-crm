@@ -46,7 +46,7 @@ export default async function CabinetLayout({ children }: { children: React.Reac
           </button>
         </form>
       </header>
-      <main style={{ maxWidth: 820, margin: "0 auto", padding: "18px 16px 48px" }}>{children}</main>
+      <main className="cab-main" style={{ maxWidth: 820, margin: "0 auto", padding: "18px 16px 48px" }}>{children}</main>
     </div>
   );
 }

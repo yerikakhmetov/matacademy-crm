@@ -382,3 +382,17 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
 .focus-title{font-family:var(--font-display),system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
 .focus-btn{align-self:flex-start;margin-top:10px;padding:11px 18px;font-size:14px}
 @media(max-width:560px){.focus-btn{align-self:stretch;justify-content:center;min-height:48px}}
+
+/* Вкладки кабинета ученика: сверху на компьютере, панелью внизу экрана на телефоне */
+.cab-tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px}
+.cab-tab{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 8px;border-radius:9px;font-size:13px;font-weight:600;color:var(--ink-2);text-decoration:none;min-width:0}
+.cab-tab:hover{background:var(--surface-2)}
+.cab-tab.on{background:var(--accent-soft);color:var(--accent-ink)}
+.cab-tab-ico{position:relative;display:inline-flex}
+.cab-badge{position:absolute;top:-6px;right:-9px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--bad);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center}
+@media(max-width:760px){
+  .cab-tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;border-radius:0;border-width:1px 0 0;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px));gap:0}
+  .cab-tab{flex-direction:column;gap:3px;padding:6px 2px;font-size:10.5px;min-height:52px}
+  .cab-tab.on{background:transparent;color:var(--accent)}
+  .cab-main{padding-bottom:96px !important}
+}

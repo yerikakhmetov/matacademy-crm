@@ -15,7 +15,14 @@ import { dayShort, t } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export default async function CabinetHome() {
+// Кабинет разбит на вкладки: одна длинная страница на телефоне растягивалась на 8–10 экранов.
+const TABS = ["home", "tests", "grades", "tasks", "schedule"] as const;
+type Tab = (typeof TABS)[number];
+const TAB_ICON: Record<Tab, string> = { home: "dashboard", tests: "check", grades: "chart", tasks: "book", schedule: "schedule" };
+
+export default async function CabinetHome({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab: tabParam } = await searchParams;
+  const tab: Tab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as Tab) : "home";
   const session = await auth();
   const locale = await getLocale();
   const studentId = await getStudentIdForUser(session?.user?.id);
@@ -151,16 +158,17 @@ export default async function CabinetHome() {
     .reverse()
     .map((g) => ({ label: shortDate(new Date(g.date)), value: Math.round((g.score / g.maxScore) * 100) }));
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  // «Сегодня» — по часовому поясу школы: сервер работает в UTC, и в Алматы с 00 до 05
+  // кабинет показывал вчерашние занятия. Даты сроков хранятся UTC-полуночью — сравниваем так же.
+  const schoolNow = new Date(Date.now() + tz * 3_600_000);
+  const startOfToday = Date.UTC(schoolNow.getUTCFullYear(), schoolNow.getUTCMonth(), schoolNow.getUTCDate());
   const endOfTomorrow = startOfToday + 2 * 24 * 3600 * 1000;
-  const jsDay = now.getDay(); // 0 = вс
-  const todayDow = jsDay === 0 ? 7 : jsDay; // 1..6 = Пн..Сб (как в расписании)
-  const hour = now.getHours();
+  const todayDow = schoolNow.getUTCDay() || 7; // 1..6 = Пн..Сб (как в расписании)
+  const hour = schoolNow.getUTCHours();
   const greeting = hour < 12 ? t(locale, "cabinet.morning") : hour < 18 ? t(locale, "cabinet.day") : t(locale, "cabinet.evening");
 
   // Блок «Сегодня»: то, ради чего кабинет чаще всего и открывают
-  const started = (l: { startsOn: Date | null }) => l.startsOn == null || l.startsOn.getTime() <= now.getTime();
+  const started = (l: { startsOn: Date | null }) => l.startsOn == null || l.startsOn.getTime() <= startOfToday;
   const todayLessons = lessons.filter((l) => l.dayOfWeek === todayDow && started(l));
   const dueSoon = hwItems.filter((h) => !h.done && h.dueTs != null && h.dueTs < endOfTomorrow);
   const openTests = tests.filter((x) => x.open && !x.attempt);
@@ -171,8 +179,35 @@ export default async function CabinetHome() {
         ? t(locale, "today.dueToday")
         : t(locale, "today.dueTomorrow");
 
+  const badges: Partial<Record<Tab, number>> = { tests: openTests.length, tasks: dueSoon.length };
+  const tabLabel: Record<Tab, string> = {
+    home: t(locale, "tabs.home"),
+    tests: t(locale, "tabs.tests"),
+    grades: t(locale, "tabs.grades"),
+    tasks: t(locale, "tabs.tasks"),
+    schedule: t(locale, "tabs.schedule"),
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <nav className="cab-tabs" aria-label={t(locale, "tabs.label")}>
+        {TABS.map((k) => (
+          <Link
+            key={k}
+            href={k === "home" ? "/cabinet" : `/cabinet?tab=${k}`}
+            className={`cab-tab${k === tab ? " on" : ""}`}
+            aria-current={k === tab ? "page" : undefined}
+          >
+            <span className="cab-tab-ico" aria-hidden="true">
+              <Icon name={TAB_ICON[k]} size={18} />
+              {badges[k] ? <span className="cab-badge">{badges[k]}</span> : null}
+            </span>
+            <span>{tabLabel[k]}</span>
+          </Link>
+        ))}
+      </nav>
+{tab === "home" && (
+        <>
       <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
         <Avatar name={student.name} photoUrl={student.photoUrl} size={52} radius={14} fontSize={18} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -229,6 +264,11 @@ export default async function CabinetHome() {
         </div>
       </div>
 
+        </>
+      )}
+
+{tab === "schedule" && (
+        <>
       <div className="card">
         <div className="card-h">
           <h3>{t(locale, "cabinet.schedule")}</h3>
@@ -299,10 +339,14 @@ export default async function CabinetHome() {
         </div>
       )}
 
-      {tests.length > 0 && (
+        </>
+      )}
+
+      {tab === "tests" && (
         <div className="card">
           <div className="card-h"><h3>{t(locale, "cabinet.tests")}</h3><span className="chip c-mut"><span className="d" />{tests.length}</span></div>
           <div style={{ padding: "6px 0" }}>
+            {tests.length === 0 && <div className="empty">{t(locale, "cabinet.noTests")}</div>}
             {tests.map((tst) => {
               const pct = tst.attempt ? Math.round((tst.attempt.score / tst.maxScore) * 100) : null;
               const inner = (
@@ -337,7 +381,7 @@ export default async function CabinetHome() {
         </div>
       )}
 
-      {topics.length > 0 && (
+      {tab === "schedule" && topics.length > 0 && (
         <div className="card">
           <div className="card-h"><h3>{t(locale, "cabinet.coveredTopics")}</h3><span className="chip c-mut"><span className="d" />{topics.length}</span></div>
           <div style={{ padding: "6px 0" }}>
@@ -357,6 +401,8 @@ export default async function CabinetHome() {
         </div>
       )}
 
+{tab === "tasks" && (
+        <>
       <CabinetHomework items={hwItems} locale={locale} />
 
       {materials.length > 0 && (
@@ -377,6 +423,11 @@ export default async function CabinetHome() {
         </div>
       )}
 
+        </>
+      )}
+
+{tab === "grades" && (
+        <>
       {progress.length >= 2 && (
         <div className="card">
           <div className="card-h">
@@ -443,8 +494,11 @@ export default async function CabinetHome() {
         </div>
       )}
 
+        </>
+      )}
+
       <p style={{ textAlign: "center" }}>
-        <Link href="/cabinet" className="mut" style={{ fontSize: 11.5 }}>{t(locale, "common.refresh")}</Link>
+        <Link href={tab === "home" ? "/cabinet" : `/cabinet?tab=${tab}`} className="mut" style={{ fontSize: 11.5 }}>{t(locale, "common.refresh")}</Link>
       </p>
     </div>
   );

@@ -79,16 +79,20 @@ export const GRADE_TYPE: Record<string, string> = {
 };
 
 // Цвет по проценту (для оценок и посещаемости)
+// Шкала оценок: 85+ — отлично, 60–84 — нормально, ниже 60 — тревожно.
+// Раньше красным было всё ниже 70: 67/100 выглядело как провал и пугало родителей.
+export const SCORE_GOOD = 85;
+export const SCORE_OK = 60;
+
 export function scoreColor(pct: number): string {
-  if (pct >= 85) return "var(--ok)";
-  if (pct >= 70) return "var(--warn)";
-  if (pct >= 50) return "var(--amber)";
+  if (pct >= SCORE_GOOD) return "var(--ok)";
+  if (pct >= SCORE_OK) return "var(--amber)";
   return "var(--bad)";
 }
 
 export function gradeChipClass(pct: number): string {
-  if (pct >= 85) return "c-ok";
-  if (pct >= 70) return "c-warn";
+  if (pct >= SCORE_GOOD) return "c-ok";
+  if (pct >= SCORE_OK) return "c-warn";
   return "c-bad";
 }
 
