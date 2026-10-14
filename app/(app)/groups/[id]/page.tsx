@@ -10,6 +10,8 @@ import { Icon } from "@/components/Icon";
 import { StudentLinks } from "./StudentLinks";
 import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
 import { paidThrough, subjectShareOfTx } from "@/lib/payments";
+import { getSettings } from "@/lib/settings";
+import { schoolClock } from "@/lib/school-time";
 import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +91,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
   const pct = Math.min(100, Math.round((enrolled / group.capacity) * 100));
   const debtors = group.students.filter((s) => s.balance < 0);
   // «оплатил» — текущий месяц покрыт оплаченным счётом и нет непогашенного остатка
-  const now = new Date();
+  // текущий месяц — по часам школы: от него считается цепочка «оплачено до»
+  const now = schoolClock((await getSettings()).tzOffsetHours);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   // Счета, которые оплачивают предмет этой группы, и доля предмета в каждом.
   // У группы без предмета разбивки нет — берём счета целиком, как раньше.
@@ -98,7 +101,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
     s.payments
       .map((p) => ({ ...p, share: subjectId ? p.items.filter((i) => i.subjectId === subjectId).reduce((a, i) => a + i.amount, 0) : p.amount }))
       .filter((p) => p.share > 0);
-  const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(subjectPayments(s))]));
+  const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(subjectPayments(s), now)]));
   const paid = group.students.filter((s) => {
     const until = paidUntil.get(s.id);
     return s.balance >= 0 && until != null && until >= monthStart;

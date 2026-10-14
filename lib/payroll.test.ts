@@ -432,18 +432,29 @@ test("куратор: без отметок ставка целиком груп
   assert.equal(rows.get("c1")!.salary, 1000);
 });
 
-test("paidThrough: конец последнего полностью оплаченного месяца", () => {
+test("paidThrough: конец непрерывной цепочки оплаченных месяцев", () => {
   const d = (y: number, m0: number, day = 1) => new Date(Date.UTC(y, m0, day));
-  assert.equal(paidThrough([]), null);
-  assert.equal(paidThrough([{ amount: 24000, paidAmount: 12000, date: d(2026, 9), months: 1 }]), null);
-  assert.deepEqual(paidThrough([{ amount: 24000, paidAmount: 24000, date: d(2026, 9), months: 1 }]), d(2026, 9, 31));
-  assert.deepEqual(
-    paidThrough([
-      { amount: 24000, paidAmount: 24000, date: d(2026, 8), months: 1 },
-      { amount: 72000, paidAmount: 72000, date: d(2026, 9), months: 3 },
-    ]),
-    d(2026, 11, 31)
-  );
+  const today = d(2026, 9, 14); // октябрь
+  const paid = (m0: number, months = 1, y = 2026) => ({ amount: 24000 * months, paidAmount: 24000 * months, date: d(y, m0), months });
+  assert.equal(paidThrough([], today), null);
+  assert.equal(paidThrough([{ amount: 24000, paidAmount: 12000, date: d(2026, 9), months: 1 }], today), null);
+  assert.deepEqual(paidThrough([paid(9)], today), d(2026, 9, 31));
+  // сентябрь + окт–дек подряд → до 31 декабря
+  assert.deepEqual(paidThrough([paid(8), paid(9, 3)], today), d(2026, 11, 31));
+});
+
+test("paidThrough: цепочка рвётся на первом неоплаченном месяце", () => {
+  const d = (y: number, m0: number, day = 1) => new Date(Date.UTC(y, m0, day));
+  const today = d(2026, 9, 14);
+  const paid = (m0: number, months = 1) => ({ amount: 24000 * months, paidAmount: 24000 * months, date: d(2026, m0), months });
+  // октябрь оплачен, ноябрь нет, дек–фев оплачены вперёд → до 31 октября
+  assert.deepEqual(paidThrough([paid(9), paid(11, 3)], today), d(2026, 9, 31));
+  // текущий октябрь не оплачен: последний оплаченный до него — сентябрь, предоплата не в счёт
+  assert.deepEqual(paidThrough([paid(8), paid(11, 3)], today), d(2026, 8, 30));
+  // оплачено только будущее — «оплачено до» нет, за текущий месяц долг
+  assert.equal(paidThrough([paid(11, 3)], today), null);
+  // через год: декабрь → январь подряд
+  assert.deepEqual(paidThrough([paid(9, 3), { amount: 24000, paidAmount: 24000, date: d(2027, 0), months: 1 }], today), d(2027, 0, 31));
 });
 
 test("детализация зарплаты: сумма строк совпадает с выплатой", () => {

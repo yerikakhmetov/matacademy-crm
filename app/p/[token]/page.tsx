@@ -18,6 +18,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
 import { paidThrough } from "@/lib/payments";
+import { schoolClock } from "@/lib/school-time";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
       : null;
   // Пәндер — оқушы жүрген топтардың пәндері; «қай күнге дейін төленген» — толық төленген шоттардан
   const subjectNames = [...new Set(student.groups.map((g) => g.subject?.name).filter(Boolean))] as string[];
-  const paidUntil = paidThrough(student.payments);
+  const paidUntil = paidThrough(student.payments, schoolClock(settings.tzOffsetHours));
   const groupsLabel =
     student.groups.map((g) => (g.subject?.name ? `${g.subject.name} (${g.name})` : g.name)).join(", ") ||
     t(locale, "common.noGroup");

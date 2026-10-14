@@ -106,16 +106,35 @@ export function canFixReceived(cur: { amount: number; paidAmount: number; txs: E
   return payments.length === 1 && refunds.length === 0 && cur.paidAmount === cur.amount && payments[0].amount === cur.amount;
 }
 
-// До какого числа оплачено: последний день последнего месяца, покрытого полностью
-// оплаченным счётом (счёт на N месяцев покрывает N месяцев со своего). null — оплат нет.
-export function paidThrough(payments: { amount: number; paidAmount: number; date: Date; months: number }[]): Date | null {
-  let best: Date | null = null;
+// До какого числа оплачено: конец непрерывной цепочки полностью оплаченных месяцев.
+// Счёт на N месяцев покрывает N месяцев со своего. Цепочка рвётся на первом неоплаченном
+// месяце: оплачены октябрь и декабрь–февраль, ноябрь нет → «до 31 октября», а не до февраля.
+//  - текущий месяц оплачен — идём от него вперёд, пока месяцы оплачены подряд;
+//  - не оплачен — последний оплаченный месяц до него (предоплата за будущее не в счёт:
+//    за текущий месяц ученик всё равно должен);
+//  - оплачено только будущее или ничего — null.
+export function paidThrough(
+  payments: { amount: number; paidAmount: number; date: Date; months: number }[],
+  today: Date = new Date()
+): Date | null {
+  const idx = (d: Date) => d.getUTCFullYear() * 12 + d.getUTCMonth();
+  const covered = new Set<number>();
   for (const p of payments) {
     if (p.amount <= 0 || p.paidAmount < p.amount) continue;
-    const end = new Date(Date.UTC(p.date.getUTCFullYear(), p.date.getUTCMonth() + Math.max(1, p.months), 0));
-    if (!best || end > best) best = end;
+    for (let k = 0; k < Math.max(1, p.months); k++) covered.add(idx(p.date) + k);
   }
-  return best;
+  const cur = idx(today);
+  let last: number;
+  if (covered.has(cur)) {
+    last = cur;
+    while (covered.has(last + 1)) last++;
+  } else {
+    const before = [...covered].filter((m) => m < cur);
+    if (before.length === 0) return null;
+    last = Math.max(...before);
+  }
+  // последний день месяца last: нулевое число следующего месяца
+  return new Date(Date.UTC(Math.floor(last / 12), (last % 12) + 1, 0));
 }
 
 // Доля предмета в приходе денег: счёт оплачивает несколько предметов сразу,
