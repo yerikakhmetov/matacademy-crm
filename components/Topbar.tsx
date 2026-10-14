@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "./Icon";
 
 const TITLES: Record<string, string> = {
-  "/dashboard": "Дашборд",
+  "/dashboard": "Главная",
   "/reports": "Отчёты и аналитика",
   "/audit": "История изменений",
   "/students": "Ученики",
@@ -18,7 +18,7 @@ const TITLES: Record<string, string> = {
   "/tests": "Тесты и контрольные",
   "/homework": "Домашние задания",
   "/materials": "Материалы",
-  "/teachers": "Учителя",
+  "/teachers": "Преподаватели",
   "/leads": "Лиды и продажи",
   "/subjects": "Предметы и цены",
   "/payments": "Оплаты и счета",

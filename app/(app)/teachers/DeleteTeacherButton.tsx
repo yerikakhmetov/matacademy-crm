@@ -18,7 +18,7 @@ export function DeleteTeacherButton({ id, name, hasGroups }: { id: string; name:
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
       <span className="mut" style={{ fontSize: 12 }}>
-        {hasGroups ? "Группы останутся без учителя. Удалить?" : "Удалить?"}
+        {hasGroups ? "Группы останутся без преподавателя. Удалить?" : "Удалить?"}
       </span>
       <button className="btn ghost" type="button" disabled={pending} onClick={() => setConfirm(false)} style={{ padding: "5px 10px", fontSize: 12.5 }}>
         Нет

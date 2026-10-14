@@ -11,62 +11,71 @@ type Item =
   | { section: string; adminOnly?: boolean; perm?: string }
   | { href: string; icon: string; label: string; badgeKey?: "students" | "leads"; adminOnly?: boolean; perm?: string };
 
+// Разделы сгруппированы по задачам дня: кто учится → как идут занятия → деньги.
+// Раньше «Учебный процесс» вмещал 10 пунктов вперемешку, а «Учителя» и «преподаватели» путались.
 const NAV_FULL: Item[] = [
-  { section: "Обзор" },
-  { href: "/dashboard", icon: "dashboard", label: "Дашборд" },
-  { href: "/reports", icon: "chart", label: "Отчёты", perm: "reports" },
-  { href: "/audit", icon: "clock", label: "История", adminOnly: true },
-  { section: "Учебный процесс" },
+  { href: "/dashboard", icon: "dashboard", label: "Главная" },
+  { section: "Ученики" },
   { href: "/students", icon: "students", label: "Ученики", badgeKey: "students" },
   { href: "/groups", icon: "groups", label: "Группы" },
+  { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads", perm: "leads" },
+  { section: "Занятия" },
   { href: "/schedule", icon: "schedule", label: "Расписание" },
-  { href: "/makeups", icon: "schedule", label: "Отработки" },
   { href: "/journal", icon: "check", label: "Журнал" },
+  { href: "/makeups", icon: "clock", label: "Отработки" },
+  { href: "/teachers", icon: "teachers", label: "Преподаватели", perm: "teachers" },
+  { section: "Учёба" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
-  { href: "/tests", icon: "check", label: "Тесты" },
+  { href: "/tests", icon: "edit", label: "Тесты" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
-  { href: "/teachers", icon: "teachers", label: "Учителя", perm: "teachers" },
-  { section: "Продажи и деньги" },
-  { href: "/leads", icon: "leads", label: "Лиды", badgeKey: "leads", perm: "leads" },
-  { href: "/subjects", icon: "book", label: "Предметы и цены" },
+  { section: "Деньги" },
   { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
   { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
-  { href: "/payroll", icon: "money", label: "Зарплата", perm: "payroll" },
   { href: "/expenses", icon: "money", label: "Расходы", perm: "finance" },
+  { href: "/payroll", icon: "money", label: "Зарплата", perm: "payroll" },
+  { href: "/subjects", icon: "book", label: "Предметы и цены" },
+  { href: "/reports", icon: "chart", label: "Отчёты", perm: "reports" },
   { section: "Система", adminOnly: true },
-  { href: "/stats", icon: "chart", label: "Статистика", adminOnly: true },
   { href: "/users", icon: "students", label: "Пользователи", adminOnly: true },
   { href: "/settings", icon: "pin", label: "Настройки", adminOnly: true },
+  { href: "/audit", icon: "clock", label: "История", adminOnly: true },
+  { href: "/stats", icon: "chart", label: "Статистика", adminOnly: true },
 ];
 
-// Для учителя — только его разделы
+// Для преподавателя — только его разделы: сначала занятия, с которыми он работает каждый день
 const NAV_TEACHER: Item[] = [
-  { section: "Мой кабинет" },
-  { href: "/dashboard", icon: "dashboard", label: "Мои занятия" },
+  { href: "/dashboard", icon: "dashboard", label: "Главная" },
+  { section: "Занятия" },
+  { href: "/schedule", icon: "schedule", label: "Расписание" },
+  { href: "/journal", icon: "check", label: "Журнал" },
+  { href: "/makeups", icon: "clock", label: "Отработки" },
+  { section: "Ученики" },
   { href: "/my-students", icon: "students", label: "Мои ученики" },
   { href: "/groups", icon: "groups", label: "Мои группы" },
-  { href: "/schedule", icon: "schedule", label: "Расписание" },
-  { href: "/makeups", icon: "schedule", label: "Отработки" },
-  { href: "/journal", icon: "check", label: "Журнал" },
+  { section: "Учёба" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
-  { href: "/tests", icon: "check", label: "Тесты" },
+  { href: "/tests", icon: "edit", label: "Тесты" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { section: "Деньги" },
   { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 
 // Куратор: свои группы, их расписание и журнал. Из денег видит только свою зарплату.
 const NAV_CURATOR: Item[] = [
-  { section: "Куратор" },
   { href: "/dashboard", icon: "dashboard", label: "Главная" },
+  { section: "Занятия" },
   { href: "/schedule", icon: "schedule", label: "Расписание" },
   { href: "/journal", icon: "check", label: "Журнал" },
+  { section: "Ученики" },
   { href: "/my-students", icon: "students", label: "Мои ученики" },
   { href: "/groups", icon: "groups", label: "Мои группы" },
+  { section: "Учёба" },
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { section: "Деньги" },
   { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];
 

@@ -82,9 +82,9 @@ export default async function StatsPage() {
       bg: "var(--teal-soft)",
       items: [
         { k: "Пользователей", v: String(users) },
-        { k: "Админы / Менеджеры / Учителя", v: `${roleCount("ADMIN")} / ${roleCount("MANAGER")} / ${roleCount("TEACHER")}` },
+        { k: "Админы / Менеджеры / Преподаватели", v: `${roleCount("ADMIN")} / ${roleCount("MANAGER")} / ${roleCount("TEACHER")}` },
         { k: "Родителей в Telegram", v: String(parentsLinked) },
-        { k: "Учителей с Telegram-входом", v: String(teacherLogins) },
+        { k: "Преподавателей с Telegram-входом", v: String(teacherLogins) },
         { k: "Изменений за 7 дней", v: String(changes7d) },
       ],
     },

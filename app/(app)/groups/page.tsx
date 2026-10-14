@@ -130,7 +130,7 @@ export default async function GroupsPage() {
               </div>
               <div className="gmeta">
                 <div>
-                  <span className="k">Учитель</span>
+                  <span className="k">Преподаватель</span>
                   <br />
                   <span className="v">{g.teacher?.name ?? "—"}</span>
                 </div>

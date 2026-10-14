@@ -10,7 +10,7 @@ export const MANAGER_PERMS = [
   { key: "payroll", label: "Зарплата преподавателей", desc: "Раздел «Зарплата» и расчёт ставок." },
   { key: "leads", label: "Лиды и продажи", desc: "Воронка продаж и работа с заявками." },
   { key: "reports", label: "Отчёты и аналитика", desc: "Раздел «Отчёты»." },
-  { key: "teachers", label: "Управление преподавателями", desc: "Раздел «Учителя»." },
+  { key: "teachers", label: "Управление преподавателями", desc: "Раздел «Преподаватели»." },
 ] as const;
 
 export type PermKey = (typeof MANAGER_PERMS)[number]["key"];

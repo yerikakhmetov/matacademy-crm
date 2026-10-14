@@ -36,7 +36,7 @@ export default async function TeachersPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>Учителя</h1>
+          <h1>Преподаватели</h1>
           <p>{teachers.length} преподавателей · загрузка по группам</p>
         </div>
         {editor && (
