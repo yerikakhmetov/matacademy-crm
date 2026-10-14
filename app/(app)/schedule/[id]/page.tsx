@@ -71,8 +71,8 @@ export default async function LessonPage({
   const recMap = new Map(records.map((r) => [r.studentId, r]));
   const students = lesson.group.students.map((s) => {
     const r = recMap.get(s.id);
-    // если отметки ещё нет — по умолчанию присутствует
-    const state: "present" | "excused" | "unexcused" = !r ? "present" : r.present ? "present" : r.excused ? "excused" : "unexcused";
+    // отметки ещё нет — null: учитель отмечает сам («Все пришли» — одним нажатием)
+    const state: "present" | "excused" | "unexcused" | null = !r ? null : r.present ? "present" : r.excused ? "excused" : "unexcused";
     return { id: s.id, name: s.name, grade: s.grade, state };
   });
 

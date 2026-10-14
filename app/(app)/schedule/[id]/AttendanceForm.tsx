@@ -16,12 +16,13 @@ const FAULTS: { key: Fault; label: string; hint: string }[] = [
   { key: "TEACHER", label: "По вине преподавателя", hint: "за это занятие преподавателю не платят" },
   { key: "OTHER", label: "Другая причина", hint: "день не входит в расчёт зарплаты" },
 ];
-type S = { id: string; name: string; grade: string | null; state: AttState };
+// state = null — по ученику ещё нет отметки: учитель выбирает сам, «Был» заранее не ставим
+type S = { id: string; name: string; grade: string | null; state: AttState | null };
 
 const STATES: { key: AttState; label: string; cls: string }[] = [
   { key: "present", label: "Был", cls: "c-ok" },
-  { key: "excused", label: "Уваж.", cls: "c-mut" },
-  { key: "unexcused", label: "Н/ув", cls: "c-bad" },
+  { key: "excused", label: "Ув. причина", cls: "c-mut" },
+  { key: "unexcused", label: "Без причины", cls: "c-bad" },
 ];
 
 export function AttendanceForm({
@@ -55,11 +56,13 @@ export function AttendanceForm({
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
   // локальное состояние отметок
-  const [state, setState] = useState<Record<string, AttState>>(
+  const [state, setState] = useState<Record<string, AttState | null>>(
     Object.fromEntries(students.map((s) => [s.id, s.state]))
   );
+  const [missing, setMissing] = useState(0);
 
   const presentCount = Object.values(state).filter((v) => v === "present").length;
+  const unmarkedCount = Object.values(state).filter((v) => v == null).length;
 
   function changeDate(newDate: string) {
     router.push(`/schedule/${lessonId}?date=${newDate}`);
@@ -87,9 +90,19 @@ export function AttendanceForm({
     });
   }
 
-  const allPresent = () => setState(Object.fromEntries(students.map((s) => [s.id, "present" as AttState])));
+  // «Все пришли» отмечает только тех, кто ещё без отметки: уже выбранные пропуски не затираем
+  const allPresent = () => {
+    setState((prev) => Object.fromEntries(students.map((s) => [s.id, prev[s.id] ?? ("present" as AttState)])));
+    setMissing(0);
+  };
 
   function submit(formData: FormData) {
+    // Неотмеченного ученика не сохраняем «по умолчанию»: это ушло бы в зарплату и в % посещаемости
+    if (unmarkedCount > 0) {
+      setMissing(unmarkedCount);
+      return;
+    }
+    setMissing(0);
     start(async () => {
       await saveAttendance(lessonId, date, formData);
       setSaved(true);
@@ -183,7 +196,7 @@ export function AttendanceForm({
                   <div style={{ fontWeight: 600 }}>{s.name}</div>
                   <div className="mut" style={{ fontSize: 12 }}>{s.grade ?? "—"}</div>
                 </div>
-                <input type="hidden" name={`att_${s.id}`} value={cur} />
+                <input type="hidden" name={`att_${s.id}`} value={cur ?? ""} />
                 <div className="att-btns" role="group" aria-label={`Отметка: ${s.name}`} style={{ display: "flex", gap: 4, flex: "none" }}>
                   {STATES.map((st) => {
                     const active = cur === st.key;
@@ -192,7 +205,10 @@ export function AttendanceForm({
                         key={st.key}
                         type="button"
                         disabled={!editor}
-                        onClick={() => setState((p) => ({ ...p, [s.id]: st.key }))}
+                        onClick={() => {
+                          setState((p) => ({ ...p, [s.id]: st.key }));
+                          setMissing(0);
+                        }}
                         aria-pressed={active}
                         className={`chip ${active ? st.cls : "c-mut"}`}
                         style={{ minWidth: 52, justifyContent: "center", cursor: editor ? "pointer" : "default", opacity: active ? 1 : 0.55, border: "none" }}
@@ -248,20 +264,24 @@ export function AttendanceForm({
 
           {editor && students.length > 0 && (
             <div className="modal-f att-savebar" style={{ borderTop: "1px solid var(--line-2)" }}>
-              <span role="status" aria-live="polite" style={{ marginRight: "auto" }}>
-                {saved && (
+              <span role="status" aria-live="polite" style={{ marginRight: "auto", fontSize: 12.5 }}>
+                {saved ? (
                   <span className="chip c-ok">
                     <span className="d" />
                     Сохранено
                   </span>
-                )}
+                ) : missing > 0 ? (
+                  <span style={{ color: "var(--bad-ink)", fontWeight: 600 }}>Не отмечено: {missing} — выберите или «Все пришли»</span>
+                ) : unmarkedCount > 0 ? (
+                  <span className="mut">Осталось отметить: {unmarkedCount}</span>
+                ) : null}
               </span>
-              <button className="btn ghost" type="button" onClick={allPresent} disabled={pending} title="Отметить всех присутствующими">
+              <button className="btn ghost" type="button" onClick={allPresent} disabled={pending} title="Отметить присутствующими всех, кто ещё без отметки">
                 Все пришли
               </button>
               <button className="btn" type="submit" disabled={pending}>
                 <Icon name="check" size={16} />
-                {pending ? "Сохраняем…" : "Сохранить отметки"}
+                {pending ? "Сохраняем…" : "Сохранить"}
               </button>
             </div>
           )}

@@ -300,7 +300,14 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
 .nav-scrim{display:none}
 @media(max-width:760px){
   .app{grid-template-columns:1fr}
-  .kpis{grid-template-columns:1fr}
+  /* Показатели на телефоне — компактная сетка 2×2: вместе они занимают треть экрана, а не весь */
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:12px 13px}
+  .kpi .klabel{font-size:11.5px;gap:6px;line-height:1.25}
+  .kpi .kico{width:24px;height:24px;flex:none}
+  .kpi .kico svg{width:13px;height:13px}
+  .kpi .kval{font-size:20px;margin:7px 0 1px}
+  .kpi .ktrend{font-size:11px}
   .content{padding:16px}
   .search{display:none}
   .grid2{grid-template-columns:1fr}
@@ -368,3 +375,10 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   .locale-switch .ls-short{display:inline}
   .lms-sub,.lms-name{display:none}
 }
+
+/* Главный экран преподавателя: занятие, которое нужно отметить, — первым и крупно */
+.focus-card{padding:18px 20px;border-width:1.5px;display:flex;flex-direction:column;gap:3px}
+.focus-meta{font-size:12.5px;font-weight:600;color:var(--ink-3)}
+.focus-title{font-family:var(--font-display),system-ui,sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.2}
+.focus-btn{align-self:flex-start;margin-top:10px;padding:11px 18px;font-size:14px}
+@media(max-width:560px){.focus-btn{align-self:stretch;justify-content:center;min-height:48px}}

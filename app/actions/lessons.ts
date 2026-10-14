@@ -198,10 +198,14 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
 
   const students = lesson.group.students;
 
+  // состояние: present | excused | unexcused. Пусто или неизвестно — ученика не трогаем:
+  // раньше пустое значение записывалось как «прогул без причины».
+  const VALID = new Set(["present", "excused", "unexcused"]);
+  const marks = students
+    .map((s) => ({ s, st: String(formData.get(`att_${s.id}`) ?? "") }))
+    .filter(({ st }) => VALID.has(st));
   await prisma.$transaction(
-    students.map((s) => {
-      // состояние: present | excused | unexcused
-      const st = String(formData.get(`att_${s.id}`) ?? "present");
+    marks.map(({ s, st }) => {
       const present = st === "present";
       const excused = st === "excused";
       return prisma.attendance.upsert({
