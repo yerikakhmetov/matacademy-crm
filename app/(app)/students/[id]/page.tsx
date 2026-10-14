@@ -23,7 +23,8 @@ import { createInvoice, createPayment, updatePayment } from "@/app/actions/payme
 import { updateStudent } from "@/app/actions/students";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
 import { invoicePeriodLabel } from "@/lib/period";
-import { nextStudyMonth } from "@/lib/packages";
+import { nextStudyMonth, type LessonsLeft } from "@/lib/packages";
+import { lessonsLeftBySubject } from "@/lib/payroll";
 import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +52,7 @@ export default async function StudentDetail({
     prisma.student.findUnique({
       where: { id },
       include: {
-        groups: { include: { teacher: true } },
+        groups: { include: { teacher: true, subject: { select: { id: true, name: true, color: true } } } },
         payments: {
           orderBy: { date: "desc" },
           // для правки: движения денег и предметы счёта
@@ -94,6 +95,24 @@ export default async function StudentDetail({
       : Promise.resolve([]),
   ]);
   const nextMonth = nextStudyMonth(student.payments);
+
+  // Оплаченные занятия по предметам: предметы групп ученика и предметы его счетов.
+  // Месяц обучения — пакет занятий, поэтому важнее «сколько занятий осталось», чем даты.
+  const subjectById = new Map<string, { id: string; name: string; color: string }>();
+  for (const g of student.groups) if (g.subject) subjectById.set(g.subject.id, g.subject);
+  for (const p of student.payments)
+    for (const it of p.items) {
+      const s = it.subjectId ? activeSubjects.find((x) => x.id === it.subjectId) : undefined;
+      if (s) subjectById.set(s.id, s);
+    }
+  const lessonsBySubject: { subject: { id: string; name: string; color: string }; info: LessonsLeft }[] = showMoney
+    ? await Promise.all(
+        [...subjectById.values()].map(async (subject) => ({
+          subject,
+          info: (await lessonsLeftBySubject([student.id], subject.id)).get(student.id) ?? { left: 0, total: 0, unpaid: 0 },
+        }))
+      )
+    : [];
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);
   const mode = isDiscountMode(settings.discountMode) ? settings.discountMode : "add";
@@ -346,6 +365,46 @@ export default async function StudentDetail({
               </dl>
             </div>
           </div>
+
+          {showMoney && lessonsBySubject.length > 0 && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Оплаченные занятия</h3>
+                <span className="chip c-mut" title="Месяц обучения — пакет занятий: 12, по обязательным предметам 8">
+                  <span className="d" />
+                  следующий — {nextMonth}-й месяц
+                </span>
+              </div>
+              <div style={{ padding: "6px 18px 14px" }}>
+                {lessonsBySubject.map(({ subject, info }) => {
+                  const pct = info.total > 0 ? Math.round((Math.max(0, info.left) / info.total) * 100) : 0;
+                  const tone = info.unpaid > 0 ? "var(--bad)" : info.left <= 2 ? "var(--warn)" : "var(--ok)";
+                  return (
+                    <div key={subject.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--line-2)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{subject.name}</span>
+                        <span className="num" style={{ color: tone, fontWeight: 600 }}>
+                          {info.unpaid > 0
+                            ? `без оплаты: ${info.unpaid} зан.`
+                            : info.total === 0
+                              ? "нет оплаты"
+                              : info.left > 0
+                                ? `осталось ${info.left} из ${info.total}`
+                                : "пакет закончился"}
+                        </span>
+                      </div>
+                      <div className="bar" style={{ marginTop: 6 }}>
+                        <span style={{ width: `${pct}%`, background: subject.color || tone }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                <p className="mut" style={{ fontSize: 11.5, margin: "10px 0 0" }}>
+                  Каждое посещение (и пропуск без уважительной причины) списывает занятие из самого раннего оплаченного счёта.
+                </p>
+              </div>
+            </div>
+          )}
 
           {editor && (
             <div className="card" style={{ padding: 18 }}>
