@@ -45,6 +45,16 @@ export default async function SubjectsPage() {
         )}
       </div>
 
+      {subjects.some((s) => s.active && s.lessonsPerMonth <= 0) && (
+        <div className="card" role="alert" style={{ padding: "12px 16px", marginBottom: 16, borderColor: "var(--warn)" }}>
+          <b>У части предметов не указано число занятий в месяце.</b>{" "}
+          <span className="mut">
+            Пакет для них считается как 12 занятий. Если предмет обязательный (8 занятий), преподавателю за занятие
+            начисляется меньше — откройте предмет и укажите число занятий.
+          </span>
+        </div>
+      )}
+
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="table-wrap">
           <table>
@@ -84,7 +94,16 @@ export default async function SubjectsPage() {
                     )}
                   </td>
                   <td className="right num" style={{ fontWeight: 700 }}>{money(s.price)}</td>
-                  <td className="right num">{s.lessonsPerMonth > 0 ? s.lessonsPerMonth : "—"}</td>
+                  <td className="right num">
+                    {s.lessonsPerMonth > 0 ? (
+                      s.lessonsPerMonth
+                    ) : (
+                      // без числа занятий пакет считается как 12 — для обязательного предмета это неверно
+                      <span className="chip c-warn" title="Не задано: пакет считается как 12 занятий. Обязательному предмету укажите 8.">
+                        <span className="d" />не задано
+                      </span>
+                    )}
+                  </td>
                   <td className="right num mut">
                     {s.lessonsPerMonth > 0 ? money(Math.round(s.price / s.lessonsPerMonth)) : "—"}
                   </td>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "./prisma";
 import { settledRatio } from "./payments.ts";
 import {
@@ -263,7 +264,7 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
   // Пакеты считаются по всем группам с предметом: посещения в группе без
   // преподавателя тоже списывают занятия из пакета ученика
   const packagedByMonth = months.some((m) => isPackagedMonth(m.year, m.month0))
-    ? await loadPackagedByMonth(await allSubjectGroups(), rangeEnd)
+    ? await packagedUntil(rangeEnd.getTime())
     : new Map<string, Map<string, PackagedPay>>();
 
   return months.map(({ year, month0 }) => {
@@ -295,6 +296,13 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
     });
   });
 }
+
+// Пакеты считаются по всей истории с начала пакетов — это самая тяжёлая часть расчёта.
+// Страницы «Зарплата» и «Моя зарплата» считают и преподавателей, и кураторов: в одном
+// запросе к серверу результат берётся один раз (cache из React живёт в пределах запроса).
+const packagedUntil = cache(async (rangeEndMs: number) =>
+  loadPackagedByMonth(await allSubjectGroups(), new Date(rangeEndMs))
+);
 
 async function allSubjectGroups() {
   const gs = await prisma.group.findMany({
@@ -361,7 +369,7 @@ export async function gatherCuratorPayrollRange(months: Month[], defaultRate: nu
   const allGroups = groups.map((g) => ({ id: g.id, subjectId: g.subjectId }));
 
   const packagedByMonth = months.some((m) => isPackagedMonth(m.year, m.month0))
-    ? await loadPackagedByMonth(groups.map((g) => ({ id: g.id, subjectId: g.subjectId, lessonIds: g.lessons.map((l) => l.id) })), rangeEnd)
+    ? await packagedUntil(rangeEnd.getTime())
     : new Map<string, Map<string, PackagedPay>>();
   const subjectOf = new Map(groups.map((g) => [g.id, g.subjectId]));
 

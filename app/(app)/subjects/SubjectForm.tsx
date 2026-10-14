@@ -26,12 +26,13 @@ export function SubjectForm({ values }: { values?: Values }) {
           <input name="price" type="number" min={0} placeholder="24000" defaultValue={values?.price ?? ""} />
         </div>
         <div className="field">
-          <label>Занятий в месяц</label>
-          <input name="lessonsPerMonth" type="number" min={0} placeholder="12" defaultValue={values?.lessonsPerMonth || ""} />
+          <label>Занятий в месяц *</label>
+          <input name="lessonsPerMonth" type="number" min={1} max={40} required placeholder="12" defaultValue={values?.lessonsPerMonth || ""} />
         </div>
       </div>
       <p className="mut" style={{ fontSize: 12, margin: "-6px 0 10px" }}>
-        По числу занятий платёж делится между предметами счёта: занятие стоит одинаково в любом предмете.
+        Это пакет «месяца обучения»: выборный предмет — 12 занятий, обязательный — 8. По нему считается цена
+        занятия для преподавателя, и платёж делится между предметами счёта.
         {values?.price && values?.lessonsPerMonth
           ? ` Сейчас — ${Math.round(values.price / values.lessonsPerMonth).toLocaleString("ru-RU")} ₸ за занятие.`
           : ""}
