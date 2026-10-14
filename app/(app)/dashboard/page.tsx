@@ -12,6 +12,7 @@ import { markOverdue } from "@/lib/overdue";
 import { ReminderActions } from "@/components/ReminderActions";
 import { TeacherDashboard } from "./TeacherDashboard";
 import { getSettings } from "@/lib/settings";
+import { collectPackageAlerts } from "@/lib/reminders";
 import { schoolClock, schoolMonthStart } from "@/lib/school-time";
 
 export const dynamic = "force-dynamic";
@@ -66,6 +67,10 @@ export default async function DashboardPage() {
 
   const funnel = LEAD_STAGES.filter((s) => s.key !== "LOST").map((s) => ({ ...s, v: countByStage(s.key) }));
   const funnelMax = Math.max(1, ...funnel.map((f) => f.v));
+
+  // Заканчиваются оплаченные занятия — пора напомнить об оплате следующего месяца
+  const packageEnding = showMoney ? (await collectPackageAlerts()).length : 0;
+  const attention = (showMoney ? overdue.length : 0) + pausedStudents.length + (packageEnding > 0 ? 1 : 0);
 
   const kpis = [
     { l: "Активных учеников", v: String(activeStudents), t: "учатся сейчас", icon: "students", col: "var(--accent)", bg: "var(--accent-soft)" },
@@ -198,10 +203,21 @@ export default async function DashboardPage() {
             <h3>Требуют внимания</h3>
             <span className="chip c-bad">
               <span className="d" />
-              {(showMoney ? overdue.length : 0) + pausedStudents.length} задач
+              {attention} задач
             </span>
           </div>
           <div style={{ padding: "6px 0" }}>
+            {packageEnding > 0 && (
+              <Link href="/reminders" className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
+                <div className="pay-ico" style={{ background: "var(--warn-soft)", color: "var(--warn)" }}>
+                  <Icon name="bell" size={16} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Заканчиваются оплаченные занятия: {packageEnding}</div>
+                  <div className="mut" style={{ fontSize: 12 }}>Осталось ≤ 2 занятий или ходят без оплаты — напомнить родителям →</div>
+                </div>
+              </Link>
+            )}
             {showMoney && overdue.map((p) => {
               const left = Math.max(0, p.amount - p.paidAmount);
               const msg = `Здравствуйте! Напоминаем об оплате обучения (ученик: ${p.student.name}): ${p.purpose} — ${money(left)}. Пожалуйста, оплатите при возможности. Спасибо!`;
@@ -233,7 +249,7 @@ export default async function DashboardPage() {
                 </div>
               </div>
             ))}
-            {(showMoney ? overdue.length : 0) + pausedStudents.length === 0 && <div className="empty">Всё под контролем ✅</div>}
+            {attention === 0 && <div className="empty">Всё под контролем ✅</div>}
           </div>
         </div>
       </div>

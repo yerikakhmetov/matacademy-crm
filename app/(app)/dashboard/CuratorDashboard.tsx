@@ -7,6 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { gatherCuratorPayroll } from "@/lib/payroll";
 import { lessonStatus, type LessonStatus } from "@/lib/teacher-today";
 import { frequentAbsentees } from "@/lib/curator-home";
+import { collectPackageAlerts, packageItemText } from "@/lib/reminders";
 
 const STATUS_CHIP: Record<LessonStatus, { cls: string; label: string }> = {
   marked: { cls: "c-ok", label: "Отмечено" },
@@ -66,6 +67,21 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
 
   const studentById = new Map(groups.flatMap((g) => g.students.map((s) => [s.id, { ...s, groupName: g.name }] as const)));
   const absentees = frequentAbsentees(recentMarks).filter((a) => studentById.has(a.studentId));
+
+  // Заканчиваются оплаченные занятия у учеников его групп (по предметам этих групп):
+  // куратор на связи с родителями — ему и напоминать. Суммы не показываем, только занятия.
+  const mySubjects = new Map<string, Set<string>>(); // studentId -> предметы его групп у куратора
+  for (const g of groups) {
+    if (!g.subjectId) continue;
+    for (const s of g.students) {
+      const set = mySubjects.get(s.id) ?? new Set<string>();
+      set.add(g.subjectId);
+      mySubjects.set(s.id, set);
+    }
+  }
+  const ending = (await collectPackageAlerts())
+    .map((r) => ({ ...r, items: r.items.filter((it) => mySubjects.get(r.studentId)?.has(it.subjectId)) }))
+    .filter((r) => r.items.length > 0);
 
   const myRow = payroll.get(userId);
   const allStudents = new Set(groups.flatMap((g) => g.students.map((s) => s.id)));
@@ -164,6 +180,33 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {ending.length > 0 && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Заканчиваются занятия</h3>
+                <span className="chip c-warn"><span className="d" />{ending.length}</span>
+              </div>
+              <div style={{ padding: "6px 0" }}>
+                {ending.map((r) => {
+                  const lessons = r.items.map(packageItemText).join("; ");
+                  const msg = `Здравствуйте! У ${r.name} заканчиваются оплаченные занятия (${lessons}). Чтобы занятия шли без перерыва, пожалуйста, оплатите следующий месяц обучения. Спасибо!`;
+                  return (
+                    <div className="list-row attn-row" key={r.studentId}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Link href={`/students/${r.studentId}`} style={{ fontWeight: 600, color: "inherit" }}>{r.name}</Link>
+                        <div className="mut" style={{ fontSize: 12 }}>
+                          {lessons}
+                          {r.items.some((it) => it.notifiedAt) ? " · ✓ напомнили в Telegram" : ""}
+                        </div>
+                      </div>
+                      <ReminderActions phone={r.parentPhone} message={msg} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <div className="card-h">
               <h3>Мои группы</h3>
