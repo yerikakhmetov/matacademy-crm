@@ -478,3 +478,10 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   .table-wrap table.mcards td[colspan]{display:block;text-align:center}
   .table-wrap table.mcards td.td-text{min-width:0}
 }
+
+/* Портал родителя: 3 показателя в ряд, на телефоне — 2, баланс отдельной строкой */
+.portal-kpis{grid-template-columns:repeat(3,1fr)}
+@media (max-width:560px){
+  .portal-kpis{grid-template-columns:1fr 1fr}
+  .portal-kpis > :last-child{grid-column:1/-1}
+}

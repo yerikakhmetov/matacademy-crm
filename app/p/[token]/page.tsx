@@ -18,6 +18,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
 import { lessonsLeftBySubject } from "@/lib/payroll";
+import { BrandMark } from "@/components/BrandMark";
 
 export const dynamic = "force-dynamic";
 
@@ -70,10 +71,6 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
     subjects.map(async (s) => ({ name: s.name, info: (await lessonsLeftBySubject([student.id], s.id)).get(student.id) }))
   );
   const anyPaid = leftBySubject.some((x) => (x.info?.total ?? 0) > 0);
-  const groupsLabel =
-    student.groups.map((g) => (g.subject?.name ? `${g.subject.name} (${g.name})` : g.name)).join(", ") ||
-    t(locale, "common.noGroup");
-  const teachersLabel = [...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ");
   const lessons = student.groups
     .flatMap((g) => g.lessons.map((l) => ({ ...l, groupName: g.subject?.name ? `${g.subject.name} · ${g.name}` : g.name })))
     .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
@@ -81,6 +78,16 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   return (
     <div style={{ minHeight: "100vh", background: "var(--ground)", padding: "24px 16px" }}>
       <div style={{ maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Шкала школы: логотип, название, язык — отдельной строкой, чтобы не сжимать карточку ученика */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <BrandMark size={34} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, lineHeight: 1.15 }}>{settings.schoolName}</div>
+            <div className="mut" style={{ fontSize: 11.5 }}>{t(locale, "portal.diary")}</div>
+          </div>
+          <LocaleSwitcher current={locale} path={`/p/${token}`} />
+        </div>
+
         {/* Приветствие родителю */}
         {student.parentName && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 4px" }}>
@@ -89,25 +96,31 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
           </div>
         )}
 
-        {/* Шапка */}
-        <div className="card" style={{ padding: 22, display: "flex", alignItems: "center", gap: 16 }}>
-          <Avatar name={student.name} photoUrl={student.photoUrl} size={56} radius={14} fontSize={19} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <h1 style={{ fontSize: 22 }}>{student.name}</h1>
-            <p className="mut" style={{ fontSize: 13.5, margin: "2px 0 0" }}>
-              {student.grade ?? ""} · {groupsLabel}
-              {teachersLabel ? ` · ${teachersLabel}` : ""}
-            </p>
+        {/* Ученик: имя крупно, группы — списком «предмет · группа — преподаватель», а не одной строкой */}
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Avatar name={student.name} photoUrl={student.photoUrl} size={56} radius={14} fontSize={19} />
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 21, lineHeight: 1.2 }}>{student.name}</h1>
+              {student.grade && <p className="mut" style={{ fontSize: 13, margin: "2px 0 0" }}>{student.grade}</p>}
+            </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15 }}>{settings.schoolName}</div>
-            <div className="mut" style={{ fontSize: 11.5, marginBottom: 6 }}>{t(locale, "portal.diary")}</div>
-            <LocaleSwitcher current={locale} path={`/p/${token}`} />
-          </div>
+          {student.groups.length > 0 ? (
+            <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
+              {student.groups.map((g) => (
+                <li key={g.id} style={{ fontSize: 13, lineHeight: 1.4 }}>
+                  <b style={{ fontWeight: 600 }}>{g.subject?.name ? `${g.subject.name} · ${g.name}` : g.name}</b>
+                  {g.teacher?.name && <span className="mut"> — {g.teacher.name}</span>}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mut" style={{ fontSize: 13, margin: "10px 0 0" }}>{t(locale, "common.noGroup")}</p>
+          )}
         </div>
 
         {/* Показатели */}
-        <div className="grid kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div className="grid kpis portal-kpis">
           <div className="card kpi">
             <div className="klabel">
               <span className="kico" style={{ background: "var(--ok-soft)", color: "var(--ok)" }}>
