@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Демо-иллюстрация: родитель (Асхат А.). Нарисована для локального демо, не фото реального человека. -->
+  <rect width="200" height="200" fill="#E7ECF7"/>
+  <circle cx="40" cy="42" r="24" fill="#D6DEF0"/>
+  <path d="M30 200c4-40 34-60 70-60s66 20 70 60z" fill="#032556"/>
+  <path d="M84 140h32l-16 30z" fill="#fff"/>
+  <path d="M96 150h8l3 40h-14z" fill="#20CEE0"/>
+  <rect x="85" y="116" width="30" height="30" rx="12" fill="#D9A47E"/>
+  <ellipse cx="62" cy="94" rx="7" ry="10" fill="#D9A47E"/>
+  <ellipse cx="138" cy="94" rx="7" ry="10" fill="#D9A47E"/>
+  <ellipse cx="100" cy="92" rx="38" ry="44" fill="#E5B48E"/>
+  <!-- короткая стрижка: виски у ушей, чёлка зачёсана набок -->
+  <path d="M63 92c-4-32 12-50 37-50 26 0 41 17 37 50-2-10-5-17-9-21-14 4-34 2-50-8-6 8-11 17-15 29z" fill="#2E2A28"/>
+  <path d="M78 63c12 8 30 11 50 8" fill="none" stroke="#45403C" stroke-width="3" stroke-linecap="round"/>
+  <path d="M63 92c0 6 1 10 2 13M137 92c0 6-1 10-2 13" stroke="#2E2A28" stroke-width="4" stroke-linecap="round"/>
+  <ellipse cx="85" cy="96" rx="4.5" ry="5" fill="#2E2A28"/>
+  <ellipse cx="115" cy="96" rx="4.5" ry="5" fill="#2E2A28"/>
+  <path d="M76 84q9-4 18 0M106 84q9-4 18 0" fill="none" stroke="#2E2A28" stroke-width="4" stroke-linecap="round"/>
+  <path d="M100 100q-4 9 1 12" fill="none" stroke="#C88E68" stroke-width="3" stroke-linecap="round"/>
+  <path d="M88 119q12 8 24 0" fill="none" stroke="#A9503F" stroke-width="4" stroke-linecap="round"/>
+</svg>

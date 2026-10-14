@@ -138,6 +138,7 @@ const ru = {
 
   // портал родителя
   "portal.diary": "Дневник ученика",
+  "portal.helloParent": "Здравствуйте, {name}!",
   "portal.balance": "Баланс",
   "portal.noDebt": "Нет долга",
   "portal.subscription": "Абонемент",
@@ -285,6 +286,7 @@ const kk: Record<MsgKey, string> = {
   "test.timeUp": "Уақыт бітті — нәтиже сақталған жауаптар бойынша есептелді.",
 
   "portal.diary": "Оқушының күнделігі",
+  "portal.helloParent": "Сәлеметсіз бе, {name}!",
   "portal.balance": "Баланс",
   "portal.noDebt": "Қарыз жоқ",
   "portal.subscription": "Абонемент",

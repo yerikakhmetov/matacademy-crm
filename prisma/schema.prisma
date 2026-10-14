@@ -133,6 +133,7 @@ model Student {
   joinToken      String? @unique // токен ссылки-приглашения в кабинет (можно перевыпустить)
   joinTgId       String? // Telegram id, закрепивший кабинет за собой (защита от чужого входа)
   photoUrl       String? // фото ученика (Vercel Blob)
+  parentPhotoUrl String? // фото родителя: показывается в его портале и в карточке ученика
   userId         String? @unique // аккаунт ученика для входа в кабинет (вход через Telegram)
   user           User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   groups        Group[] // ученик может заниматься в нескольких группах (по предметам)

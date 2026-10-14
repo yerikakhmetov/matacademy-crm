@@ -347,7 +347,10 @@ export default async function StudentDetail({
                 <dt>Телефон</dt>
                 <dd>{student.phone ?? "—"}</dd>
                 <dt>Родитель</dt>
-                <dd>{student.parentName ?? "—"}</dd>
+                <dd style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {student.parentPhotoUrl && <Avatar name={student.parentName ?? "Родитель"} photoUrl={student.parentPhotoUrl} size={26} radius={13} />}
+                  {student.parentName ?? "—"}
+                </dd>
                 <dt>Тел. родителя</dt>
                 <dd>{student.parentPhone ?? "—"}</dd>
                 <dt>Преподаватель</dt>

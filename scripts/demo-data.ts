@@ -99,8 +99,14 @@ async function main() {
       groups: { set: [fresh[0], fresh[2], fresh[4]].map((g) => ({ id: g.id })) },
       // постоянная ссылка для родителя: /p/demo-parent (для показа портала родителя)
       portalToken: DEMO_PARENT_TOKEN,
+      // демо-иллюстрации из public/demo (не фото реальных людей)
+      photoUrl: "/demo/student.svg",
+      parentPhotoUrl: "/demo/parent.svg",
     },
   });
+
+  // фото преподавателя с входом teacher@ (демо-иллюстрация)
+  await prisma.teacher.updateMany({ where: { user: { email: "teacher@matacademy.kz" } }, data: { photoUrl: "/demo/teacher.svg" } });
 
   // --- Посещаемость с 1 сентября по вчера ---
   const today = utcDay(2026, 9, 13);

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Демо-иллюстрация: преподаватель (Мадина). Нарисована для локального демо, не фото реального человека. -->
+  <rect width="200" height="200" fill="#F3E9FB"/>
+  <circle cx="158" cy="46" r="24" fill="#E6D5F6"/>
+  <path d="M52 92c-6 50 6 84 20 96h56c14-12 26-46 20-96z" fill="#3A2420"/>
+  <path d="M36 200c4-38 30-58 64-58s60 20 64 58z" fill="#7048E8"/>
+  <path d="M82 142h36l-18 22z" fill="#F7E7DA"/>
+  <rect x="86" y="116" width="28" height="30" rx="12" fill="#E3AE8C"/>
+  <ellipse cx="100" cy="90" rx="36" ry="41" fill="#F0C3A2"/>
+  <path d="M60 96c-4-38 14-58 40-58s46 20 40 58c-4-22-12-30-24-34-10 8-30 14-56 34z" fill="#4A2E27"/>
+  <circle cx="64" cy="104" r="4" fill="#20CEE0"/>
+  <circle cx="136" cy="104" r="4" fill="#20CEE0"/>
+  <ellipse cx="86" cy="94" rx="4.5" ry="5.5" fill="#2E1F1C"/>
+  <ellipse cx="114" cy="94" rx="4.5" ry="5.5" fill="#2E1F1C"/>
+  <circle cx="86" cy="94" r="10" fill="none" stroke="#2E1F1C" stroke-width="2.5"/>
+  <circle cx="114" cy="94" r="10" fill="none" stroke="#2E1F1C" stroke-width="2.5"/>
+  <path d="M96 94h8" stroke="#2E1F1C" stroke-width="2.5"/>
+  <path d="M100 100q-3 8 1 11" fill="none" stroke="#D99B7A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M88 116q12 9 24 0" fill="none" stroke="#C0505A" stroke-width="4" stroke-linecap="round"/>
+</svg>

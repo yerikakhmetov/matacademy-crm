@@ -81,6 +81,14 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   return (
     <div style={{ minHeight: "100vh", background: "var(--ground)", padding: "24px 16px" }}>
       <div style={{ maxWidth: 820, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Приветствие родителю */}
+        {student.parentName && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 4px" }}>
+            <Avatar name={student.parentName} photoUrl={student.parentPhotoUrl} size={36} radius={18} fontSize={13} />
+            <span style={{ fontWeight: 600, fontSize: 14 }}>{t(locale, "portal.helloParent", { name: student.parentName })}</span>
+          </div>
+        )}
+
         {/* Шапка */}
         <div className="card" style={{ padding: 22, display: "flex", alignItems: "center", gap: 16 }}>
           <Avatar name={student.name} photoUrl={student.photoUrl} size={56} radius={14} fontSize={19} />
