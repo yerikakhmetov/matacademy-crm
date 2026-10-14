@@ -39,3 +39,21 @@ export function lastSchoolMonths(count: number, tz: number, now: number = Date.n
   }
   return out;
 }
+
+// Понедельник недели, в которую попадает дата (UTC-полночь).
+export function weekMonday(d: Date): Date {
+  const dow = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - (dow - 1)));
+}
+
+// Неделя из ?week=YYYY-MM-DD (любой день недели) или текущая неделя школы.
+export function parseWeek(param: string | undefined, today: Date): Date {
+  if (param && /^\d{4}-\d{2}-\d{2}$/.test(param)) {
+    const d = new Date(param + "T00:00:00.000Z");
+    if (!isNaN(d.getTime())) return weekMonday(d);
+  }
+  return weekMonday(today);
+}
+
+export const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
+export const isoDay = (d: Date) => d.toISOString().slice(0, 10);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { lastSchoolMonths, schoolMonthKey, schoolMonthStart, schoolToday } from "./school-time.ts";
+import { addDays, isoDay, lastSchoolMonths, parseWeek, schoolMonthKey, schoolMonthStart, schoolToday, weekMonday } from "./school-time.ts";
 
 const TZ = 5; // Алматы
 
@@ -28,4 +28,18 @@ test("последние месяцы переходят через год", () 
   const now = Date.UTC(2026, 0, 10);
   const ms = lastSchoolMonths(3, TZ, now);
   assert.deepEqual(ms.map((m) => m.key), ["2025-10", "2025-11", "2026-0"]);
+});
+
+test("неделя: понедельник для любого дня, воскресенье — конец недели", () => {
+  assert.equal(isoDay(weekMonday(new Date(Date.UTC(2026, 9, 14)))), "2026-10-12"); // ср
+  assert.equal(isoDay(weekMonday(new Date(Date.UTC(2026, 9, 18)))), "2026-10-12"); // вс
+  assert.equal(isoDay(weekMonday(new Date(Date.UTC(2026, 9, 12)))), "2026-10-12"); // пн
+});
+
+test("parseWeek: кривой параметр — текущая неделя", () => {
+  const today = new Date(Date.UTC(2026, 9, 14));
+  assert.equal(isoDay(parseWeek("2026-10-21", today)), "2026-10-19");
+  assert.equal(isoDay(parseWeek("мусор", today)), "2026-10-12");
+  assert.equal(isoDay(parseWeek(undefined, today)), "2026-10-12");
+  assert.equal(isoDay(addDays(parseWeek(undefined, today), -7)), "2026-10-05");
 });

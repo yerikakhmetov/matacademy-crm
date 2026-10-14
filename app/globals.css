@@ -181,6 +181,27 @@ tbody tr.clk:hover{background:var(--surface-2)}
 .lesson{border-radius:8px;padding:7px 9px;font-size:11.5px;line-height:1.35;margin-bottom:4px;border-left:3px solid}
 .lesson b{font-weight:700;display:block;font-size:12px}
 .lesson .lm{color:var(--ink-2);font-size:10.5px}
+/* неделя с датами: сегодня подсвечено, у занятия — статус отметки */
+.week-nav{display:flex;gap:8px;flex-wrap:wrap;margin:-6px 0 12px}
+.sgrid .sh.today{color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
+.sgrid .sh.today small{color:var(--accent);font-weight:700}
+.scell.today{background:var(--accent-soft)}
+.lesson .lesson-st{margin-top:5px;font-size:10.5px;padding:1px 7px}
+.lesson.is-cancelled b{text-decoration:line-through;opacity:.7}
+.sched-agenda{display:none}
+@media (max-width:760px){
+  .sched{overflow:visible}
+  .sched .sgrid{display:none}
+  .sched-agenda{display:block}
+  .sched-agenda section{padding:12px 14px;border-bottom:1px solid var(--line-2)}
+  .sched-agenda section:last-child{border-bottom:none}
+  .sched-agenda section.today{background:var(--accent-soft)}
+  .sched-agenda h3{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:14px}
+  .sched-agenda .lesson{font-size:13px;padding:10px 12px}
+  .sched-agenda .lesson b{font-size:14px}
+  .sched-agenda .lesson .lm{font-size:12px}
+  .agenda-empty{font-size:12.5px}
+}
 
 /* ---------- Kanban ---------- */
 .kanban{display:grid;grid-template-columns:repeat(6,minmax(200px,1fr));gap:14px;overflow-x:auto;padding-bottom:6px}
