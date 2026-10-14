@@ -15,7 +15,8 @@
     "user:set": "tsx scripts/set-password.ts",
     "users:remove-demo": "tsx scripts/remove-demo-users.ts",
     "setup": "prisma migrate deploy && tsx prisma/seed.ts",
-    "test": "node --test \"lib/**/*.test.ts\""
+    "test": "node --test \"lib/**/*.test.ts\"",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
