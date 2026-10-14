@@ -16,6 +16,7 @@ import { createPayment, updatePayment } from "@/app/actions/payments";
 import { markOverdue } from "@/lib/overdue";
 import { PaymentEditForm } from "./PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -137,7 +138,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Назначение", "Способ", "Дата", "Статус", "Сумма", editor && ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>

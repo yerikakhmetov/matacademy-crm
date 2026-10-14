@@ -7,6 +7,7 @@ import { money, initials, avatarColor, formatDate } from "@/lib/format";
 import { ReminderActions } from "@/components/ReminderActions";
 import { BroadcastForm } from "./BroadcastForm";
 import { markOverdue } from "@/lib/overdue";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -59,7 +60,7 @@ export default async function RemindersPage() {
           </span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Назначение", "Просрочка", "Сумма", ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>
@@ -123,7 +124,7 @@ export default async function RemindersPage() {
           </span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Назначение", "Срок", "Сумма", ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>

@@ -8,6 +8,7 @@ import { formatDate, initials, avatarColor, DAYS } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { MakeupButtons } from "./MakeupButtons";
 import { scheduleMakeup } from "@/app/actions/lessons";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export default async function MakeupsPage() {
           <span className="chip c-mut"><span className="d" />{planned.length}</span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Группа", "Пропуск", "Отработка", editor && ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>
@@ -122,7 +123,7 @@ export default async function MakeupsPage() {
           <span className="chip c-mut"><span className="d" />{candidates.length}</span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Группа", "Пропустил", editor && ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>

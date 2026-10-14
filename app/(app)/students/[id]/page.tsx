@@ -22,6 +22,7 @@ import { canFixReceived } from "@/lib/payments";
 import { createInvoice, createPayment, updatePayment } from "@/app/actions/payments";
 import { updateStudent } from "@/app/actions/students";
 import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/lib/settings";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -171,7 +172,7 @@ export default async function StudentDetail({
               </span>
             </div>
             <div className="table-wrap">
-              <table>
+              <table {...cardCols(["Назначение", "Способ", "Дата", "Статус", "Сумма", editor && ""])}>
                 <thead>
                   <tr>
                     <th>Назначение</th>

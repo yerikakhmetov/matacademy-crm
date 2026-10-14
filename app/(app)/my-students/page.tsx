@@ -4,6 +4,7 @@ import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { scoreColor, STUDENT_STATUS } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function MyStudentsPage() {
               </span>
             </div>
             <div className="table-wrap">
-              <table>
+              <table {...cardCols(["Ученик", "Класс", "Родитель", "Посещаемость", "Средний балл", "Статус"])}>
                 <thead>
                   <tr>
                     <th>Ученик</th>

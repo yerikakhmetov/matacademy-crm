@@ -10,6 +10,7 @@ import { Icon } from "@/components/Icon";
 import { StudentLinks } from "./StudentLinks";
 import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
 import { paidThrough } from "@/lib/payments";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -191,7 +192,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
           <span className="chip c-mut"><span className="d" />{enrolled}</span>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Телефон ученика", "Родитель", "Телефон родителя", "Посещ.", "Статус", showMoney && "Оплата", showMoney && "Последний платёж", showLinks && "Ссылки"])}>
             <thead>
               <tr>
                 <th>Ученик</th>

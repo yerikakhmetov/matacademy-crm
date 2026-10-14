@@ -5,6 +5,7 @@ import { getSettings, parseList } from "@/lib/settings";
 import { parseDenied } from "@/lib/access";
 import { Sidebar } from "@/components/Sidebar";
 import { Topbar } from "@/components/Topbar";
+import { NavProgress } from "@/components/NavProgress";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -37,6 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="app">
+      <NavProgress />
       <Sidebar user={session.user} counts={{ students, leads }} denied={deniedPerms} />
       <div className="main">
         <Topbar branch={branch} notifications={notifications} />

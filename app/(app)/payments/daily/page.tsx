@@ -9,6 +9,7 @@ import { groupByDay, dayKeyInTz } from "@/lib/daily";
 import { money, initials, avatarColor } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { BarChart } from "@/components/BarChart";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -196,7 +197,7 @@ export default async function DailyPaymentsPage({
               </div>
             </div>
             <div className="table-wrap">
-              <table>
+              <table {...cardCols(["Ученик", "Назначение", "Способ", "Время", "Сумма"])}>
                 <thead>
                   <tr>
                     <th>Ученик</th>

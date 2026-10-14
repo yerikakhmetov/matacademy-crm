@@ -7,6 +7,7 @@ import { MonthSelect } from "../payroll/PayrollControls";
 import { ExpenseForm } from "./ExpenseForm";
 import { DeleteExpenseButton } from "./DeleteExpenseButton";
 import { createExpense, updateExpense } from "@/app/actions/expenses";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["За что", "Категория", "Дата", "Кто внёс", "Сумма", editor && ""])}>
             <thead>
               <tr>
                 <th>За что</th>

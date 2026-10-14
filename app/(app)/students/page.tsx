@@ -10,6 +10,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { StudentForm } from "./StudentForm";
 import { Icon } from "@/components/Icon";
 import { createStudent } from "@/app/actions/students";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -114,7 +115,7 @@ export default async function StudentsPage({
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Ученик", "Класс", "Группа", "Посещаемость", "Статус", showMoney && "Баланс"])}>
             <thead>
               <tr>
                 <th>Ученик</th>
