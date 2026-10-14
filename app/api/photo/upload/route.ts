@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { MAX_PHOTO_BYTES, isJpeg } from "@/lib/upload-policy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -21,6 +22,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const id = String(form.get("id") ?? "");
   if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
   if (entity !== "student" && entity !== "teacher") return NextResponse.json({ error: "Неверный тип" }, { status: 400 });
+  // Браузер пересжимает фото в JPEG до 512px — всё остальное (SVG, HTML, огромные файлы) не фото
+  if (file.size > MAX_PHOTO_BYTES) return NextResponse.json({ error: "Фото больше 2 МБ" }, { status: 400 });
+  if (!isJpeg(new Uint8Array(await file.slice(0, 3).arrayBuffer()))) {
+    return NextResponse.json({ error: "Это не фото" }, { status: 400 });
+  }
 
   // права: админ/менеджер, либо преподаватель для своего фото
   if (!(await canEditData(session.user.role))) {

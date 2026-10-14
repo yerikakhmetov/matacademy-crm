@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { UPLOAD_ACCEPT } from "@/lib/upload-policy";
 import { deleteMaterial } from "@/app/actions/materials";
 
 export type LessonMaterial = {
@@ -126,7 +127,7 @@ export function LessonMaterials({
             placeholder="Название (например: Конспект по дробям)"
             style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 12px" }}
           />
-          <input ref={fileRef} type="file" />
+          <input ref={fileRef} type="file" accept={UPLOAD_ACCEPT} />
           {error && <div className="err" style={{ margin: 0 }}>{error}</div>}
           <button className="btn" type="button" onClick={upload} disabled={pending}>
             <Icon name="export" size={15} />

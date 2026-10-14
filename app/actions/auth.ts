@@ -1,7 +1,8 @@
 "use server";
 
 import { signIn, signOut } from "@/auth";
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
+import { LOGIN_WINDOW_MS } from "@/lib/login-guard";
 
 export async function authenticate(_prev: string | undefined, formData: FormData) {
   try {
@@ -11,6 +12,9 @@ export async function authenticate(_prev: string | undefined, formData: FormData
       redirectTo: "/dashboard",
     });
   } catch (error) {
+    if (error instanceof CredentialsSignin && error.code === "locked") {
+      return `Слишком много неудачных попыток. Попробуйте через ${LOGIN_WINDOW_MS / 60_000} минут`;
+    }
     if (error instanceof AuthError) {
       return "Неверный email или пароль";
     }

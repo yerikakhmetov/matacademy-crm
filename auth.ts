@@ -1,8 +1,14 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "./auth.config";
+import { LOGIN_MAX_FAILURES, LOGIN_WINDOW_MS } from "@/lib/login-guard";
+
+// Вход временно закрыт: authenticate() показывает отдельное сообщение по code
+class TooManyAttempts extends CredentialsSignin {
+  code = "locked";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -17,11 +23,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
+        // Подбор пароля: считаем неудачи по email (и для несуществующих — чтобы не выдавать, есть ли такой)
+        const since = new Date(Date.now() - LOGIN_WINDOW_MS);
+        const failures = await prisma.loginFailure.count({ where: { email, createdAt: { gte: since } } });
+        if (failures >= LOGIN_MAX_FAILURES) throw new TooManyAttempts();
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        const user = await prisma.user.findUnique({ where: { email } });
+        const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
+        if (!user || !valid) {
+          await prisma.loginFailure.create({ data: { email } });
+          // старые записи не копим: суток хватает с запасом
+          await prisma.loginFailure.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 86_400_000) } } });
+          return null;
+        }
+        await prisma.loginFailure.deleteMany({ where: { email } });
 
         return {
           id: user.id,

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { safeFileName, uploadContentType, uploadError } from "@/lib/upload-policy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -23,8 +24,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   const lessonId = String(form.get("lessonId") ?? "").trim();
   const dateStr = String(form.get("date") ?? "").trim();
   let groupId = String(form.get("groupId") ?? "").trim() || null;
-  if (!(file instanceof File) || file.size === 0) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
-  if (file.size > 20 * 1024 * 1024) return NextResponse.json({ error: "Файл больше 20 МБ" }, { status: 400 });
+  if (!(file instanceof File)) return NextResponse.json({ error: "Файл не выбран" }, { status: 400 });
+  const bad = uploadError(file);
+  if (bad) return NextResponse.json({ error: bad }, { status: 400 });
 
   let lessonSessionId: string | null = null;
   if (lessonId) {
@@ -60,12 +62,13 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!ok) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
   }
 
-  const safeName = file.name.replace(/[^\w.\-А-Яа-яЁё ]+/g, "_").slice(0, 120);
+  const safeName = safeFileName(file.name);
+  const contentType = uploadContentType(file.name)!; // проверено в uploadError
   try {
     const blob = await put(`materials/${groupId ?? "all"}/${Date.now()}-${safeName}`, file, {
       access: "public",
       addRandomSuffix: false,
-      contentType: file.type || "application/octet-stream",
+      contentType,
     });
     await prisma.material.create({
       data: {
@@ -73,7 +76,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         title: title || file.name,
         fileUrl: blob.url,
         fileName: file.name,
-        fileType: file.type || "",
+        fileType: contentType,
         uploadedBy: session.user.name ?? null,
         lessonSessionId,
       },

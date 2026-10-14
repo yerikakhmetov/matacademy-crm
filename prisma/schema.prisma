@@ -469,6 +469,16 @@ model LoginToken {
   createdAt DateTime @default(now())
 }
 
+// Неудачные попытки входа по паролю: после 10 за 15 минут вход на этот email
+// временно закрыт — подбор пароля перебором становится бессмысленным.
+model LoginFailure {
+  id        String   @id @default(cuid())
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+}
+
 // Настройки школы (единственная запись с id = "main")
 model Settings {
   id         String   @id @default("main")

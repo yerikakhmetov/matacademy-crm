@@ -1,4 +1,5 @@
 import { ROLE_LABEL } from "@/lib/roles";
+import { MIN_PASSWORD } from "@/lib/login-guard";
 
 type Values = { name?: string; email?: string; role?: string };
 
@@ -27,7 +28,7 @@ export function UserForm({ values, isEdit }: { values?: Values; isEdit?: boolean
       </div>
       <div className="field">
         <label>{isEdit ? "Новый пароль (оставьте пустым, чтобы не менять)" : "Пароль *"}</label>
-        <input name="password" type="password" required={!isEdit} minLength={6} placeholder="минимум 6 символов" autoComplete="new-password" />
+        <input name="password" type="password" required={!isEdit} minLength={MIN_PASSWORD} placeholder={`минимум ${MIN_PASSWORD} символов`} autoComplete="new-password" />
       </div>
     </>
   );

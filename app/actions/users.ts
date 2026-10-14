@@ -5,19 +5,25 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { normalizePhoneOrNull } from "@/lib/phone";
 import bcrypt from "bcryptjs";
-import { assertAdmin, newToken } from "./_shared";
+import { UserError, asResult, assertAdmin, newToken } from "./_shared";
+import { MIN_PASSWORD } from "@/lib/login-guard";
 
 // ---------- Пользователи ----------
+// Ошибки ввода возвращаются в форму ({ error }), а не теряются: в продакшене Next прячет текст брошенных ошибок
 export async function createUser(formData: FormData) {
+  return asResult(() => doCreateUser(formData));
+}
+
+async function doCreateUser(formData: FormData) {
   await assertAdmin();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const role = String(formData.get("role") ?? "MANAGER");
-  if (!email || !password || !name) throw new Error("Заполните имя, email и пароль");
-  if (password.length < 6) throw new Error("Пароль минимум 6 символов");
+  if (!email || !password || !name) throw new UserError("Заполните имя, email и пароль");
+  if (password.length < MIN_PASSWORD) throw new UserError(`Пароль минимум ${MIN_PASSWORD} символов`);
   const exists = await prisma.user.findUnique({ where: { email } });
-  if (exists) throw new Error("Пользователь с таким email уже есть");
+  if (exists) throw new UserError("Пользователь с таким email уже есть");
   await prisma.user.create({ data: { email, name, role, passwordHash: bcrypt.hashSync(password, 10) } });
   await logAudit("CREATE", "Пользователь", `${name} (${role})`);
   revalidatePath("/users");
@@ -97,13 +103,17 @@ export async function normalizeAllPhones(): Promise<{ changed: number; checked: 
 }
 
 export async function updateUser(id: string, formData: FormData) {
+  return asResult(() => doUpdateUser(id, formData));
+}
+
+async function doUpdateUser(id: string, formData: FormData) {
   await assertAdmin();
   const name = String(formData.get("name") ?? "").trim();
   const role = String(formData.get("role") ?? "MANAGER");
   const password = String(formData.get("password") ?? "");
   const data: { name: string; role: string; passwordHash?: string } = { name, role };
   if (password) {
-    if (password.length < 6) throw new Error("Пароль минимум 6 символов");
+    if (password.length < MIN_PASSWORD) throw new UserError(`Пароль минимум ${MIN_PASSWORD} символов`);
     data.passwordHash = bcrypt.hashSync(password, 10);
   }
   await prisma.user.update({ where: { id }, data });

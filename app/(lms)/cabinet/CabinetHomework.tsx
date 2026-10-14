@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { removeMyHomeworkFile, toggleMyHomework } from "@/app/actions/homework";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { UPLOAD_ACCEPT } from "@/lib/upload-policy";
 import { t, type Locale } from "@/lib/i18n";
 
 export type CabinetHW = {
@@ -154,6 +155,7 @@ export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale:
                 {uploading === hw.id ? t(locale, "hw.uploading") : t(locale, "hw.replace")}
                         <input
                           type="file"
+                          accept={UPLOAD_ACCEPT}
                           hidden
                           disabled={uploading === hw.id}
                           onChange={(e) => e.target.files?.[0] && upload(hw.id, e.target.files[0])}
@@ -174,6 +176,7 @@ export function CabinetHomework({ items, locale }: { items: CabinetHW[]; locale:
                       {uploading === hw.id ? t(locale, "hw.uploading") : t(locale, "hw.attach")}
                       <input
                         type="file"
+                        accept={UPLOAD_ACCEPT}
                         hidden
                         disabled={uploading === hw.id}
                         onChange={(e) => e.target.files?.[0] && upload(hw.id, e.target.files[0])}

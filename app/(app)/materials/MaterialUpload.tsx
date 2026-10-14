@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { UPLOAD_ACCEPT } from "@/lib/upload-policy";
 
 export function MaterialUpload({ groups, groupId }: { groups: { id: string; name: string }[]; groupId: string }) {
   const [open, setOpen] = useState(false);
@@ -70,7 +71,7 @@ export function MaterialUpload({ groups, groupId }: { groups: { id: string; name
           </div>
           <div className="field">
             <label>Файл (до 20 МБ)</label>
-            <input ref={fileRef} type="file" />
+            <input ref={fileRef} type="file" accept={UPLOAD_ACCEPT} />
           </div>
           {error && <div className="err" style={{ margin: 0 }}>{error}</div>}
         </div>
