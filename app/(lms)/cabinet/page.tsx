@@ -71,7 +71,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
         take: 12,
         include: {
           _count: { select: { questions: true } },
-          attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true } },
+          attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true, finished: true } },
           subject: { select: { name: true, color: true } },
           groupLinks: { select: { groupId: true, date: true } },
         },
@@ -84,7 +84,11 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
     const lessons = lessonsByGroup.get(link?.groupId ?? row.groupId ?? "") ?? [];
     // Топтың өз күні болса, сол бойынша; болмаса тесттің ортақ күні
     const date = link?.date ?? row.date;
-    const attempt = row.attempts[0] ?? null;
+    // Начатая, но не сданная попытка — это не результат: «0/100» пугало бы ученика,
+    // а тест пропадал из счётчика непройденных. Показываем «продолжить».
+    const raw = row.attempts[0] ?? null;
+    const attempt = raw?.finished ? raw : null;
+    const inProgress = raw != null && !raw.finished;
     return {
       id: row.id,
       title: row.title,
@@ -94,6 +98,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
       subjectName: row.subject?.name ?? null,
       subjectColor: row.subject?.color ?? "#3A5AE0",
       attempt,
+      inProgress,
       open: isTestOpen(date, lessons, new Date(), tz, row.availableFrom),
       opensAt: testAvailableAt(date, lessons, tz, row.availableFrom),
     };
@@ -393,6 +398,8 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
                   </div>
                   {tst.attempt ? (
                     <span className={`chip ${gradeChipClass(pct!)}`}><span className="d" />{tst.attempt.score}/{tst.maxScore}</span>
+                  ) : tst.inProgress ? (
+                    <span className="chip c-warn"><span className="d" />{t(locale, "cabinet.continueTest")}</span>
                   ) : tst.open ? (
                     <span className="chip c-ok"><span className="d" />{t(locale, "cabinet.take")}</span>
                   ) : (
@@ -400,7 +407,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
                   )}
                 </>
               );
-              return tst.attempt || tst.open ? (
+              return tst.attempt || tst.inProgress || tst.open ? (
                 <Link key={tst.id} href={`/cabinet/test/${tst.id}`} className="list-row" style={{ textDecoration: "none", color: "inherit" }}>
                   {inner}
                 </Link>
