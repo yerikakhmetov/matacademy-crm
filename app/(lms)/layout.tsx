@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { getSettings } from "@/lib/settings";
 import { Icon } from "@/components/Icon";
+import { BrandMark } from "@/components/BrandMark";
 import { logout } from "@/app/actions/auth";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
@@ -30,9 +31,7 @@ export default async function CabinetLayout({ children }: { children: React.Reac
           padding: "12px 16px",
         }}
       >
-        <div className="logo" style={{ width: 34, height: 34, flex: "none" }}>
-          <Icon name="book" size={18} style={{ color: "#fff" }} />
-        </div>
+        <BrandMark size={38} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{settings.schoolName}</div>
           <div className="mut lms-sub" style={{ fontSize: 11.5 }}>{t(locale, "lms.studentCabinet")}</div>

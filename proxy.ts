@@ -8,5 +8,7 @@ const { auth } = NextAuth(authConfig);
 export default auth;
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Публичная статика без входа: логотип (/brand/…) нужен на странице входа, и его же
+  // оптимизатор картинок запрашивает без cookie; иконки и манифест браузер берёт сам.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|brand/|icon.png|apple-icon.png|manifest.webmanifest).*)"],
 };

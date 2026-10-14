@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
-import { Icon } from "@/components/Icon";
+import { BrandMark } from "@/components/BrandMark";
 import { StudentJoin } from "./StudentJoin";
 import { getLocale } from "@/lib/locale";
 import { t } from "@/lib/i18n";
@@ -20,8 +20,8 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   return (
     <div style={{ minHeight: "100vh", background: "var(--ground)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div className="login-card" style={{ textAlign: "center" }}>
-        <div className="logo" style={{ width: 52, height: 52, margin: "0 auto 14px" }}>
-          <Icon name="book" size={26} style={{ color: "#fff" }} />
+        <div style={{ display: "flex", justifyContent: "center", margin: "0 auto 14px" }}>
+          <BrandMark size={64} />
         </div>
         <h1 style={{ fontSize: 20, marginBottom: 4 }}>{settings.schoolName}</h1>
         <div style={{ margin: "0 0 14px" }}>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "./Icon";
+import { BrandWordmark } from "./BrandMark";
 import { logout } from "@/app/actions/auth";
 import { ROLE_LABEL, type Role } from "@/lib/roles";
 import { initials } from "@/lib/format";
@@ -107,14 +108,9 @@ export function Sidebar({
     <>
     <div className="nav-scrim" onClick={closeNav} />
     <aside className="sidebar">
-      <div className="brand">
-        <div className="logo">
-          <Icon name="book" size={22} style={{ color: "#fff" }} />
-        </div>
-        <div>
-          <b>МатАкадемия</b>
-          <span>Офлайн-школа · CRM</span>
-        </div>
+      <div className="brand brand-logo">
+        <BrandWordmark light width={164} />
+        <span>Офлайн-школа · CRM</span>
       </div>
 
       <div className="nav-scroll">

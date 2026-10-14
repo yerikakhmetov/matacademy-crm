@@ -5,7 +5,7 @@ import { auth } from "@/auth";
 import { canSeeMoney } from "@/lib/roles";
 import { money, PAYMENT_STATUS } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
-import { Icon } from "@/components/Icon";
+import { BrandMark } from "@/components/BrandMark";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +38,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
       <div className="receipt">
         <div className="receipt-head">
           <div className="receipt-brand">
-            <div className="logo" style={{ width: 44, height: 44 }}>
-              <Icon name="book" size={24} style={{ color: "#fff" }} />
-            </div>
+            <BrandMark size={48} />
             <div>
               <b>{settings.schoolName}</b>
               <span>{settings.address || "Офлайн-школа математики"}</span>

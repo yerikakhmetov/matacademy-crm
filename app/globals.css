@@ -54,6 +54,9 @@ input,select,textarea{font-family:inherit}
 .logo svg{width:22px;height:22px}
 .brand b{font-family:var(--font-display),"Onest",system-ui,sans-serif;color:#fff;font-size:16px;font-weight:700;letter-spacing:-.02em;display:block;line-height:1.1}
 .brand span{font-size:11px;color:#7C86A6;letter-spacing:.02em}
+/* горизонтальный логотип в меню: под ним подпись */
+.brand.brand-logo{flex-direction:column;align-items:flex-start;gap:6px;padding:8px 10px 18px}
+.brand.brand-logo img{height:auto;max-width:100%}
 .nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#8D97B8;padding:14px 10px 6px;font-weight:600}
 .nav-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:9px;color:#AEB6D0;font-weight:500;font-size:13.5px;width:100%;text-align:left;transition:.14s}
 .nav-item svg{width:18px;height:18px;flex:none;opacity:.85}

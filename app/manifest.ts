@@ -16,10 +16,10 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     display: "standalone",
     orientation: "portrait",
     background_color: "#F7F8FB",
-    theme_color: "#3A5AE0",
+    theme_color: "#032556", // тёмно-синий цвет логотипа
     icons: [
-      { src: "/icon", sizes: "32x32", type: "image/png" },
-      { src: "/apple-icon", sizes: "180x180", type: "image/png" },
+      { src: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/brand/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
   };
 }

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { authenticate } from "@/app/actions/auth";
-import { Icon } from "@/components/Icon";
+import { BrandMark } from "@/components/BrandMark";
 import { TelegramLoginButton } from "./TelegramLoginButton";
 
 export function LoginForm({ botUsername }: { botUsername?: string | null }) {
@@ -11,8 +11,8 @@ export function LoginForm({ botUsername }: { botUsername?: string | null }) {
   return (
     <div className="login-wrap">
       <form className="login-card" action={formAction}>
-        <div className="logo">
-          <Icon name="book" size={26} style={{ color: "#fff" }} />
+        <div style={{ marginBottom: 18 }}>
+          <BrandMark size={64} />
         </div>
         <h1>Вход в CRM</h1>
         <p>МатАкадемия · система управления школой</p>
