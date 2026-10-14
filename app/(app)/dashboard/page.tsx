@@ -60,7 +60,8 @@ export default async function DashboardPage() {
     { l: "Активных учеников", v: String(activeStudents), t: "учатся сейчас", icon: "students", col: "var(--accent)", bg: "var(--accent-soft)" },
     ...(showMoney ? [{ l: "Доход за месяц", v: money(revenue), t: "оплачено", icon: "money", col: "var(--ok)", bg: "var(--ok-soft)" }] : []),
     { l: "Новых лидов", v: String(newLeads), t: `конверсия ${conv}%`, icon: "leads", col: "var(--violet)", bg: "var(--violet-soft)" },
-    ...(showMoney ? [{ l: "Задолженность", v: money(totalDebt), t: `${debtStudents.length} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" }] : []),
+    // Долг показываем положительной суммой: баланс отрицательный, но «−486 000 ₸» читается как ошибка
+    ...(showMoney ? [{ l: "Долги", v: money(Math.abs(totalDebt)), t: `${debtStudents.length} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" }] : []),
   ];
 
   const now = new Date();

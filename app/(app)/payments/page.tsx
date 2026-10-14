@@ -167,7 +167,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                         <div className="nm">{p.student.name}</div>
                       </div>
                     </td>
-                    <td>{p.purpose}</td>
+                    <td className="td-text">{p.purpose}</td>
                     <td className="mut">{p.method ?? "—"}</td>
                     <td className="mut">{formatDate(p.date)}</td>
                     <td>

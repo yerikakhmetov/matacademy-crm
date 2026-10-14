@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { initials, avatarColor } from "@/lib/format";
+import { getSettings } from "@/lib/settings";
 import { JournalFilters } from "./JournalFilters";
 
 export const dynamic = "force-dynamic";
@@ -138,8 +139,15 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
 
   // занятие считается отмеченным, если по нему есть хоть одна запись
   const markedOcc = new Set(records.map((r) => `${r.lessonId}|${r.date.toISOString().slice(0, 10)}`));
+  // «Сегодня» — по часовому поясу школы: будущие занятия отметить нельзя, и они не «забыты»
+  const tz = (await getSettings()).tzOffsetHours;
+  const schoolNow = new Date(Date.now() + tz * 3_600_000).toISOString();
+  const todayIso = schoolNow.slice(0, 10);
+  const nowHHMM = schoolNow.slice(11, 16);
+  // сегодняшнее занятие «впереди», пока не наступило его время начала
+  const isFuture = (o: { iso: string; time: string }) => o.iso > todayIso || (o.iso === todayIso && o.time > nowHHMM);
   const unmarked = occurrences.filter(
-    (o) => !markedOcc.has(`${o.lessonId}|${o.iso}`) && !cancelledOcc.has(`${o.lessonId}|${o.iso}`)
+    (o) => !isFuture(o) && !markedOcc.has(`${o.lessonId}|${o.iso}`) && !cancelledOcc.has(`${o.lessonId}|${o.iso}`)
   ).length;
 
   const counted = records.filter((r) => r.present || !r.excused);
@@ -192,6 +200,7 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                   {occurrences.map((o, i) => {
                     const off = cancelledOcc.has(`${o.lessonId}|${o.iso}`);
                     const done = markedOcc.has(`${o.lessonId}|${o.iso}`) || off;
+                    const ahead = isFuture(o) && !done;
                     return (
                       <th key={i} style={{ textAlign: "center", minWidth: 40 }}>
                         <Link
@@ -199,20 +208,22 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
                           title={
                             off
                               ? `Занятие ${o.day} · ${o.time} не состоялось`
-                              : done
+                              : ahead
+                                ? `Занятие ${o.day} · ${o.time} ещё впереди`
+                                : done
                                 ? `Открыть занятие ${o.day} · ${o.time}`
                                 : `Занятие ${o.day} · ${o.time} ещё не отмечено`
                           }
                           style={{
-                            color: off ? "var(--ink-3)" : done ? "inherit" : "var(--warn)",
+                            color: off || ahead ? "var(--ink-3)" : done ? "inherit" : "var(--warn)",
                             textDecoration: "none",
-                            fontWeight: done && !off ? 600 : off ? 500 : 800,
+                            fontWeight: done && !off ? 600 : off || ahead ? 500 : 800,
                             display: "block",
                           }}
                         >
                           {o.day}
                           {off && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>×</span>}
-                          {!done && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>•</span>}
+                          {!done && !ahead && <span style={{ display: "block", fontSize: 9, lineHeight: 1 }}>•</span>}
                         </Link>
                       </th>
                     );

@@ -34,12 +34,12 @@ export default async function CabinetLayout({ children }: { children: React.Reac
           <Icon name="book" size={18} style={{ color: "#fff" }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, lineHeight: 1.1 }}>{settings.schoolName}</div>
-          <div className="mut" style={{ fontSize: 11.5 }}>{t(locale, "lms.studentCabinet")}</div>
+          <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 15, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{settings.schoolName}</div>
+          <div className="mut lms-sub" style={{ fontSize: 11.5 }}>{t(locale, "lms.studentCabinet")}</div>
         </div>
         <LocaleSwitcher current={locale} path="/cabinet" />
         <ThemeToggle title={t(locale, "common.theme")} />
-        <span className="mut" style={{ fontSize: 12.5, fontWeight: 600 }}>{session.user.name}</span>
+        <span className="mut lms-name" style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>{session.user.name}</span>
         <form action={logout}>
           <button className="icon-btn" title={t(locale, "common.logout")} type="submit">
             <Icon name="logout" size={16} />

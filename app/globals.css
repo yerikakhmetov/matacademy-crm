@@ -130,6 +130,8 @@ table{width:100%;border-collapse:collapse;font-size:13.5px}
 th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);font-weight:600;padding:10px 18px;border-bottom:1px solid var(--line-2);white-space:nowrap}
 td{padding:12px 18px;border-bottom:1px solid var(--line-2);vertical-align:middle;white-space:nowrap}
 tr:last-child td{border-bottom:none}
+/* Длинный текст в ячейке (назначение счёта) переносится, а не раздвигает таблицу за край карточки */
+td.td-text{white-space:normal;min-width:180px;line-height:1.4}
 tbody tr.clk{cursor:pointer;transition:.12s}
 tbody tr.clk:hover{background:var(--surface-2)}
 .person{display:flex;align-items:center;gap:11px}
@@ -205,6 +207,8 @@ tbody tr.clk:hover{background:var(--surface-2)}
 .tstats .v{font-size:18px;font-weight:700;font-family:var(--font-display),"Onest",system-ui,sans-serif;margin-top:2px}
 
 .two-col{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+/* Колонки сетки не шире своей доли: иначе широкая таблица выталкивает соседнюю колонку за экран */
+.two-col > *{min-width:0}
 .list-row{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--line-2)}
 .list-row:last-child{border-bottom:none}
 .pay-ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none}
@@ -314,8 +318,8 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
 }
 
 /* ---------- Login ---------- */
-.login-wrap{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(1200px 600px at 20% -10%,rgba(58,90,224,.10),transparent),var(--ground)}
-.login-card{width:400px;max-width:100%;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);padding:32px 30px}
+.login-wrap{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr);place-items:center;padding:20px;background:radial-gradient(1200px 600px at 20% -10%,rgba(58,90,224,.10),transparent),var(--ground)}
+.login-card{width:min(400px,100%);background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);padding:32px 30px}
 .login-card .logo{width:48px;height:48px;margin-bottom:18px}
 .login-card h1{font-size:22px}
 .login-card p{color:var(--ink-3);font-size:13.5px;margin:5px 0 24px}
@@ -355,4 +359,12 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   .att-btns .chip{flex:1;min-height:44px;font-size:13px}
   .att-savebar{flex-wrap:wrap}
   .att-savebar .btn{flex:1;justify-content:center}
+}
+
+/* Шапка кабинета ученика и переключатель языка на телефоне: только самое нужное в одну строку */
+.locale-switch .ls-short{display:none}
+@media(max-width:560px){
+  .locale-switch .ls-full{display:none}
+  .locale-switch .ls-short{display:inline}
+  .lms-sub,.lms-name{display:none}
 }

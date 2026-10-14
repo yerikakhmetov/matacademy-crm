@@ -159,7 +159,7 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                     const ps = PAYMENT_STATUS[p.status] ?? PAYMENT_STATUS.PAID;
                     return (
                       <tr key={p.id}>
-                        <td style={{ fontWeight: 600 }}>{p.purpose}</td>
+                        <td className="td-text" style={{ fontWeight: 600 }}>{p.purpose}</td>
                         <td className="mut">{p.method ?? "—"}</td>
                         <td className="mut">{formatDate(p.date)}</td>
                         <td>
