@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { getStudentIdForUser } from "@/lib/teacher";
 import { isTestOpen } from "@/lib/tests";
 import { parseTestSource } from "@/lib/test-import";
-import { assertCanManageGroup, assertEditor, int, parseDate, str } from "./_shared";
+import { assertCanManageGroup, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Тесты ----------
 // Импорт теста из LaTeX-исходника: разбираем тем же модулем, что и предпросмотр в форме,
@@ -34,7 +34,7 @@ export async function importTest(formData: FormData) {
       subjectId,
       // балл за тест = число вопросов: один вопрос — один балл
       maxScore: parsed.questions.length,
-      date: parseDate(formData.get("date")) ?? new Date(),
+      date: await dateOrToday(formData.get("date")),
       shuffle: formData.get("shuffle") != null,
       timeLimitMin: limit > 0 ? limit : null,
       questions: {
@@ -170,7 +170,7 @@ export async function createTest(formData: FormData) {
       subjectId,
       groupLinks: { create: groupIds.map((groupId) => ({ groupId })) },
       maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
-      date: parseDate(formData.get("date")) ?? new Date(),
+      date: await dateOrToday(formData.get("date")),
       shuffle: formData.get("shuffle") != null,
       allowRetake: formData.get("allowRetake") != null,
       timeLimitMin: int(formData.get("timeLimitMin")) > 0 ? int(formData.get("timeLimitMin")) : null,

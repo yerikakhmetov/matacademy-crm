@@ -8,7 +8,7 @@ import { money } from "@/lib/format";
 import { getSettings, parseDiscounts, parseMultiTiers, multiTierFor, computePricing, splitAmount, isDiscountMode } from "@/lib/settings";
 import { recalc } from "@/lib/overdue";
 import { maxRefundable, outstanding, paymentStatus, planPaymentEdit } from "@/lib/payments";
-import { UserError, asResult, assertEditor, int, parseDate, str } from "./_shared";
+import { UserError, asResult, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Абонементы ----------
 // Счёт за обучение по предметам: цена по прайсу со всеми скидками (пакет, спец-скидка,
@@ -21,7 +21,7 @@ export async function createInvoice(studentId: string, formData: FormData) {
 async function createInvoiceImpl(studentId: string, formData: FormData) {
   await assertEditor("finance");
   const months = Math.min(12, Math.max(1, int(formData.get("months")) || 1));
-  const start = parseDate(formData.get("startDate")) ?? new Date();
+  const start = await dateOrToday(formData.get("startDate"));
 
   const subjectIds = formData.getAll("subjects").map((v) => String(v)).filter(Boolean);
 

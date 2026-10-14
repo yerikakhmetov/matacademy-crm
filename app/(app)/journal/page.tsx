@@ -5,6 +5,7 @@ import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
 import { initials, avatarColor } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
+import { slotRunsOn } from "@/lib/payroll-calc";
 import { JournalFilters } from "./JournalFilters";
 
 export const dynamic = "force-dynamic";
@@ -79,16 +80,11 @@ export default async function JournalPage({ searchParams }: { searchParams: Prom
   // Все занятия-даты группы в этом месяце
   type Occ = { lessonId: string; date: Date; iso: string; day: number; time: string };
   const occurrences: Occ[] = [];
-  // до даты начала группы занятий не было — их не должно быть и в журнале
-  const startsAt = group.startDate
-    ? Date.UTC(group.startDate.getUTCFullYear(), group.startDate.getUTCMonth(), group.startDate.getUTCDate())
-    : null;
   for (const l of group.lessons) {
-    // Слот убрали из расписания: прошлые даты в журнале остаются, новых нет
-    const archivedAt = l.archivedAt ? l.archivedAt.getTime() : null;
+    // до начала группы и до появления слота занятий не было; убранный слот — прошлые даты остаются, новых нет.
+    // Та же функция считает делитель зарплаты, поэтому столбцы журнала и зарплата совпадают.
     for (const d of datesInMonth(year, month0, l.dayOfWeek)) {
-      if (startsAt !== null && d.getTime() < startsAt) continue;
-      if (archivedAt !== null && d.getTime() >= archivedAt) continue;
+      if (!slotRunsOn(d, l, group.startDate)) continue;
       occurrences.push({ lessonId: l.id, date: d, iso: d.toISOString().slice(0, 10), day: d.getUTCDate(), time: l.startTime });
     }
   }

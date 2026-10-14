@@ -60,6 +60,7 @@ export function AttendanceForm({
     Object.fromEntries(students.map((s) => [s.id, s.state]))
   );
   const [missing, setMissing] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const presentCount = Object.values(state).filter((v) => v === "present").length;
   const unmarkedCount = Object.values(state).filter((v) => v == null).length;
@@ -103,8 +104,13 @@ export function AttendanceForm({
       return;
     }
     setMissing(0);
+    setError(null);
     start(async () => {
-      await saveAttendance(lessonId, date, formData);
+      const res = await saveAttendance(lessonId, date, formData);
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     });
@@ -265,7 +271,9 @@ export function AttendanceForm({
           {editor && students.length > 0 && (
             <div className="modal-f att-savebar" style={{ borderTop: "1px solid var(--line-2)" }}>
               <span role="status" aria-live="polite" style={{ marginRight: "auto", fontSize: 12.5 }}>
-                {saved ? (
+                {error ? (
+                  <span role="alert" style={{ color: "var(--bad-ink)", fontWeight: 600 }}>{error}</span>
+                ) : saved ? (
                   <span className="chip c-ok">
                     <span className="d" />
                     Сохранено

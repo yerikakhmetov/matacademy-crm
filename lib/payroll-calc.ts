@@ -66,6 +66,36 @@ export function weekdayOccurrences(
   return count;
 }
 
+// Слот расписания во времени: activeFrom — с какого дня он действует (null — с начала группы),
+// archivedAt — когда его убрали из расписания (занятия с этого момента не идут).
+export type SlotSpan = { dayOfWeek: number; activeFrom?: Date | null; archivedAt?: Date | null };
+
+const dayFloor = (d: Date) => Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+
+// Идёт ли занятие слота в этот день (дата — UTC-полночь). Та же логика в журнале и в зарплате,
+// поэтому делитель зарплаты совпадает с числом столбцов журнала.
+export function slotRunsOn(d: Date, slot: SlotSpan, startDate?: Date | null): boolean {
+  const t = d.getTime();
+  if (startDate && t < dayFloor(startDate)) return false;
+  if (slot.activeFrom && t < dayFloor(slot.activeFrom)) return false;
+  if (slot.archivedAt && t >= slot.archivedAt.getTime()) return false;
+  return true;
+}
+
+// Сколько занятий у группы в месяце с учётом истории расписания: слот, убранный в октябре,
+// в сентябре ещё шёл, а добавленный в октябре в сентябре не шёл. Без этого смена расписания
+// задним числом меняла делитель прошлых, ещё не зафиксированных месяцев.
+export function slotLessonsInMonth(year: number, month0: number, slots: SlotSpan[], startDate?: Date | null): number {
+  let count = 0;
+  const d = new Date(Date.UTC(year, month0, 1));
+  while (d.getUTCMonth() === month0) {
+    const dow = d.getUTCDay() === 0 ? 7 : d.getUTCDay();
+    for (const s of slots) if (s.dayOfWeek === dow && slotRunsOn(d, s, startDate)) count++;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return count;
+}
+
 // Сколько занятий у группы в этом месяце по расписанию.
 export function scheduledLessonsInMonth(
   year: number,

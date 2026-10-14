@@ -3,6 +3,9 @@
 // Главная осторожность: удаление Lesson каскадом уносит посещаемость,
 // журнал тем и отработки. Поэтому слот с изменившимся временем мы
 // ОБНОВЛЯЕМ, а не удаляем-и-создаём заново — история занятия сохраняется.
+// Смена дня недели — другое дело: прошлые занятия шли в старый день, и переписать
+// ему день значило бы задним числом поменять журнал и делитель зарплаты.
+// Такой слот уходит в архив (с историей) или удаляется (без неё), а новый создаётся.
 
 export type Slot = { dayOfWeek: number; startTime: string; room: string };
 export type ExistingLesson = { id: string } & Slot;
@@ -90,13 +93,8 @@ export function planScheduleSync(existing: ExistingLesson[], desired: Slot[]): S
     plan.update.push({ id: hit.id, ...slot });
   }
 
-  // 3) остаток: день тоже сменился — переиспользуем любое свободное занятие,
-  // чтобы не терять его историю понапрасну
-  for (const slot of stillUnmatched) {
-    const hit = freeExisting.shift();
-    if (hit) plan.update.push({ id: hit.id, ...slot });
-    else plan.create.push(slot);
-  }
+  // 3) остаток: день сменился — это новый слот, старый уйдёт в remove
+  plan.create.push(...stillUnmatched);
 
   plan.remove = freeExisting.map((e) => e.id);
   return plan;

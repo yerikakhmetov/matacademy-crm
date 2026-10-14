@@ -6,6 +6,8 @@ import {
   isPayableAttendance,
   payableKey,
   scheduledLessonsInMonth,
+  slotLessonsInMonth,
+  slotRunsOn,
   weekdayOccurrences,
   type PayrollTeacher,
 } from "./payroll-calc.ts";
@@ -456,4 +458,36 @@ test("детализация зарплаты: сумма строк совпа�
   assert.equal(Math.round(sum), r.salary);
   assert.equal(r.details.find((d) => d.studentId === "s3")?.noFee, true);
   assert.equal(r.details.find((d) => d.studentId === "s2")?.lessons, 6);
+});
+
+// Смена расписания 5 октября 2026: Пт → Чт (Пн и Ср остаются). Пятница убрана в 10:00 по Алматы.
+const ARCHIVED = new Date(Date.UTC(2026, 9, 5, 5, 0));
+const CHANGED_ON = new Date(Date.UTC(2026, 9, 5));
+const slotsAfterChange = [
+  { dayOfWeek: 1 },
+  { dayOfWeek: 3 },
+  { dayOfWeek: 5, archivedAt: ARCHIVED },
+  { dayOfWeek: 4, activeFrom: CHANGED_ON },
+];
+
+test("смена расписания не меняет делитель прошлого месяца", () => {
+  // сентябрь шёл по Пн/Ср/Пт — как будто смены не было
+  assert.equal(slotLessonsInMonth(2026, 8, slotsAfterChange), scheduledLessonsInMonth(2026, 8, [1, 3, 5]));
+});
+
+test("месяц смены: старый слот до смены, новый — после", () => {
+  // Пн 4 + Ср 4 + Пт 2 окт (1) + Чт 8,15,22,29 (4)
+  assert.equal(slotLessonsInMonth(2026, 9, slotsAfterChange), 13);
+});
+
+test("слот без истории ведёт себя как раньше", () => {
+  assert.equal(slotLessonsInMonth(2026, 8, [{ dayOfWeek: 1 }, { dayOfWeek: 3 }]), scheduledLessonsInMonth(2026, 8, [1, 3]));
+  const start = new Date(Date.UTC(2026, 8, 9));
+  assert.equal(slotLessonsInMonth(2026, 8, [{ dayOfWeek: 1 }], start), scheduledLessonsInMonth(2026, 8, [1], start));
+});
+
+test("slotRunsOn: старый слот идёт до смены, новый — с дня смены", () => {
+  assert.equal(slotRunsOn(new Date(Date.UTC(2026, 9, 2)), { dayOfWeek: 5, archivedAt: ARCHIVED }), true);
+  assert.equal(slotRunsOn(new Date(Date.UTC(2026, 9, 9)), { dayOfWeek: 5, archivedAt: ARCHIVED }), false);
+  assert.equal(slotRunsOn(new Date(Date.UTC(2026, 9, 1)), { dayOfWeek: 4, activeFrom: CHANGED_ON }), false);
 });

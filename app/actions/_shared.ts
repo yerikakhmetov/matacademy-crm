@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData, getAccess, type PermKey } from "@/lib/access";
 import { recalc } from "@/lib/overdue";
+import { getSettings } from "@/lib/settings";
+import { schoolToday } from "@/lib/school-time";
 
 export async function assertAdmin() {
   const session = await auth();
@@ -35,6 +37,12 @@ export const parseDate = (v: FormDataEntryValue | null) => {
   const s = str(v);
   return s ? new Date(s + "T00:00:00.000Z") : null;
 };
+
+// Дата из формы, а если её не указали — сегодня по часам школы (UTC-полночью).
+// Просто new Date() на сервере в UTC ночью 1-го числа дал бы прошлый месяц.
+export async function dateOrToday(v: FormDataEntryValue | null): Promise<Date> {
+  return parseDate(v) ?? schoolToday((await getSettings()).tzOffsetHours);
+}
 
 export async function assertCanManageGroup(groupId: string) {
   const session = await auth();

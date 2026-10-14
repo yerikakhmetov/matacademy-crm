@@ -5,10 +5,10 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logAudit } from "@/lib/audit";
 import { money } from "@/lib/format";
-import { assertEditor, int, parseDate, str } from "./_shared";
+import { assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Расходы школы ----------
-function expenseData(formData: FormData) {
+async function expenseData(formData: FormData) {
   const title = str(formData.get("title"));
   if (!title) throw new Error("Укажите, за что расход");
   const amount = int(formData.get("amount"));
@@ -17,7 +17,7 @@ function expenseData(formData: FormData) {
     title,
     amount,
     category: str(formData.get("category")) || "OTHER",
-    date: parseDate(formData.get("date")) ?? new Date(),
+    date: await dateOrToday(formData.get("date")),
     note: str(formData.get("note")) || null,
   };
 }
@@ -25,7 +25,7 @@ function expenseData(formData: FormData) {
 export async function createExpense(formData: FormData) {
   await assertEditor("finance");
   const session = await auth();
-  const data = expenseData(formData);
+  const data = await expenseData(formData);
   await prisma.expense.create({ data: { ...data, createdBy: session?.user?.name ?? null } });
   await logAudit("CREATE", "Расход", `${data.title} · ${money(data.amount)}`);
   revalidatePath("/expenses");
@@ -34,7 +34,7 @@ export async function createExpense(formData: FormData) {
 
 export async function updateExpense(id: string, formData: FormData) {
   await assertEditor("finance");
-  const data = expenseData(formData);
+  const data = await expenseData(formData);
   await prisma.expense.update({ where: { id }, data });
   await logAudit("UPDATE", "Расход", `${data.title} · ${money(data.amount)}`);
   revalidatePath("/expenses");

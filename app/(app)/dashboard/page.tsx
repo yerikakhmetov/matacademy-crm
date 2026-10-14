@@ -11,13 +11,11 @@ import { money, initials, avatarColor, LEAD_STAGES, formatDate } from "@/lib/for
 import { markOverdue } from "@/lib/overdue";
 import { ReminderActions } from "@/components/ReminderActions";
 import { TeacherDashboard } from "./TeacherDashboard";
+import { getSettings } from "@/lib/settings";
+import { schoolClock, schoolMonthStart } from "@/lib/school-time";
 
 export const dynamic = "force-dynamic";
 
-function monthStart() {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -34,14 +32,18 @@ export default async function DashboardPage() {
 
   await markOverdue(); // автопометка просроченных счетов
 
-  const jsDay = new Date().getDay(); // 0=Вс..6=Сб
+  // месяц и «сегодня» — по часам школы, а не сервера (он в UTC)
+  const tz = (await getSettings()).tzOffsetHours;
+  const now = schoolClock(tz);
+  const monthFrom = schoolMonthStart(now.getUTCFullYear(), now.getUTCMonth(), tz);
+  const jsDay = now.getUTCDay(); // 0=Вс..6=Сб
   const today = jsDay === 0 ? 0 : jsDay; // 1..6 = Пн..Сб
 
   const [activeStudents, revenue, newLeads, debtStudents, todayLessons, stageCounts, recentPays, overdue, pausedStudents] =
     await Promise.all([
       prisma.student.count({ where: { status: "ACTIVE" } }),
-      netRevenue(monthStart()),
-      prisma.lead.count({ where: { createdAt: { gte: monthStart() } } }),
+      netRevenue(monthFrom),
+      prisma.lead.count({ where: { createdAt: { gte: monthFrom } } }),
       prisma.student.findMany({ where: { balance: { lt: 0 } }, select: { balance: true } }),
       prisma.lesson.findMany({ where: { dayOfWeek: today, archivedAt: null }, include: { group: { include: { teacher: true, students: true } } }, orderBy: { startTime: "asc" } }),
       prisma.lead.groupBy({ by: ["stage"], _count: true }),
@@ -73,9 +75,8 @@ export default async function DashboardPage() {
     ...(showMoney ? [{ l: "Долги", v: money(Math.abs(totalDebt)), t: `${debtStudents.length} учеников`, icon: "alert", col: "var(--bad)", bg: "var(--bad-soft)" }] : []),
   ];
 
-  const now = new Date();
-  const greeting = now.getHours() < 12 ? "Доброе утро" : now.getHours() < 18 ? "Добрый день" : "Добрый вечер";
-  const dateStr = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const greeting = now.getUTCHours() < 12 ? "Доброе утро" : now.getUTCHours() < 18 ? "Добрый день" : "Добрый вечер";
+  const dateStr = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
   return (
     <>

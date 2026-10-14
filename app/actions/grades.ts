@@ -7,7 +7,7 @@ import { canEditData } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParent, notifyStudentsDirect } from "@/lib/notify";
-import { int, parseDate, str } from "./_shared";
+import { int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Оценки ----------
 // Ставить оценку может админ/менеджер или учитель группы ученика.
@@ -38,7 +38,7 @@ export async function addGrade(studentId: string, formData: FormData) {
       score,
       maxScore,
       comment: str(formData.get("comment")) || null,
-      date: parseDate(formData.get("date")) ?? new Date(),
+      date: await dateOrToday(formData.get("date")),
       createdBy: session.user?.name ?? null,
       groupId: gradeGroupId,
     },

@@ -9,7 +9,7 @@ import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { recalcAttendance } from "@/lib/attendance";
 import { isCuratorOfGroup } from "@/lib/curator";
-import { assertEditor, int, parseDate, str } from "./_shared";
+import { UserError, asResult, assertEditor, int, parseDate, str } from "./_shared";
 
 // ---------- Расписание ----------
 export async function createLesson(formData: FormData) {
@@ -181,6 +181,10 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
 }
 
 export async function saveAttendance(lessonId: string, dateStr: string, formData: FormData) {
+  return asResult(() => doSaveAttendance(lessonId, dateStr, formData));
+}
+
+async function doSaveAttendance(lessonId: string, dateStr: string, formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Требуется вход");
   const date = new Date(dateStr + "T00:00:00.000Z");
@@ -195,6 +199,11 @@ export async function saveAttendance(lessonId: string, dateStr: string, formData
   const ownsLesson = lesson.group.teacher?.userId === session.user.id;
   const curates = await isCuratorOfGroup(session.user.id, lesson.groupId);
   if (!(await canEditData(session.user.role)) && !ownsLesson && !curates) throw new Error("Недостаточно прав");
+
+  // Отменённый день выпал из делителя зарплаты — отметка на нём оплачивалась бы сверх него.
+  // Форма в этот день скрыта, но её могли открыть до отмены в другой вкладке.
+  const day = await prisma.lessonSession.findUnique({ where: { lessonId_date: { lessonId, date } }, select: { cancelled: true } });
+  if (day?.cancelled) throw new UserError("Занятие в этот день отменено — обновите страницу");
 
   const students = lesson.group.students;
 

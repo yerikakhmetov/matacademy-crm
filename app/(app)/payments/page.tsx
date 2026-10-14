@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { netRevenue } from "@/lib/revenue";
+import { getSettings } from "@/lib/settings";
+import { schoolClock, schoolMonthStart } from "@/lib/school-time";
 import { auth } from "@/auth";
 import { canEditData, requireAccess } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
@@ -24,10 +26,6 @@ const FILTERS = [
   { key: "OVERDUE", label: "Долги" },
 ];
 
-function monthStart() {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
 
 // Счётов за годы набирается тысячи — показываем страницами
 const PAGE_SIZE = 50;
@@ -43,6 +41,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
   await markOverdue(); // автопометка просроченных счетов
 
   const where = status === "all" ? {} : { status };
+
+  // доход «за месяц» — месяц школы: оплата 1-го числа в 02:00 не уходит в прошлый
+  const tz = (await getSettings()).tzOffsetHours;
+  const clock = schoolClock(tz);
+  const monthFrom = schoolMonthStart(clock.getUTCFullYear(), clock.getUTCMonth(), tz);
 
   const [payments, total, students, subjects, revenue, owing, paidCount] = await Promise.all([
     prisma.payment.findMany({
@@ -61,14 +64,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     prisma.payment.count({ where }),
     prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, color: true } }),
-    netRevenue(monthStart()),
+    netRevenue(monthFrom),
     // Долги считаем по остаткам, а не по полной сумме счёта: частично оплаченный
     // счёт должен попадать в «ожидается» только неоплаченной частью.
     prisma.payment.findMany({
       where: { status: { in: ["PENDING", "PARTIAL", "OVERDUE"] } },
       select: { amount: true, paidAmount: true, status: true, studentId: true },
     }),
-    prisma.paymentTx.count({ where: { kind: "PAYMENT", date: { gte: monthStart() } } }),
+    prisma.paymentTx.count({ where: { kind: "PAYMENT", date: { gte: monthFrom } } }),
   ]);
 
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));

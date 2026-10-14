@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getSettings, parseList } from "@/lib/settings";
 import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
+import { schoolToday } from "@/lib/school-time";
 import { assertEditor, int, str } from "./_shared";
 
 // ---------- Группы ----------
@@ -42,9 +43,12 @@ function groupStartDate(formData: FormData): Date {
 // Приводим занятия группы к тому, что задали в форме расписания.
 // Занятия по возможности обновляем, а не пересоздаём: удаление Lesson
 // каскадом уносит посещаемость, темы уроков и отработки.
-async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null) {
+// isNew — группа только создаётся: её слоты действуют с начала группы. При правке
+// существующей группы новые слоты действуют с сегодняшнего дня школы.
+async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null, isNew = false) {
   if (raw === null) return; // форма без блока расписания — расписание не трогаем
-  const rooms = parseList((await getSettings()).rooms);
+  const settings = await getSettings();
+  const rooms = parseList(settings.rooms);
   const desired = parseSlots(raw, rooms[0] ?? "Каб. 1");
   const existing = await prisma.lesson.findMany({
     where: { groupId, archivedAt: null },
@@ -60,7 +64,8 @@ async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null
     });
   }
   if (plan.create.length > 0) {
-    await prisma.lesson.createMany({ data: plan.create.map((c) => ({ groupId, ...c })) });
+    const activeFrom = isNew ? null : schoolToday(settings.tzOffsetHours);
+    await prisma.lesson.createMany({ data: plan.create.map((c) => ({ groupId, ...c, activeFrom })) });
   }
   if (plan.remove.length > 0) {
     // Слот с историей (отметки, темы занятий, отработки) не удаляем:
@@ -99,7 +104,7 @@ export async function createGroup(formData: FormData) {
       startDate: groupStartDate(formData),
     },
   });
-  await syncGroupSchedule(group.id, formData.get("schedule"));
+  await syncGroupSchedule(group.id, formData.get("schedule"), true);
   await logAudit("CREATE", "Группа", str(formData.get("name")));
   revalidatePath("/groups");
   revalidatePath("/schedule");

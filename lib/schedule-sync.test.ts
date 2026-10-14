@@ -57,14 +57,14 @@ test("смена только кабинета — обновление", () => 
   assert.deepEqual(plan.update, [{ id: "a", dayOfWeek: 1, startTime: "14:30", room: "Каб. 3" }]);
 });
 
-test("перенос на другой день переиспользует занятие", () => {
+test("перенос на другой день — новый слот, старый уходит (история прошлых дат не переписывается)", () => {
   const plan = planScheduleSync(
     [{ id: "a", dayOfWeek: 1, startTime: "14:30", room: "Каб. 1" }],
     [{ dayOfWeek: 4, startTime: "14:30", room: "Каб. 1" }]
   );
-  assert.deepEqual(plan.create, []);
-  assert.deepEqual(plan.remove, []);
-  assert.deepEqual(plan.update, [{ id: "a", dayOfWeek: 4, startTime: "14:30", room: "Каб. 1" }]);
+  assert.deepEqual(plan.create, [{ dayOfWeek: 4, startTime: "14:30", room: "Каб. 1" }]);
+  assert.deepEqual(plan.remove, ["a"]);
+  assert.deepEqual(plan.update, []);
 });
 
 test("добавление и удаление слотов", () => {

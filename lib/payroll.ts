@@ -6,7 +6,7 @@ import {
   isPayableAttendance,
   monthlyFeesFromPaid,
   payableKey,
-  scheduledLessonsInMonth,
+  slotLessonsInMonth,
   type CuratorRow,
   type PayrollCurator,
   type PayrollRow,
@@ -119,20 +119,18 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
           startDate: true,
           students: { select: { id: true } },
           // архивные слоты тоже: по ним остаются отметки прошлых месяцев
-          lessons: { select: { id: true, dayOfWeek: true, archivedAt: true } },
+          lessons: { select: { id: true, dayOfWeek: true, activeFrom: true, archivedAt: true } },
         },
       },
     },
   });
 
   const lessonToGroup = new Map<string, string>();
-  const activeLessonIds: string[] = [];
   const studentIds = new Set<string>();
   for (const t of teachersDb) {
     for (const g of t.groups) {
       for (const l of g.lessons) {
         lessonToGroup.set(l.id, g.id);
-        if (!l.archivedAt) activeLessonIds.push(l.id);
       }
       for (const s of g.students) studentIds.add(s.id);
     }
@@ -142,10 +140,11 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
     loadPayableByMonth(lessonToGroup, rangeStart, rangeEnd),
     // Отменённые занятия не входят в делитель — кроме сорванных по вине
     // преподавателя: такой день остаётся в делителе, и за него не платят.
-    activeLessonIds.length
+    // архивные слоты тоже: их отмены относятся к месяцам, когда они ещё шли
+    lessonToGroup.size
       ? prisma.lessonSession.findMany({
           where: {
-            lessonId: { in: activeLessonIds },
+            lessonId: { in: [...lessonToGroup.keys()] },
             cancelled: true,
             date: { gte: rangeStart, lt: rangeEnd },
             // явный OR: у старых отмен cancelFault = NULL, и они должны попадать в выборку
@@ -181,7 +180,7 @@ export async function gatherPayrollRange(months: Month[], feePct: number): Promi
         subjectId: g.subjectId,
         scheduledLessons: Math.max(
           0,
-          scheduledLessonsInMonth(year, month0, g.lessons.filter((l) => !l.archivedAt).map((l) => l.dayOfWeek), g.startDate) -
+          slotLessonsInMonth(year, month0, g.lessons, g.startDate) -
             (cancelledByGroup.get(g.id) ?? 0)
         ),
         studentIds: g.students.map((s) => s.id),

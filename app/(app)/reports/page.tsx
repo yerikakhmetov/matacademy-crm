@@ -5,6 +5,7 @@ import Link from "next/link";
 import { requireAccess, getAccess } from "@/lib/access";
 import { gatherPayrollRange } from "@/lib/payroll";
 import { getSettings } from "@/lib/settings";
+import { lastSchoolMonths, schoolMonthKey, schoolMonthStart } from "@/lib/school-time";
 import { txSign, txsSince } from "@/lib/revenue";
 import { settledRatio } from "@/lib/payments";
 import { isTeacher } from "@/lib/teacher";
@@ -16,27 +17,18 @@ export const dynamic = "force-dynamic";
 
 const MONTHS = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 
-// Последние N месяцев как [{key:'2026-08', label:'авг', year, month0}]
-function lastMonths(count: number) {
-  const now = new Date();
-  const arr = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    arr.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTHS[d.getMonth()], year: d.getFullYear(), month0: d.getMonth() });
-  }
-  return arr;
-}
-const monthKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}`;
-
-
 export default async function ReportsPage() {
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   await requireAccess("reports");
   const money$ = (await getAccess()).can("finance"); // деньги в отчётах — только при доступе к финансам
 
-  const months = lastMonths(6);
-  const since = new Date(months[0].year, months[0].month0, 1);
+  // месяцы — по часам школы: сервер в UTC, и оплата 1-го числа ночью иначе ушла бы в прошлый месяц
+  const settings = await getSettings();
+  const tz = settings.tzOffsetHours;
+  const months = lastSchoolMonths(6, tz).map((m) => ({ ...m, label: MONTHS[m.month0] }));
+  const since = schoolMonthStart(months[0].year, months[0].month0, tz);
+  const monthKey = (d: Date) => schoolMonthKey(d, tz);
 
   const [txs, leads, students] = await Promise.all([
     txsSince(since),
@@ -45,7 +37,7 @@ export default async function ReportsPage() {
       select: { id: true, name: true, status: true, balance: true, attendance: true, groups: { select: { name: true } }, grades: { select: { score: true, maxScore: true } } },
     }),
   ]);
-  const feePct = (await getSettings()).schoolFeePct;
+  const feePct = settings.schoolFeePct;
   const expensesPeriod = money$
     ? await prisma.expense.findMany({ where: { date: { gte: since } }, select: { amount: true, date: true } })
     : [];
