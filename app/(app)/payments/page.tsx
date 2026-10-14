@@ -10,7 +10,6 @@ import { Icon } from "@/components/Icon";
 import { ModalButton } from "@/components/ModalButton";
 import { PaymentForm } from "./PaymentForm";
 import { PaymentActions } from "@/components/PaymentActions";
-import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { createPayment, updatePayment } from "@/app/actions/payments";
 import { markOverdue } from "@/lib/overdue";
 import { PaymentEditForm } from "./PaymentEditForm";
@@ -191,14 +190,13 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     </td>
                     {editor && (
                       <td className="right">
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                          {p.paidAmount >= p.amount && (
-                            <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
-                              <Icon name="export" size={14} />
-                              Квитанция
-                            </Link>
-                          )}
-                          <ModalButton
+                        <PaymentActions
+                            paymentId={p.id}
+                            amount={p.amount}
+                            paidAmount={p.paidAmount}
+                            refundedAmount={p.refundedAmount}
+                            edit={
+                              <ModalButton
                             label="Изменить"
                             title={`Исправить оплату · ${p.student.name}`}
                             icon="edit"
@@ -220,14 +218,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                               }}
                             />
                           </ModalButton>
-                          <PaymentActions
-                            paymentId={p.id}
-                            amount={p.amount}
-                            paidAmount={p.paidAmount}
-                            refundedAmount={p.refundedAmount}
+                            }
                           />
-                          <DeletePaymentButton paymentId={p.id} paidAmount={p.paidAmount} />
-                        </div>
                       </td>
                     )}
                   </tr>

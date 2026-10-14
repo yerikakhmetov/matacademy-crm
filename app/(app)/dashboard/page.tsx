@@ -7,8 +7,9 @@ import { isTeacher } from "@/lib/teacher";
 import { isCurator } from "@/lib/curator";
 import { getAccess } from "@/lib/access";
 import { Icon } from "@/components/Icon";
-import { money, initials, avatarColor, LEAD_STAGES } from "@/lib/format";
+import { money, initials, avatarColor, LEAD_STAGES, formatDate } from "@/lib/format";
 import { markOverdue } from "@/lib/overdue";
+import { ReminderActions } from "@/components/ReminderActions";
 import { TeacherDashboard } from "./TeacherDashboard";
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,13 @@ export default async function DashboardPage() {
       prisma.lesson.findMany({ where: { dayOfWeek: today, archivedAt: null }, include: { group: { include: { teacher: true, students: true } } }, orderBy: { startTime: "asc" } }),
       prisma.lead.groupBy({ by: ["stage"], _count: true }),
       prisma.payment.findMany({ where: { paidAmount: { gt: 0 } }, include: { student: true }, orderBy: { date: "desc" }, take: 5 }),
-      prisma.payment.findMany({ where: { status: "OVERDUE" }, include: { student: true } }),
+      // самые старые долги — первыми; телефон родителя нужен для «Напомнить»
+      prisma.payment.findMany({
+        where: { status: "OVERDUE" },
+        include: { student: { select: { id: true, name: true, parentPhone: true } } },
+        orderBy: { date: "asc" },
+        take: 12,
+      }),
       prisma.student.findMany({ where: { status: "PAUSED" }, take: 3 }),
     ]);
 
@@ -192,21 +199,26 @@ export default async function DashboardPage() {
             </span>
           </div>
           <div style={{ padding: "6px 0" }}>
-            {showMoney && overdue.map((p) => (
-              <div className="list-row" key={p.id}>
-                <div className="pay-ico" style={{ background: "var(--bad-soft)", color: "var(--bad)" }}>
-                  <Icon name="alert" size={16} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>
-                    {p.student.name} — долг {money(p.amount)}
+            {showMoney && overdue.map((p) => {
+              const left = Math.max(0, p.amount - p.paidAmount);
+              const msg = `Здравствуйте! Напоминаем об оплате обучения (ученик: ${p.student.name}): ${p.purpose} — ${money(left)}. Пожалуйста, оплатите при возможности. Спасибо!`;
+              return (
+                <div className="list-row attn-row" key={p.id}>
+                  <div className="pay-ico" style={{ background: "var(--bad-soft)", color: "var(--bad)" }}>
+                    <Icon name="alert" size={16} />
                   </div>
-                  <div className="mut" style={{ fontSize: 12 }}>
-                    {p.purpose} · просрочено
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Link href={`/students/${p.student.id}`} style={{ fontWeight: 600, fontSize: 13, color: "inherit" }}>
+                      {p.student.name} — долг {money(left)}
+                    </Link>
+                    <div className="mut" style={{ fontSize: 12 }}>
+                      {p.purpose} · с {formatDate(p.date)}
+                    </div>
                   </div>
+                  <ReminderActions phone={p.student.parentPhone} message={msg} />
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {pausedStudents.map((s) => (
               <div className="list-row" key={s.id}>
                 <div className="pay-ico" style={{ background: "var(--warn-soft)", color: "var(--warn)" }}>

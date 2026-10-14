@@ -23,6 +23,16 @@ export type PayrollRow = {
   studentsWithoutFee: number; // ходили, но месячная доля не найдена — деньги не начислены
   base: number; // начислено до удержания школы, ₸
   salary: number; // к выплате, ₸
+  /** из чего сложилась зарплата: ученик × группа × занятия (к выплате, без округления) */
+  details: PayrollDetail[];
+};
+
+export type PayrollDetail = {
+  groupId: string;
+  studentId: string;
+  lessons: number; // оплачиваемых посещений
+  amount: number; // к выплате за этого ученика в этой группе, ₸
+  noFee?: boolean; // ходил, но оплаченного счёта нет — 0 ₸
 };
 
 // Оплачивается ли это посещение преподавателю.
@@ -164,6 +174,7 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
     let paidLessons = 0;
     const studs = new Set<string>();
     const noFee = new Set<string>();
+    const details: PayrollDetail[] = [];
 
     for (const g of t.groups) {
       if (!g.subjectId) continue;
@@ -179,20 +190,25 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
         paidLessons += pl;
         if (byRate) {
           // Ставка: цена занятия фиксирована, оплата ученика роли не играет
-          rateGross += (rate.amount / rate.lessons) * pl;
+          const amount = (rate.amount / rate.lessons) * pl;
+          rateGross += amount;
+          details.push({ groupId: g.id, studentId, lessons: pl, amount });
           studs.add(studentId);
           continue;
         }
         const fee = monthlyFee.get(feeKey(studentId, g.subjectId)) ?? 0;
         if (fee <= 0) {
           noFee.add(studentId);
+          details.push({ groupId: g.id, studentId, lessons: pl, amount: 0, noFee: true });
           continue;
         }
         // Ходил в несколько групп предмета — каждой группе часть доли по её занятиям.
         const total = Math.max(pl, totals.get(feeKey(studentId, g.subjectId)) ?? pl);
         const share = (fee * pl) / total;
         // С группы нельзя начислить больше её части месячной доли.
-        shareGross += Math.min(share, (fee / divisor) * pl);
+        const gross = Math.min(share, (fee / divisor) * pl);
+        shareGross += gross;
+        details.push({ groupId: g.id, studentId, lessons: pl, amount: gross * net });
         studs.add(studentId);
       }
     }
@@ -204,6 +220,7 @@ export function computePayrollRows({ teachers, payable, monthlyFee, rates, feePc
       studentsWithoutFee: noFee.size,
       base: Math.round(rateGross + shareGross),
       salary: Math.round(rateGross + shareGross * net),
+      details,
     });
   }
   return rows;

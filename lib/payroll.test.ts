@@ -443,3 +443,17 @@ test("paidThrough: конец последнего полностью оплач
     d(2026, 11, 31)
   );
 });
+
+test("детализация зарплаты: сумма строк совпадает с выплатой", () => {
+  const rows = computePayrollRows({
+    teachers: [{ id: "t1", groups: [{ id: "g1", subjectId: "math", scheduledLessons: 12, studentIds: ["s1", "s2", "s3"] }] }],
+    payable: new Map([[payableKey("g1", "s1"), 12], [payableKey("g1", "s2"), 6], [payableKey("g1", "s3"), 3]]),
+    monthlyFee: new Map([[feeKey("s1", "math"), 24000], [feeKey("s2", "math"), 24000]]),
+    feePct: 3,
+  });
+  const r = rows.get("t1")!;
+  const sum = r.details.reduce((a, d) => a + d.amount, 0);
+  assert.equal(Math.round(sum), r.salary);
+  assert.equal(r.details.find((d) => d.studentId === "s3")?.noFee, true);
+  assert.equal(r.details.find((d) => d.studentId === "s2")?.lessons, 6);
+});

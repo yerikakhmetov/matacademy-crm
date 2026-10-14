@@ -1,30 +1,47 @@
+import Link from "next/link";
 import { ModalButton } from "@/components/ModalButton";
 import { MarkPaidButton } from "@/components/MarkPaidButton";
+import { DeletePaymentButton } from "@/components/DeletePaymentButton";
+import { RowMenu } from "@/components/RowMenu";
+import { Icon } from "@/components/Icon";
 import { receivePaymentForm, refundPayment } from "@/app/actions/payments";
 import { money, PAYMENT_METHODS } from "@/lib/format";
 
-// Действия по счёту: принять оплату (полностью или частично) и вернуть деньги.
+// Действия по счёту в строке таблицы: одно главное действие на виду («Оплачено», а у
+// закрытого счёта — «Квитанция»), остальное — в меню «⋯», «Удалить» — последним.
+// edit — окно «Изменить»: у страниц оплат и карточки ученика оно своё.
 export function PaymentActions({
   paymentId,
   amount,
   paidAmount,
   refundedAmount,
+  edit,
 }: {
   paymentId: string;
   amount: number;
   paidAmount: number;
   refundedAmount: number;
+  edit?: React.ReactNode;
 }) {
   const left = Math.max(0, amount - paidAmount);
   const refundable = Math.max(0, paidAmount - refundedAmount);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-      {left > 0 && <MarkPaidButton paymentId={paymentId} />}
+    <div className="row-actions">
+      {left > 0 ? (
+        <MarkPaidButton paymentId={paymentId} />
+      ) : paidAmount >= amount ? (
+        <Link className="btn ghost" href={`/receipt/${paymentId}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
+          <Icon name="export" size={14} />
+          Квитанция
+        </Link>
+      ) : null}
+      <RowMenu>
+      {edit}
       {left > 0 && (
         <ModalButton
-          label="Частично"
+          label="Принять частично"
           title="Принять часть оплаты"
           icon="money"
           buttonClass="btn ghost"
@@ -83,6 +100,8 @@ export function PaymentActions({
           </div>
         </ModalButton>
       )}
+      <DeletePaymentButton paymentId={paymentId} paidAmount={paidAmount} />
+      </RowMenu>
     </div>
   );
 }

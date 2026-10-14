@@ -28,9 +28,9 @@ export function DeletePaymentButton({ paymentId, paidAmount }: { paymentId: stri
       className="btn ghost"
       onClick={run}
       disabled={pending}
-      style={{ padding: "5px 11px", fontSize: 12.5, color: "var(--bad)" }}
+      style={{ padding: "5px 11px", fontSize: 12.5, color: "var(--bad-ink)" }}
     >
-      {pending ? "Удаляем…" : "Удалить"}
+      {pending ? "Удаляем…" : "Удалить счёт"}
     </button>
   );
 }

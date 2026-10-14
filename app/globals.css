@@ -396,3 +396,21 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   .cab-tab.on{background:transparent;color:var(--accent)}
   .cab-main{padding-bottom:96px !important}
 }
+
+/* Действия строки: главное на виду, остальное в меню «⋯» */
+.row-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:nowrap}
+.row-menu{position:relative}
+.row-menu-btn{padding:5px 10px;font-size:15px;line-height:1;letter-spacing:1px;min-width:34px;justify-content:center}
+.row-menu-pop{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:200px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:4px;display:flex;flex-direction:column;gap:2px}
+.row-menu-pop[hidden]{display:none}
+.row-menu-pop .btn,.row-menu-pop a.btn{width:100%;justify-content:flex-start;background:transparent;border:none;box-shadow:none;color:var(--ink);padding:8px 10px;font-size:13px;white-space:nowrap}
+.row-menu-pop .btn:hover{background:var(--surface-2)}
+
+/* «Требуют внимания»: на узком экране кнопки напоминания уходят под текст */
+@media(max-width:560px){.attn-row{flex-wrap:wrap}.attn-row > :last-child{width:100%;justify-content:flex-start;padding-left:46px}}
+
+/* Поиск и фильтр группы на странице учеников */
+.student-search{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.student-search input,.student-search select{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:13px;color:var(--ink)}
+.student-search input{width:200px}
+@media(max-width:760px){.student-search{width:100%}.student-search input{flex:1;min-width:0;width:auto;font-size:16px}.student-search select{font-size:16px}}

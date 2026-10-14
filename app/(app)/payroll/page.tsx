@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 const MONTH_NAMES = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 
-export default async function PayrollPage({ searchParams }: { searchParams: Promise<{ month?: string }> }) {
+export default async function PayrollPage({ searchParams }: { searchParams: Promise<{ month?: string; teacher?: string }> }) {
   const sp = await searchParams;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
@@ -39,10 +40,25 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
     prisma.group.findMany({ where: { curatorId: { not: null } }, select: { id: true, name: true } }),
   ]);
   const groupName = new Map(curatedGroups.map((g) => [g.id, g.name]));
+  const locked = records.length > 0;
+  // Детализация выбранного преподавателя: из чего сложилась сумма (только живой расчёт)
+  const openTeacher = sp.teacher ? teachers.find((t) => t.id === sp.teacher) ?? null : null;
+  const openDetails = openTeacher && !locked ? live.get(openTeacher.id)?.details ?? [] : [];
+  const [detailStudents, detailGroups] = openDetails.length
+    ? await Promise.all([
+        prisma.student.findMany({ where: { id: { in: [...new Set(openDetails.map((d) => d.studentId))] } }, select: { id: true, name: true } }),
+        prisma.group.findMany({ where: { id: { in: [...new Set(openDetails.map((d) => d.groupId))] } }, select: { id: true, name: true } }),
+      ])
+    : [[], []];
+  const studentName = new Map(detailStudents.map((x) => [x.id, x.name]));
+  const detailGroupName = new Map(detailGroups.map((x) => [x.id, x.name]));
+  const detailRows = [...openDetails].sort(
+    (a, b) => (detailGroupName.get(a.groupId) ?? "").localeCompare(detailGroupName.get(b.groupId) ?? "") || b.amount - a.amount
+  );
+
   const curatorRows = curators.map((c) => ({ c, row: curatorLive.get(c.id) }));
   const curatorTotal = curatorRows.reduce((a, r) => a + (r.row?.salary ?? 0), 0);
 
-  const locked = records.length > 0;
   const recMap = new Map(records.map((r) => [r.teacherId, r]));
 
   const rows = teachers.map((t) => {
@@ -101,7 +117,19 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                       <div className="av2" style={{ background: t.color || avatarColor(t.name), width: 30, height: 30, fontSize: 11 }}>
                         {initials(t.name)}
                       </div>
-                      <div className="nm" style={{ fontSize: 13.5 }}>{t.name}</div>
+                      {locked ? (
+                        <div className="nm" style={{ fontSize: 13.5 }}>{t.name}</div>
+                      ) : (
+                        <Link
+                          className="nm"
+                          href={`/payroll?month=${sel.id}${openTeacher?.id === t.id ? "" : `&teacher=${t.id}`}#details`}
+                          style={{ fontSize: 13.5, color: "inherit", textDecoration: "underline dotted", textUnderlineOffset: 3 }}
+                          title="Показать, из чего сложилась сумма"
+                          aria-expanded={openTeacher?.id === t.id}
+                        >
+                          {t.name}
+                        </Link>
+                      )}
                     </div>
                   </td>
                   <td className="right mut num">
@@ -121,6 +149,42 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
           </table>
         </div>
       </div>
+
+      {openTeacher && !locked && (
+        <div className="card" id="details" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>{openTeacher.name} · из чего сложилась сумма</h3>
+            <Link className="link" href={`/payroll?month=${sel.id}`}>Скрыть</Link>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Ученик</th>
+                  <th>Группа</th>
+                  <th className="right">Оплач. занятий</th>
+                  <th className="right">К выплате</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detailRows.length === 0 && (
+                  <tr><td colSpan={4}><div className="empty">В этом месяце оплачиваемых посещений нет</div></td></tr>
+                )}
+                {detailRows.map((d) => (
+                  <tr key={`${d.groupId}|${d.studentId}`}>
+                    <td style={{ fontWeight: 600 }}>{studentName.get(d.studentId) ?? "—"}</td>
+                    <td className="mut">{detailGroupName.get(d.groupId) ?? "—"}</td>
+                    <td className="right num">{d.lessons}</td>
+                    <td className="right num">
+                      {d.noFee ? <span className="chip c-bad"><span className="d" />нет оплаты</span> : money(Math.round(d.amount))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {curators.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>

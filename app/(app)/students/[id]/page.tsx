@@ -5,7 +5,7 @@ import { isTeacher } from "@/lib/teacher";
 import { isCurator } from "@/lib/curator";
 import { auth } from "@/auth";
 import { canEditData, getAccess } from "@/lib/access";
-import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS } from "@/lib/format";
+import { money, initials, avatarColor, formatDate, STUDENT_STATUS, PAYMENT_STATUS, gradeChipClass } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { PhotoUpload } from "@/components/PhotoUpload";
 import { ModalButton } from "@/components/ModalButton";
@@ -17,7 +17,6 @@ import { TelegramLink } from "./TelegramLink";
 import { ParentPortalLink } from "./ParentPortalLink";
 import { StudentCabinetLink } from "./StudentCabinetLink";
 import { PaymentActions } from "@/components/PaymentActions";
-import { DeletePaymentButton } from "@/components/DeletePaymentButton";
 import { PaymentEditForm } from "../../payments/PaymentEditForm";
 import { canFixReceived } from "@/lib/payments";
 import { createInvoice, createPayment, updatePayment } from "@/app/actions/payments";
@@ -26,8 +25,15 @@ import { getSettings, parseDiscounts, parseMultiTiers, isDiscountMode } from "@/
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function StudentDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = await params;
+  const { tab: tabParam } = await searchParams;
   const session = await auth();
   if (isTeacher(session?.user?.role)) redirect("/dashboard");
   // Куратор открывает только учеников своих групп
@@ -57,11 +63,32 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
   ]);
   if (!student) notFound();
 
-  const [settings, activeSubjects, allStudents] = await Promise.all([
+  // Вкладки карточки: оплаты (если есть доступ к деньгам), посещаемость, оценки
+  const tabs = [...(showMoney ? (["payments"] as const) : []), "attendance", "grades"] as const;
+  const tab = (tabs as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : tabs[0];
+  const TAB_LABEL: Record<string, string> = { payments: "Оплаты", attendance: "Посещаемость", grades: "Оценки" };
+
+  const [settings, activeSubjects, allStudents, attendance, grades] = await Promise.all([
     getSettings(),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, price: true, lessonsPerMonth: true, color: true } }),
     // список учеников нужен, только чтобы перенести ошибочную оплату на правильного
     editor && showMoney ? prisma.student.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }) : Promise.resolve([]),
+    tab === "attendance"
+      ? prisma.attendance.findMany({
+          where: { studentId: id },
+          orderBy: { date: "desc" },
+          take: 40,
+          include: { lesson: { select: { startTime: true, group: { select: { name: true, color: true } } } } },
+        })
+      : Promise.resolve([]),
+    tab === "grades"
+      ? prisma.grade.findMany({
+          where: { studentId: id },
+          orderBy: { date: "desc" },
+          take: 30,
+          include: { group: { select: { name: true, subject: { select: { name: true } } } } },
+        })
+      : Promise.resolve([]),
   ]);
   const discounts = parseDiscounts(settings.discounts);
   const tiers = parseMultiTiers(settings.multiDiscount);
@@ -126,7 +153,15 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
 
       <div className="two-col">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {showMoney && (
+          <nav className="seg" aria-label="Разделы карточки" style={{ alignSelf: "flex-start" }}>
+            {tabs.map((k) => (
+              <Link key={k} href={`/students/${student.id}?tab=${k}`} className={k === tab ? "on" : ""} aria-current={k === tab ? "page" : undefined}>
+                {TAB_LABEL[k]}
+              </Link>
+            ))}
+          </nav>
+
+          {tab === "payments" && showMoney && (
           <div className="card">
             <div className="card-h">
               <h3>История оплат</h3>
@@ -179,12 +214,12 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                         </td>
                         {editor && (
                           <td className="right">
-                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                              {p.paidAmount >= p.amount && (
-                                <Link className="btn ghost" href={`/receipt/${p.id}`} style={{ padding: "5px 11px", fontSize: 12.5 }}>
-                                  Квитанция
-                                </Link>
-                              )}
+                            <PaymentActions
+                            paymentId={p.id}
+                            amount={p.amount}
+                            paidAmount={p.paidAmount}
+                            refundedAmount={p.refundedAmount}
+                            edit={
                               <ModalButton
                                 label="Изменить"
                                 title={`Исправить оплату · ${student.name}`}
@@ -207,14 +242,8 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
                                   }}
                                 />
                               </ModalButton>
-                              <PaymentActions
-                                paymentId={p.id}
-                                amount={p.amount}
-                                paidAmount={p.paidAmount}
-                                refundedAmount={p.refundedAmount}
-                              />
-                              <DeletePaymentButton paymentId={p.id} paidAmount={p.paidAmount} />
-                            </div>
+                            }
+                          />
                           </td>
                         )}
                       </tr>
@@ -224,6 +253,58 @@ export default async function StudentDetail({ params }: { params: Promise<{ id: 
               </table>
             </div>
           </div>
+          )}
+
+          {tab === "attendance" && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Посещаемость</h3>
+                <span className="chip c-mut"><span className="d" />последние {attendance.length}</span>
+              </div>
+              <div style={{ padding: "6px 0" }}>
+                {attendance.length === 0 && <div className="empty">Отметок пока нет</div>}
+                {attendance.map((a) => {
+                  const st = a.present ? { cls: "c-ok", label: "Был" } : a.excused ? { cls: "c-mut", label: "Ув. причина" } : { cls: "c-bad", label: "Без причины" };
+                  return (
+                    <div className="list-row" key={a.id}>
+                      <div className="num mut" style={{ width: 70, fontSize: 12.5, fontWeight: 600 }}>{formatDate(a.date)}</div>
+                      <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7 }}>
+                        <span style={{ width: 9, height: 9, borderRadius: 3, background: a.lesson.group.color, flex: "none" }} />
+                        <span style={{ fontWeight: 600 }}>{a.lesson.group.name}</span>
+                        <span className="mut" style={{ fontSize: 12 }}>{a.lesson.startTime}</span>
+                      </div>
+                      <span className={`chip ${st.cls}`}><span className="d" />{st.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {tab === "grades" && (
+            <div className="card">
+              <div className="card-h">
+                <h3>Оценки</h3>
+                <span className="chip c-mut"><span className="d" />{grades.length}</span>
+              </div>
+              <div style={{ padding: "6px 0" }}>
+                {grades.length === 0 && <div className="empty">Оценок пока нет</div>}
+                {grades.map((g) => {
+                  const pct = Math.round((g.score / g.maxScore) * 100);
+                  return (
+                    <div className="list-row" key={g.id}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{g.topic}</div>
+                        <div className="mut" style={{ fontSize: 12 }}>
+                          {[g.group?.subject?.name ?? g.group?.name, formatDate(g.date)].filter(Boolean).join(" · ")}
+                        </div>
+                      </div>
+                      <span className={`chip ${gradeChipClass(pct)}`}><span className="d" />{g.score}/{g.maxScore}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 
