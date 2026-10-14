@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 import { logAudit } from "@/lib/audit";
 import { normalizePhoneOrNull } from "@/lib/phone";
 import { assertEditor, int, newToken, str } from "./_shared";
+import { invalidatePackageAlerts } from "@/lib/reminders";
 
 // ---------- Ученики ----------
 export async function createStudent(formData: FormData) {
@@ -26,6 +27,7 @@ export async function createStudent(formData: FormData) {
   });
   await logAudit("CREATE", "Ученик", created.name);
   revalidatePath("/students");
+  invalidatePackageAlerts(); // группы/статус ученика влияют на «заканчиваются занятия»
   revalidatePath("/dashboard");
 }
 
@@ -47,6 +49,7 @@ export async function updateStudent(id: string, formData: FormData) {
   });
   await logAudit("UPDATE", "Ученик", str(formData.get("name")));
   revalidatePath("/students");
+  invalidatePackageAlerts(); // группы/статус ученика влияют на «заканчиваются занятия»
   revalidatePath(`/students/${id}`);
 }
 
@@ -97,6 +100,7 @@ export async function archiveStudent(id: string) {
   });
   await logAudit("UPDATE", "Ученик", `${st.name} — в архив (вышел из групп)`);
   revalidatePath("/students");
+  invalidatePackageAlerts(); // группы/статус ученика влияют на «заканчиваются занятия»
   revalidatePath(`/students/${id}`);
 }
 
@@ -107,6 +111,7 @@ export async function unarchiveStudent(id: string) {
   await prisma.student.update({ where: { id }, data: { status: "ACTIVE" } });
   await logAudit("UPDATE", "Ученик", `${st.name} — возвращён из архива`);
   revalidatePath("/students");
+  invalidatePackageAlerts(); // группы/статус ученика влияют на «заканчиваются занятия»
   revalidatePath(`/students/${id}`);
 }
 
@@ -121,4 +126,5 @@ export async function deleteStudent(id: string) {
   await prisma.student.delete({ where: { id } });
   await logAudit("DELETE", "Ученик", st?.name ?? id);
   revalidatePath("/students");
+  invalidatePackageAlerts(); // группы/статус ученика влияют на «заканчиваются занятия»
 }

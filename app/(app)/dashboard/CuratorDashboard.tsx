@@ -7,7 +7,7 @@ import { getSettings } from "@/lib/settings";
 import { gatherCuratorPayroll } from "@/lib/payroll";
 import { lessonStatus, type LessonStatus } from "@/lib/teacher-today";
 import { frequentAbsentees } from "@/lib/curator-home";
-import { collectPackageAlerts, packageItemText } from "@/lib/reminders";
+import { cachedPackageAlerts, packageItemText } from "@/lib/reminders";
 
 const STATUS_CHIP: Record<LessonStatus, { cls: string; label: string }> = {
   marked: { cls: "c-ok", label: "Отмечено" },
@@ -79,7 +79,7 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
       mySubjects.set(s.id, set);
     }
   }
-  const ending = (await collectPackageAlerts())
+  const ending = (await cachedPackageAlerts())
     .map((r) => ({ ...r, items: r.items.filter((it) => mySubjects.get(r.studentId)?.has(it.subjectId)) }))
     .filter((r) => r.items.length > 0);
 
@@ -196,7 +196,7 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
                         <Link href={`/students/${r.studentId}`} style={{ fontWeight: 600, color: "inherit" }}>{r.name}</Link>
                         <div className="mut" style={{ fontSize: 12 }}>
                           {lessons}
-                          {r.items.some((it) => it.notifiedAt) ? " · ✓ напомнили в Telegram" : ""}
+                          {r.items.some((it) => it.notified) ? " · ✓ напомнили в Telegram" : ""}
                         </div>
                       </div>
                       <ReminderActions phone={r.parentPhone} message={msg} />

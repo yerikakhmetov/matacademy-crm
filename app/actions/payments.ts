@@ -11,6 +11,7 @@ import { maxRefundable, outstanding, paymentStatus, planPaymentEdit, rescaleItem
 import { UserError, asResult, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 import { MAX_PERIOD_MONTHS, invoicePeriodLabel } from "@/lib/period";
 import { nextStudyMonth, studyMonthLabel } from "@/lib/packages";
+import { invalidatePackageAlerts } from "@/lib/reminders";
 
 // «Месяц обучения» из формы: номер пакета занятий, с которого начинается счёт, и сколько
 // месяцев оплачено. Пусто — следующий по порядку у ученика. При правке счёта пустое поле
@@ -143,6 +144,7 @@ async function createInvoiceImpl(studentId: string, formData: FormData) {
     });
   });
   await recalc(studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
 
   const stSub = await prisma.student.findUnique({ where: { id: studentId }, select: { name: true } });
   const savedLabel = basePrice > price && basePrice > 0 ? ` (−${Math.round((1 - price / basePrice) * 100)}%)` : "";
@@ -204,6 +206,7 @@ export async function createPayment(formData: FormData) {
   await logAudit("CREATE", status === "PAID" ? "Оплата" : "Счёт", `${st0?.name ?? ""} · ${money(amount)}`);
   // Задолженность считается автоматически из неоплаченных счетов
   await recalc(studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${studentId}`);
@@ -259,6 +262,7 @@ export async function receivePayment(paymentId: string, amountIn: number | null,
     `${payment.student.name} · принято ${money(sum)}${paidAmount < payment.amount ? ` · остаток ${money(payment.amount - paidAmount)}` : " · оплачен полностью"}`
   );
   await recalc(payment.studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
@@ -325,6 +329,7 @@ async function refundPaymentImpl(paymentId: string, formData: FormData) {
 
   await logAudit("UPDATE", "Возврат", `${payment.student.name} · ${money(sum)}`);
   await recalc(payment.studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
   revalidatePath("/payments");
   revalidatePath("/students");
   revalidatePath(`/students/${payment.studentId}`);
@@ -437,6 +442,7 @@ async function updatePaymentImpl(paymentId: string, formData: FormData) {
   // долг пересчитываем у обоих, если счёт перенесли на другого ученика
   await recalc(payment.studentId);
   if (studentId !== payment.studentId) await recalc(studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
   revalidatePath("/payments");
   revalidatePath("/payments/daily");
   revalidatePath("/students");
@@ -457,6 +463,7 @@ export async function deletePayment(paymentId: string) {
     `${payment.student.name} · ${money(payment.amount)}${payment.paidAmount > 0 ? ` · было принято ${money(payment.paidAmount)}` : ""}`
   );
   await recalc(payment.studentId);
+  invalidatePackageAlerts(); // остаток оплаченных занятий изменился
   revalidatePath("/payments");
   revalidatePath("/payments/daily");
   revalidatePath("/students");

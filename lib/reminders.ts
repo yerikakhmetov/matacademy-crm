@@ -1,3 +1,4 @@
+import { unstable_cache, revalidateTag } from "next/cache";
 import { prisma } from "./prisma";
 import { money } from "./format";
 import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "./settings";
@@ -74,6 +75,28 @@ export async function collectPackageAlerts(): Promise<PackageAlertRow[]> {
         notifiedAt: noticeAt.get(`${s.id}|${it.subjectId}|${it.total}`) ?? null,
       })),
     }));
+}
+
+// Для главных экранов: тот же список, но из кэша на 5 минут. Полный пересчёт пакетов
+// идёт по всей истории посещений и оплат и с ростом школы становится тяжёлым, а главную
+// открывают постоянно. Даты внутри кэша превращаются в строки — отдаём только флаг.
+// Сбрасывается invalidatePackageAlerts() после оплат и отметок посещаемости.
+const PACKAGE_ALERTS_TAG = "package-alerts";
+export const cachedPackageAlerts = unstable_cache(
+  async () =>
+    (await collectPackageAlerts()).map((r) => ({
+      studentId: r.studentId,
+      name: r.name,
+      parentPhone: r.parentPhone,
+      items: r.items.map((it) => ({ subjectId: it.subjectId, subjectName: it.subjectName, left: it.left, unpaid: it.unpaid, notified: it.notifiedAt != null })),
+    })),
+  [PACKAGE_ALERTS_TAG],
+  { revalidate: 300, tags: [PACKAGE_ALERTS_TAG] }
+);
+
+// Только из серверных действий и route handlers (не во время рендера страницы).
+export function invalidatePackageAlerts() {
+  revalidateTag(PACKAGE_ALERTS_TAG, { expire: 0 });
 }
 
 export const packageItemText = (it: { subjectName: string; left: number; unpaid: number }) =>

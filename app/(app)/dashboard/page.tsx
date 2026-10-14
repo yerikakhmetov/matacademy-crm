@@ -12,7 +12,7 @@ import { markOverdue } from "@/lib/overdue";
 import { ReminderActions } from "@/components/ReminderActions";
 import { TeacherDashboard } from "./TeacherDashboard";
 import { getSettings } from "@/lib/settings";
-import { collectPackageAlerts } from "@/lib/reminders";
+import { cachedPackageAlerts } from "@/lib/reminders";
 import { schoolClock, schoolMonthStart } from "@/lib/school-time";
 
 export const dynamic = "force-dynamic";
@@ -69,7 +69,7 @@ export default async function DashboardPage() {
   const funnelMax = Math.max(1, ...funnel.map((f) => f.v));
 
   // Заканчиваются оплаченные занятия — пора напомнить об оплате следующего месяца
-  const packageEnding = showMoney ? (await collectPackageAlerts()).length : 0;
+  const packageEnding = showMoney ? (await cachedPackageAlerts()).length : 0;
   const attention = (showMoney ? overdue.length : 0) + pausedStudents.length + (packageEnding > 0 ? 1 : 0);
 
   const kpis = [

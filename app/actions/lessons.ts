@@ -10,6 +10,7 @@ import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { recalcAttendance } from "@/lib/attendance";
 import { isCuratorOfGroup } from "@/lib/curator";
 import { UserError, asResult, assertEditor, assertStudentInGroup, int, parseDate, str } from "./_shared";
+import { invalidatePackageAlerts } from "@/lib/reminders";
 
 // ---------- Расписание ----------
 export async function createLesson(formData: FormData) {
@@ -112,6 +113,7 @@ export async function completeMakeup(id: string) {
   ]);
 
   await recalcAttendance([m.studentId]);
+  invalidatePackageAlerts();
   await logAudit("UPDATE", "Отработка", `${m.student.name} · проведена`);
   revalidatePath("/makeups");
   revalidatePath("/payroll");
@@ -179,6 +181,7 @@ export async function setLessonCancelled(lessonId: string, dateStr: string, canc
   revalidatePath(`/schedule/${lessonId}`);
   revalidatePath("/journal");
   revalidatePath("/payroll");
+  invalidatePackageAlerts(); // отмена удаляет отметки дня
 }
 
 export async function saveAttendance(lessonId: string, dateStr: string, formData: FormData) {
@@ -251,6 +254,7 @@ async function doSaveAttendance(lessonId: string, dateStr: string, formData: For
   }
 
   await recalcAttendance(students.map((s) => s.id));
+  invalidatePackageAlerts(); // посещения списывают занятия из пакета
 
   revalidatePath(`/schedule/${lessonId}`);
   revalidatePath("/schedule");
