@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  subjectShareOfTx,
   canFixReceived,
   planPaymentEdit,
   maxAcceptable,
@@ -116,3 +117,14 @@ test("canFixReceived узнаёт одну полную оплату", () => {
   assert.equal(canFixReceived(paidOnce), true);
 });
 
+
+test("доля предмета в приходе: пропорционально строке счёта", () => {
+  // счёт 40 500 = математика 24 300 (12 занятий) + предмет на 8 занятий 16 200
+  assert.equal(subjectShareOfTx(40_500, 40_500, 24_300), 24_300);
+  assert.equal(subjectShareOfTx(40_500, 40_500, 16_200), 16_200);
+  // частичный приход делится так же
+  assert.equal(subjectShareOfTx(20_250, 40_500, 24_300), 12_150);
+  // счёт на один предмет — весь приход его
+  assert.equal(subjectShareOfTx(24_000, 24_000, 24_000), 24_000);
+  assert.equal(subjectShareOfTx(10_000, 0, 5_000), 0);
+});

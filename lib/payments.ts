@@ -117,3 +117,11 @@ export function paidThrough(payments: { amount: number; paidAmount: number; date
   }
   return best;
 }
+
+// Доля предмета в приходе денег: счёт оплачивает несколько предметов сразу,
+// и приход делится между ними в той же пропорции, что и сам счёт (строки PaymentItem).
+// Так на странице группы видно, сколько из 40 500 ₸ пришлось именно на её предмет.
+export function subjectShareOfTx(txAmount: number, paymentAmount: number, subjectItemAmount: number): number {
+  if (paymentAmount <= 0 || subjectItemAmount <= 0) return 0;
+  return Math.round((txAmount * Math.min(subjectItemAmount, paymentAmount)) / paymentAmount);
+}

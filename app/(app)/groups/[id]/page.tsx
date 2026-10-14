@@ -9,7 +9,7 @@ import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { StudentLinks } from "./StudentLinks";
 import { DAYS, STUDENT_STATUS, formatDate, money } from "@/lib/format";
-import { paidThrough } from "@/lib/payments";
+import { paidThrough, subjectShareOfTx } from "@/lib/payments";
 import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +44,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
               paidAmount: true,
               date: true,
               months: true,
+              // разбивка счёта по предметам: в группе показываем долю её предмета
+              items: { select: { subjectId: true, amount: true } },
               txs: {
                 where: { kind: "PAYMENT" },
                 orderBy: { date: "desc" },
@@ -89,7 +91,14 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
   // «оплатил» — текущий месяц покрыт оплаченным счётом и нет непогашенного остатка
   const now = new Date();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(s.payments)]));
+  // Счета, которые оплачивают предмет этой группы, и доля предмета в каждом.
+  // У группы без предмета разбивки нет — берём счета целиком, как раньше.
+  const subjectId = group.subjectId;
+  const subjectPayments = (s: (typeof group.students)[number]) =>
+    s.payments
+      .map((p) => ({ ...p, share: subjectId ? p.items.filter((i) => i.subjectId === subjectId).reduce((a, i) => a + i.amount, 0) : p.amount }))
+      .filter((p) => p.share > 0);
+  const paidUntil = new Map(group.students.map((s) => [s.id, paidThrough(subjectPayments(s))]));
   const paid = group.students.filter((s) => {
     const until = paidUntil.get(s.id);
     return s.balance >= 0 && until != null && until >= monthStart;
@@ -192,7 +201,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
           <span className="chip c-mut"><span className="d" />{enrolled}</span>
         </div>
         <div className="table-wrap">
-          <table {...cardCols(["Ученик", "Телефон ученика", "Родитель", "Телефон родителя", "Посещ.", "Статус", showMoney && "Оплата", showMoney && "Последний платёж", showLinks && "Ссылки"])}>
+          <table {...cardCols(["Ученик", "Телефон ученика", "Родитель", "Телефон родителя", "Посещ.", "Статус", showMoney && "Оплата", showMoney && (group.subjectId ? "Оплата по предмету" : "Последний платёж"), showLinks && "Ссылки"])}>
             <thead>
               <tr>
                 <th>Ученик</th>
@@ -202,7 +211,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                 <th className="right">Посещ.</th>
                 <th>Статус</th>
                 {showMoney && <th>Оплата</th>}
-                {showMoney && <th>Последний платёж</th>}
+                {showMoney && <th>{group.subjectId ? "Оплата по предмету" : "Последний платёж"}</th>}
                 {showLinks && <th>Ссылки</th>}
               </tr>
             </thead>
@@ -218,9 +227,9 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                 const st = STUDENT_STATUS[s.status] ?? STUDENT_STATUS.ACTIVE;
                 const until = paidUntil.get(s.id) ?? null;
                 const covered = until != null && until >= monthStart;
-                // последний приход денег среди всех счетов ученика
-                const lastPay = s.payments
-                  .flatMap((p) => p.txs)
+                // последний приход денег по предмету группы: доля предмета, а не весь приход
+                const lastPay = subjectPayments(s)
+                  .flatMap((p) => p.txs.map((t) => ({ date: t.date, full: t.amount, amount: subjectShareOfTx(t.amount, p.amount, p.share) })))
                   .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null;
                 return (
                   <tr key={s.id}>
@@ -266,9 +275,14 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                             <>
                               <span className="num" style={{ fontWeight: 600, color: "var(--ok)" }}>{money(lastPay.amount)}</span>
                               <span style={{ marginLeft: 6 }}>{formatDate(lastPay.date)}</span>
+                              {lastPay.full !== lastPay.amount && (
+                                <div style={{ fontSize: 11 }} title="Счёт оплачивает несколько предметов — здесь доля предмета этой группы">
+                                  из {money(lastPay.full)} за все предметы
+                                </div>
+                              )}
                             </>
                           ) : (
-                            "оплат не было"
+                            subjectId ? "оплат по предмету не было" : "оплат не было"
                           )}
                         </td>
                       </>
