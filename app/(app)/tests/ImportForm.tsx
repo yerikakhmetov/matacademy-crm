@@ -15,12 +15,43 @@ export function ImportForm({
   subjects: { id: string; name: string }[];
 }) {
   const [src, setSrc] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const parsed = useMemo(() => (src.trim() ? parseTestSource(src) : null), [src]);
+
+  // Файл .tex читается прямо в браузере и подставляется в поле — копировать
+  // содержимое руками (тем более с телефона) не нужно. На сервер уходит тот же текст.
+  const onFile = async (f: File | undefined) => {
+    setFileError(null);
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) {
+      setFileError("Файл больше 2 МБ — это не похоже на исходник теста");
+      return;
+    }
+    if (!/\.(tex|txt)$/i.test(f.name)) {
+      setFileError("Нужен файл .tex (исходник LaTeX). PDF и Word пока не читаются");
+      return;
+    }
+    setSrc(await f.text());
+    setFileName(f.name);
+  };
 
   return (
     <>
       <div className="field">
         <label>Исходник (LaTeX)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+          <label className="btn ghost" style={{ cursor: "pointer" }}>
+            Выбрать файл .tex
+            <input type="file" accept=".tex,.txt,text/plain" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+          </label>
+          <span className="mut" style={{ fontSize: 12 }}>
+            {fileName ? `Загружен: ${fileName}` : "или вставьте текст ниже"}
+          </span>
+        </div>
+        {fileError && (
+          <div role="alert" style={{ fontSize: 12.5, color: "var(--bad-ink, var(--bad))", marginBottom: 6 }}>{fileError}</div>
+        )}
         <textarea
           name="source"
           value={src}
@@ -96,6 +127,20 @@ export function ImportForm({
               </span>
             )}
           </div>
+
+          {parsed.questions.length > 0 && (
+            // вся строка ответов — сверить с ключом на бумаге одним взглядом
+            <div className="mut" style={{ fontSize: 12, marginBottom: 8, wordBreak: "break-all" }}>
+              Ответы:{" "}
+              <b className="num" style={{ color: "var(--ink)", letterSpacing: ".04em" }}>
+                {parsed.questions
+                  .map((q) => LETTERS[q.correct])
+                  .join("")
+                  .replace(/(.{5})/g, "$1 ")
+                  .trim()}
+              </b>
+            </div>
+          )}
 
           {parsed.warnings.map((w, i) => (
             <div key={i} className="mut" style={{ fontSize: 12, color: "var(--warn)", marginBottom: 4 }}>
