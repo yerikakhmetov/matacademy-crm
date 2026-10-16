@@ -68,7 +68,8 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
         // Тест бірнеше топқа берілуі мүмкін — оқушының тобы солардың біріне кірсе көрінеді
         where: { groupLinks: { some: { groupId: { in: groupIds } } }, questions: { some: {} } },
         orderBy: { date: "desc" },
-        take: 12,
+        // 12 было мало: у группы за четверть набирается больше тестов, и старые пропадали из кабинета
+        take: 40,
         include: {
           _count: { select: { questions: true } },
           attempts: { where: { studentId }, select: { score: true, correctCount: true, total: true, finished: true } },

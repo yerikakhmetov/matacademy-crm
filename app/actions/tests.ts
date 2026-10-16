@@ -39,6 +39,9 @@ export async function importTest(formData: FormData) {
       date: await dateOrToday(formData.get("date")),
       shuffle: formData.get("shuffle") != null,
       timeLimitMin: limit > 0 ? limit : null,
+      // Ученики видят тест через привязку группы (TestGroup), а не через groupId.
+      // Без неё импортированный тест не появлялся в кабинете группы.
+      groupLinks: groupId ? { create: [{ groupId }] } : undefined,
       questions: {
         create: parsed.questions.map((q, i) => ({
           order: i,
