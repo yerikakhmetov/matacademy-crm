@@ -24,6 +24,7 @@ const TITLES: Record<string, string> = {
   "/payments": "Оплаты и счета",
   "/reminders": "Напоминания об оплате",
   "/makeups": "Отработки",
+  "/zachets": "Зачёты",
   "/payroll": "Зарплата преподавателей",
   "/expenses": "Расходы школы",
   "/my-salary": "Моя зарплата",

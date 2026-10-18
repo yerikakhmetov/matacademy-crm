@@ -30,6 +30,7 @@ const NAV_FULL: Item[] = [
   { href: "/tests", icon: "edit", label: "Тесты" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { href: "/zachets", icon: "check", label: "Зачёты" },
   { section: "Деньги" },
   { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
   { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
@@ -76,6 +77,7 @@ const NAV_CURATOR: Item[] = [
   { href: "/grades", icon: "chart", label: "Успеваемость" },
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
+  { href: "/zachets", icon: "check", label: "Зачёты" },
   { section: "Деньги" },
   { href: "/my-salary", icon: "money", label: "Моя зарплата" },
 ];

@@ -14,6 +14,7 @@ import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
 import { lessonsLeftAll } from "@/lib/payroll";
 import { leftKey } from "@/lib/packages";
+import { ZachetList } from "@/components/ZachetList";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,18 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
   if (!student) redirect("/login");
 
   const groupIds = student.groups.map((g) => g.id);
+
+  // Зачёты групп ученика с его отметкой: 15 последних (предстоящие и прошедшие)
+  const zachetRows = groupIds.length
+    ? (
+        await prisma.zachet.findMany({
+          where: { groupId: { in: groupIds } },
+          orderBy: { scheduledAt: "desc" },
+          take: 15,
+          include: { group: { select: { name: true } }, results: { where: { studentId: studentId }, select: { passed: true } } },
+        })
+      ).map((z) => ({ id: z.id, topic: z.topic, scheduledAt: z.scheduledAt, groupName: z.group.name, result: z.results[0] ?? null }))
+    : [];
   const homeworks = groupIds.length
     ? await prisma.homework.findMany({
         where: { groupId: { in: groupIds } },
@@ -467,6 +480,17 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
 
 {tab === "grades" && (
         <>
+        {/* Зачёты: тема, когда, сдал / не сдал */}
+        <div className="card">
+          <div className="card-h">
+            <h3>{t(locale, "zachet.title")}</h3>
+            <span className="chip c-mut"><span className="d" />{zachetRows.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            <ZachetList rows={zachetRows} tz={tz} locale={locale} />
+          </div>
+        </div>
+
       {progress.length >= 2 && (
         <div className="card">
           <div className="card-h">

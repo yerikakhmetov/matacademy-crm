@@ -140,6 +140,12 @@ const ru = {
 
   // портал родителя
   "portal.diary": "Дневник ученика",
+  "zachet.title": "Зачёты",
+  "zachet.empty": "Зачётов пока нет",
+  "zachet.passed": "Сдал",
+  "zachet.failed": "Не сдал",
+  "zachet.upcoming": "Предстоит",
+  "zachet.pending": "Ждёт отметки",
   "portal.helloParent": "Здравствуйте, {name}!",
   "portal.balance": "Баланс",
   "portal.noDebt": "Нет долга",
@@ -290,6 +296,12 @@ const kk: Record<MsgKey, string> = {
   "test.timeUp": "Уақыт бітті — нәтиже сақталған жауаптар бойынша есептелді.",
 
   "portal.diary": "Оқушының күнделігі",
+  "zachet.title": "Сынақтар (зачёт)",
+  "zachet.empty": "Әзірге сынақ жоқ",
+  "zachet.passed": "Тапсырды",
+  "zachet.failed": "Тапсырмады",
+  "zachet.upcoming": "Алда",
+  "zachet.pending": "Белгі күтілуде",
   "portal.helloParent": "Сәлеметсіз бе, {name}!",
   "portal.balance": "Баланс",
   "portal.noDebt": "Қарыз жоқ",

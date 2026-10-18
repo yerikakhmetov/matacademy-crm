@@ -19,6 +19,7 @@ import { getLocale } from "@/lib/locale";
 import { dayShort, t } from "@/lib/i18n";
 import { lessonsLeftBySubject } from "@/lib/payroll";
 import { BrandMark } from "@/components/BrandMark";
+import { ZachetList } from "@/components/ZachetList";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,18 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   const locale = await getLocale();
 
   const groupIds = student.groups.map((g) => g.id);
+
+  // Зачёты групп ученика с его отметкой: 15 последних (предстоящие и прошедшие)
+  const zachetRows = groupIds.length
+    ? (
+        await prisma.zachet.findMany({
+          where: { groupId: { in: groupIds } },
+          orderBy: { scheduledAt: "desc" },
+          take: 15,
+          include: { group: { select: { name: true } }, results: { where: { studentId: student.id }, select: { passed: true } } },
+        })
+      ).map((z) => ({ id: z.id, topic: z.topic, scheduledAt: z.scheduledAt, groupName: z.group.name, result: z.results[0] ?? null }))
+    : [];
 
   const homeworks = groupIds.length
     ? await prisma.homework.findMany({
@@ -191,6 +204,17 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 </dd>
               </dl>
             </div>
+          </div>
+        </div>
+
+        {/* Зачёты: тема, когда, сдал / не сдал */}
+        <div className="card">
+          <div className="card-h">
+            <h3>{t(locale, "zachet.title")}</h3>
+            <span className="chip c-mut"><span className="d" />{zachetRows.length}</span>
+          </div>
+          <div style={{ padding: "6px 0" }}>
+            <ZachetList rows={zachetRows} tz={settings.tzOffsetHours} locale={locale} />
           </div>
         </div>
 

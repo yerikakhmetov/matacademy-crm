@@ -92,7 +92,7 @@ async function main() {
     "/dashboard", "/audit", "/expenses", "/grades", "/groups", "/groups/start-dates", "/homework", "/journal",
     "/leads", "/makeups", "/materials", "/my-salary", "/my-students", "/payments", "/payments/daily", "/payroll",
     "/reminders", "/reports", "/schedule", "/search?q=а", "/settings", "/stats", "/students", "/subjects",
-    "/teachers", "/tests", "/users",
+    "/teachers", "/tests", "/users", "/zachets",
     ...(g ? [`/groups/${g.id}`] : []),
     ...(lead ? [`/leads/${lead.id}`] : []),
     ...(l ? [`/schedule/${l.id}`] : []),

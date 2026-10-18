@@ -113,6 +113,7 @@ model Group {
   grades    Grade[]
   tests       Test[]
   testLinks   TestGroup[]
+  zachets     Zachet[]
   createdAt DateTime  @default(now())
 }
 
@@ -144,6 +145,7 @@ model Student {
   homeworkDone      HomeworkDone[]
   testAttempts      TestAttempt[]
   makeups           Makeup[]
+  zachetResults     ZachetResult[]
   createdAt         DateTime       @default(now())
 }
 
@@ -613,4 +615,35 @@ model Expense {
   createdAt DateTime @default(now())
 
   @@index([date])
+}
+
+// Зачёт: куратор назначает группе зачёт (тема, дата и время) и отмечает каждого
+// ученика «сдал» / «не сдал». Результат видит родитель в своём портале и сам ученик.
+model Zachet {
+  id          String         @id @default(cuid())
+  groupId     String
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  topic       String
+  scheduledAt DateTime // момент начала (UTC); вводится по часам школы
+  note        String?
+  createdBy   String?
+  createdAt   DateTime       @default(now())
+  results     ZachetResult[]
+
+  @@index([groupId, scheduledAt])
+}
+
+model ZachetResult {
+  id        String   @id @default(cuid())
+  zachetId  String
+  zachet    Zachet   @relation(fields: [zachetId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  passed    Boolean // true — сдал, false — не сдал; нет записи — ещё не отмечен
+  comment   String?
+  markedBy  String?
+  markedAt  DateTime @default(now())
+
+  @@unique([zachetId, studentId])
+  @@index([studentId])
 }
