@@ -95,7 +95,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
             <thead>
               <tr>
                 <th>Ученик</th>
-                <th>Оценки (последние)</th>
+                <th>Оценки</th>
                 <th className="right">Средний</th>
                 {canManage && <th className="right"></th>}
               </tr>
@@ -126,7 +126,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                       </div>
                     </td>
                     <td>
-                      <GradeChips grades={s.grades.slice(0, 8)} canManage={canManage} />
+                      <GradeChips grades={s.grades} canManage={canManage} />
                     </td>
                     <td className="right num" style={{ fontWeight: 700, color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>
                       {avg != null ? `${avg}%` : "—"}

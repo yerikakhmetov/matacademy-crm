@@ -87,9 +87,9 @@ export default async function StudentDetail({
       : Promise.resolve([]),
     tab === "grades"
       ? prisma.grade.findMany({
+          // все оценки ученика: куратору и преподавателю нужна полная картина, не последние 30
           where: { studentId: id },
           orderBy: { date: "desc" },
-          take: 30,
           include: { group: { select: { name: true, subject: { select: { name: true } } } } },
         })
       : Promise.resolve([]),
