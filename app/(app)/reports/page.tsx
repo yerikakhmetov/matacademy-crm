@@ -12,6 +12,7 @@ import { isTeacher } from "@/lib/teacher";
 import { money, initials, avatarColor } from "@/lib/format";
 import { BarChart } from "@/components/BarChart";
 import { Icon } from "@/components/Icon";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -331,7 +332,7 @@ export default async function ReportsPage() {
             </span>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols(["Месяц", "Доход", "Зарплата", "Расходы", "Прибыль"])}>
               <thead>
                 <tr>
                   <th>Месяц</th>
@@ -376,7 +377,7 @@ export default async function ReportsPage() {
             <h3>Конверсия по источникам</h3>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols(["Источник", "Лидов", "Оплатили", "Конверсия"])}>
               <thead>
                 <tr>
                   <th>Источник</th>

@@ -10,6 +10,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { TestForm } from "./TestForm";
 import { ImportForm } from "./ImportForm";
 import { createTest, importTest } from "@/app/actions/tests";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function TestsPage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Тест", "Предмет", "Группа", "Дата", "Вопросы", "Введено", "Средний"])}>
             <thead>
               <tr>
                 <th>Тест</th>

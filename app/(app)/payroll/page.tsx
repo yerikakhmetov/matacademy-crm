@@ -9,6 +9,7 @@ import { money, initials, avatarColor } from "@/lib/format";
 import { gatherCuratorPayroll, gatherPayroll } from "@/lib/payroll";
 import { MonthSelect } from "./PayrollControls";
 import { PayrollLockButton } from "./PayrollLockButton";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -99,7 +100,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Преподаватель", "Учеников", "Оплач. занятий", "Начислено", "К выплате"])}>
             <thead>
               <tr>
                 <th>Преподаватель</th>
@@ -133,12 +134,14 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
                     </div>
                   </td>
                   <td className="right mut num">
-                    {students ?? "—"}
-                    {noFee > 0 && (
-                      <span className="chip c-bad" style={{ marginLeft: 6, padding: "1px 6px", fontSize: 10.5 }} title="Ходили на занятия сверх оплаченных — за них ничего не начислено">
-                        <span className="d" />{noFee} без оплаты
-                      </span>
-                    )}
+                    <span>
+                      {students ?? "—"}
+                      {noFee > 0 && (
+                        <span className="chip c-bad" style={{ marginLeft: 6, padding: "1px 6px", fontSize: 10.5 }} title="Ходили на занятия сверх оплаченных — за них ничего не начислено">
+                          <span className="d" />{noFee} без оплаты
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="right mut num">{lessons ?? "—"}</td>
                   <td className="right mut num">{money(base)}</td>
@@ -157,7 +160,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             <Link className="link" href={`/payroll?month=${sel.id}`}>Скрыть</Link>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols(["Ученик", "Группа", "Оплач. занятий", "К выплате"])}>
               <thead>
                 <tr>
                   <th>Ученик</th>
@@ -193,7 +196,7 @@ export default async function PayrollPage({ searchParams }: { searchParams: Prom
             <span className="mut" style={{ fontSize: 12.5 }}>{money(curatorTotal)} · общая ставка {money(settings.curatorRate)} с ученика</span>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols(["Куратор", "Учеников", "Оплач. мест", "По группам", "К выплате"])}>
               <thead>
                 <tr>
                   <th>Куратор</th>

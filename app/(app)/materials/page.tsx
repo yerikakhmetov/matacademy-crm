@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { Icon } from "@/components/Icon";
 import { MaterialUpload } from "./MaterialUpload";
 import { DeleteMaterialButton } from "./DeleteMaterialButton";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,7 @@ export default async function MaterialsPage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Материал", "Группа", "Загрузил", "Дата", ""])}>
             <thead>
               <tr>
                 <th>Материал</th>

@@ -9,6 +9,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { SubjectForm } from "./SubjectForm";
 import { DeleteSubjectButton } from "./DeleteSubjectButton";
 import { createSubject, updateSubject } from "@/app/actions/subjects";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export default async function SubjectsPage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Предмет", "Цена / месяц", "Занятий", "За занятие", "Ставка педагога", "Ставка куратора", "Статус", "В счетах", editor && ""])}>
             <thead>
               <tr>
                 <th>Предмет</th>
@@ -109,10 +110,10 @@ export default async function SubjectsPage() {
                   </td>
                   <td className="right num">
                     {s.teacherRate > 0 ? (
-                      <>
+                      <span>
                         <span style={{ fontWeight: 600 }}>{money(s.teacherRate)}</span>
                         <span className="mut"> / {s.teacherRateLessons} зан.</span>
-                      </>
+                      </span>
                     ) : (
                       <span className="mut" title="Зарплата считается по доле ученика">по доле</span>
                     )}

@@ -9,6 +9,7 @@ import Link from "next/link";
 import { LeadForm } from "./LeadForm";
 import { LeadCard } from "./LeadCard";
 import { createLead } from "@/app/actions/leads";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -95,7 +96,7 @@ export default async function LeadsPage() {
           <h3>Конверсия по источникам</h3>
         </div>
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Источник", "Всего лидов", "Оплатили", "Конверсия", "Доля"])}>
             <thead>
               <tr>
                 <th>Источник</th>

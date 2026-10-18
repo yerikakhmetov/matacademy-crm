@@ -8,6 +8,7 @@ import { UserForm } from "./UserForm";
 import { UserTelegram } from "./UserTelegram";
 import { DeleteUserButton } from "./DeleteUserButton";
 import { createUser, updateUser } from "@/app/actions/users";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export default async function UsersPage() {
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          <table {...cardCols(["Пользователь", "Email", "Роль", "Вход", "Создан", ""])}>
             <thead>
               <tr>
                 <th>Пользователь</th>
