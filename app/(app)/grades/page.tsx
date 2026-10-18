@@ -3,7 +3,10 @@ import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { getTeacherIdForUser, isTeacher } from "@/lib/teacher";
 import { curatorGroupIds, groupWhereFor, isCurator } from "@/lib/curator";
-import { initials, avatarColor, scoreColor } from "@/lib/format";
+import { initials, avatarColor, scoreColor, GRADE_TYPE } from "@/lib/format";
+import { getSettings } from "@/lib/settings";
+import { lastSchoolMonths, schoolClock } from "@/lib/school-time";
+import { cardCols } from "@/lib/card-table";
 import { ModalButton } from "@/components/ModalButton";
 import { GradeForm } from "./GradeForm";
 import { GroupSelect } from "./GroupSelect";
@@ -12,7 +15,19 @@ import { addGrade } from "@/app/actions/grades";
 
 export const dynamic = "force-dynamic";
 
-export default async function GradesPage({ searchParams }: { searchParams: Promise<{ group?: string }> }) {
+const MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
+const TYPE_PLURAL: Record<string, string> = {
+  HOMEWORK: "Домашние",
+  TEST: "Контрольные",
+  QUIZ: "Самостоятельные",
+  EXAM: "Экзамены",
+};
+
+export default async function GradesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ group?: string; month?: string; type?: string }>;
+}) {
   const sp = await searchParams;
   const session = await auth();
   const teacher = isTeacher(session?.user?.role);
@@ -45,6 +60,21 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
   }
 
   const groupId = sp.group && groups.some((g) => g.id === sp.group) ? sp.group : groups[0].id;
+
+  // Месяц: «2026-9» (month0) или «all»; по умолчанию — текущий месяц школы.
+  const tz = (await getSettings()).tzOffsetHours;
+  const monthList = lastSchoolMonths(12, tz).reverse();
+  const nowKey = (() => {
+    const c = schoolClock(tz);
+    return `${c.getUTCFullYear()}-${c.getUTCMonth()}`;
+  })();
+  const month = sp.month === "all" || monthList.some((m) => m.key === sp.month) ? sp.month! : nowKey;
+  const picked = monthList.find((m) => m.key === month);
+  const type = sp.type && sp.type in GRADE_TYPE ? sp.type : "all";
+  // даты оценок хранятся UTC-полночью, поэтому границы месяца — тоже UTC
+  const dateWhere = picked
+    ? { gte: new Date(Date.UTC(picked.year, picked.month0, 1)), lt: new Date(Date.UTC(picked.year, picked.month0 + 1, 1)) }
+    : undefined;
   const group = await prisma.group.findUnique({
     where: { id: groupId },
     include: {
@@ -53,7 +83,7 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         orderBy: { name: "asc" },
         // только оценки этой группы: ученик может заниматься в нескольких,
         // и раньше его чужие оценки показывались здесь же
-        include: { grades: { where: { groupId }, orderBy: { date: "desc" } } },
+        include: { grades: { where: { groupId, date: dateWhere, ...(type !== "all" ? { type } : {}) }, orderBy: { date: "desc" } } },
       },
     },
   });
@@ -70,13 +100,14 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
         <div>
           <h1>Успеваемость</h1>
           <p>
-            {group.name} · {group.teacher?.name ?? "без преподавателя"}
+            {group.name} · {group.teacher?.name ?? "без преподавателя"} · {picked ? `${MONTHS[picked.month0]} ${picked.year}` : "всё время"}
+            {type !== "all" ? ` · ${TYPE_PLURAL[type].toLowerCase()}` : ""}
           </p>
         </div>
         {groupAvg != null && (
           <div style={{ textAlign: "right" }}>
             <div className="mut" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".05em", fontWeight: 600 }}>
-              Средний балл группы
+              {type === "HOMEWORK" ? "Средний балл за ДЗ" : "Средний балл группы"}
             </div>
             <div className="kval num" style={{ fontSize: 26, color: scoreColor(groupAvg) }}>
               {groupAvg}%
@@ -86,12 +117,23 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
       </div>
 
       <div className="toolbar">
-        <GroupSelect groups={groups} groupId={groupId} />
+        <GroupSelect
+          groups={groups}
+          groupId={groupId}
+          months={[
+            ...monthList.map((m) => ({ key: m.key, label: `${MONTHS[m.month0]} ${m.year}` })),
+            { key: "all", label: "Все месяцы" },
+          ]}
+          month={month}
+          types={[{ key: "all", label: "Все виды оценок" }, ...Object.entries(TYPE_PLURAL).map(([key, label]) => ({ key, label }))]}
+          type={type}
+        />
       </div>
 
       <div className="card">
         <div className="table-wrap">
-          <table>
+          {/* на телефоне — карточка ученика: имя, оценки во всю ширину, средний, кнопка */}
+          <table {...cardCols(["Ученик", "", "Средний", canManage && ""])}>
             <thead>
               <tr>
                 <th>Ученик</th>
@@ -125,11 +167,18 @@ export default async function GradesPage({ searchParams }: { searchParams: Promi
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td className="td-wide">
                       <GradeChips grades={s.grades} canManage={canManage} />
                     </td>
                     <td className="right num" style={{ fontWeight: 700, color: avg != null ? scoreColor(avg) : "var(--ink-3)" }}>
-                      {avg != null ? `${avg}%` : "—"}
+                      <span>
+                        {avg != null ? `${avg}%` : "—"}
+                        {s.grades.length > 0 && (
+                          <span className="mut" style={{ fontSize: 11, fontWeight: 500, marginLeft: 6 }}>
+                            {s.grades.length} оц.
+                          </span>
+                        )}
+                      </span>
                     </td>
                     {canManage && (
                       <td className="right">

@@ -477,6 +477,8 @@ select.filter{appearance:none;-webkit-appearance:none;cursor:pointer;background-
   .table-wrap table.mcards td:first-child{display:block;text-align:left;padding-bottom:6px}
   .table-wrap table.mcards td[colspan]{display:block;text-align:center}
   .table-wrap table.mcards td.td-text{min-width:0}
+  /* широкая ячейка (оценки): на всю ширину карточки, без подписи */
+  .table-wrap table.mcards td.td-wide{display:block;text-align:left}
 }
 
 /* Портал родителя: 3 показателя в ряд, на телефоне — 2, баланс отдельной строкой */

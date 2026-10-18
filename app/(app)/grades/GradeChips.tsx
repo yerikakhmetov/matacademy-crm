@@ -12,7 +12,7 @@ const dm = (d: Date) => `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.g
 export function GradeChips({ grades, canManage }: { grades: G[]; canManage: boolean }) {
   const [pending, start] = useTransition();
 
-  if (grades.length === 0) return <span className="mut" style={{ fontSize: 12.5 }}>оценок пока нет</span>;
+  if (grades.length === 0) return <span className="mut" style={{ fontSize: 12.5 }}>нет оценок за этот период</span>;
 
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
