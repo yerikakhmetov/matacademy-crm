@@ -7,7 +7,8 @@ import { canEditData } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { getSettings, renderTemplate, DEFAULT_TEMPLATES } from "@/lib/settings";
 import { notifyParent, notifyStudentsDirect } from "@/lib/notify";
-import { assertCanManageGroup, assertStudentInGroup, int, parseDate, str, dateOrToday } from "./_shared";
+import { assertCanManageGroup, assertStudentInGroup, int, parseDate, str, dateOrToday, UserError, asResult } from "./_shared";
+import { parseBulkScores } from "@/lib/grade-bulk";
 
 // ---------- Оценки ----------
 // Ставить оценку может админ/менеджер или учитель группы ученика.
@@ -77,4 +78,61 @@ export async function deleteGrade(id: string) {
   await logAudit("DELETE", "Оценка", `${grade.score}/${grade.maxScore} · ${grade.topic}`);
   revalidatePath("/grades");
   revalidatePath(`/students/${grade.studentId}`);
+}
+
+// Оценки всей группе за раз (например, ДЗ): тема, вид, дата и максимум общие,
+// балл — у каждого ученика в поле «score_<id>». Пустое поле — ученик пропущен.
+export async function addGradesBulk(groupId: string, formData: FormData) {
+  return asResult(async () => {
+    const session = await assertCanManageGroup(groupId);
+    const group = await prisma.group.findUnique({
+      where: { id: groupId },
+      select: { students: { select: { id: true, name: true } } },
+    });
+    if (!group) throw new UserError("Группа не найдена");
+    const topic = str(formData.get("topic"));
+    if (!topic) throw new UserError("Укажите, за что оценки");
+    const type = str(formData.get("type")) || "HOMEWORK";
+    const maxScore = Math.max(1, int(formData.get("maxScore")) || 10);
+    const raw: Record<string, string> = {};
+    for (const s of group.students) raw[s.id] = String(formData.get(`score_${s.id}`) ?? "");
+    const { scores, error } = parseBulkScores(raw, group.students, maxScore);
+    if (error) throw new UserError(error);
+    if (scores.length === 0) throw new UserError("Введите балл хотя бы одному ученику");
+
+    const date = await dateOrToday(formData.get("date"));
+    await prisma.grade.createMany({
+      data: scores.map((x) => ({
+        studentId: x.studentId,
+        groupId,
+        topic,
+        type,
+        score: x.score,
+        maxScore,
+        date,
+        createdBy: session.user?.name ?? null,
+      })),
+    });
+    await logAudit("CREATE", "Оценка", `${topic} · группе, ${scores.length} уч.`);
+
+    const st = await getSettings();
+    if (st.notifyGrade) {
+      const names = new Map(group.students.map((s) => [s.id, s.name]));
+      await Promise.allSettled(
+        scores.map(async (x) => {
+          const text = renderTemplate(st.tplGrade || DEFAULT_TEMPLATES.grade, {
+            school: st.schoolName,
+            name: names.get(x.studentId) ?? "",
+            topic,
+            score: x.score,
+            max: maxScore,
+            pct: Math.round((x.score / maxScore) * 100),
+          });
+          await notifyParent(x.studentId, text);
+          if (st.notifyStudent) await notifyStudentsDirect([x.studentId], text);
+        }),
+      );
+    }
+    revalidatePath("/grades");
+  });
 }

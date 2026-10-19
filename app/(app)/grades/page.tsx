@@ -8,10 +8,10 @@ import { getSettings } from "@/lib/settings";
 import { lastSchoolMonths, schoolClock } from "@/lib/school-time";
 import { cardCols } from "@/lib/card-table";
 import { ModalButton } from "@/components/ModalButton";
-import { GradeForm } from "./GradeForm";
+import { BulkGradeForm, GradeForm } from "./GradeForm";
 import { GroupSelect } from "./GroupSelect";
 import { GradeChips } from "./GradeChips";
-import { addGrade } from "@/app/actions/grades";
+import { addGrade, addGradesBulk } from "@/app/actions/grades";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +117,17 @@ export default async function GradesPage({
       </div>
 
       <div className="toolbar">
+        {canManage && group.students.length > 0 && (
+          <ModalButton
+            label="Оценки группе"
+            title={`Оценки группе · ${group.name}`}
+            icon="plus"
+            action={addGradesBulk.bind(null, group.id)}
+            submitLabel="Поставить"
+          >
+            <BulkGradeForm students={group.students.map((s) => ({ id: s.id, name: s.name }))} />
+          </ModalButton>
+        )}
         <GroupSelect
           groups={groups}
           groupId={groupId}
