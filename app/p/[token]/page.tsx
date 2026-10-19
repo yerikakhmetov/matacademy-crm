@@ -20,6 +20,7 @@ import { dayShort, t } from "@/lib/i18n";
 import { lessonsLeftBySubject } from "@/lib/payroll";
 import { BrandMark } from "@/components/BrandMark";
 import { ZachetList } from "@/components/ZachetList";
+import { cardCols } from "@/lib/card-table";
 
 export const dynamic = "force-dynamic";
 
@@ -283,7 +284,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             <span className="chip c-mut"><span className="d" />{student.grades.length}</span>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols([t(locale, "portal.forWhat"), t(locale, "portal.type"), t(locale, "portal.date"), t(locale, "portal.grade")])}>
               <thead>
                 <tr>
                   <th>{t(locale, "portal.forWhat")}</th>
@@ -351,7 +352,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             <h3>{t(locale, "portal.payments")}</h3>
           </div>
           <div className="table-wrap">
-            <table>
+            <table {...cardCols([t(locale, "portal.purpose"), t(locale, "portal.date"), t(locale, "portal.status"), t(locale, "portal.sum")])}>
               <thead>
                 <tr>
                   <th>{t(locale, "portal.purpose")}</th>
