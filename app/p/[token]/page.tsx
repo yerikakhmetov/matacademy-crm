@@ -8,7 +8,6 @@ import {
   formatDate,
   scoreColor,
   gradeChipClass,
-  GRADE_TYPE,
   PAYMENT_STATUS,
 } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -16,7 +15,8 @@ import { Avatar } from "@/components/Avatar";
 import { BarChart } from "@/components/BarChart";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
-import { dayShort, t } from "@/lib/i18n";
+import { dayShort, gradeTypeLabel, t } from "@/lib/i18n";
+import { GradeMonthSummary } from "@/components/GradeMonthSummary";
 import { lessonsLeftBySubject } from "@/lib/payroll";
 import { BrandMark } from "@/components/BrandMark";
 import { ZachetList } from "@/components/ZachetList";
@@ -283,6 +283,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
             <h3>{t(locale, "cabinet.grades")}</h3>
             <span className="chip c-mut"><span className="d" />{student.grades.length}</span>
           </div>
+          <GradeMonthSummary studentId={student.id} tz={settings.tzOffsetHours} locale={locale} />
           <div className="table-wrap">
             <table {...cardCols([t(locale, "portal.forWhat"), t(locale, "portal.type"), t(locale, "portal.date"), t(locale, "portal.grade")])}>
               <thead>
@@ -309,7 +310,7 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                           </div>
                         )}
                       </td>
-                      <td className="mut">{GRADE_TYPE[g.type] ?? g.type}</td>
+                      <td className="mut">{gradeTypeLabel(locale, g.type)}</td>
                       <td className="mut">{formatDate(g.date)}</td>
                       <td className="right">
                         <span className={`chip ${gradeChipClass(pct)}`}><span className="d" />{g.score}/{g.maxScore}</span>

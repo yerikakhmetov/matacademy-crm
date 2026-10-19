@@ -77,6 +77,17 @@ const ru = {
   "cabinet.lastN": "последние {n}",
   "cabinet.progressNote": "Результаты по оценкам в процентах — от старых к новым.",
   "cabinet.grades": "Оценки",
+  "grade.HOMEWORK": "Домашняя",
+  "grade.TEST": "Контрольная",
+  "grade.QUIZ": "Самостоятельная",
+  "grade.EXAM": "Экзамен",
+  "grade.HOMEWORK_pl": "Домашние задания",
+  "grade.TEST_pl": "Контрольные",
+  "grade.QUIZ_pl": "Самостоятельные",
+  "grade.EXAM_pl": "Экзамены",
+  "grade.thisMonth": "В этом месяце",
+  "grade.count": "{n} оц.",
+  "grade.noneThisMonth": "В этом месяце оценок пока нет",
   "cabinet.noGrades": "Оценок пока нет",
   "cabinet.attendanceByLesson": "Посещаемость по занятиям",
   "cabinet.present": "Был",
@@ -236,6 +247,17 @@ const kk: Record<MsgKey, string> = {
   "cabinet.lastN": "соңғы {n}",
   "cabinet.progressNote": "Бағалар пайызбен — ескісінен жаңасына қарай.",
   "cabinet.grades": "Бағалар",
+  "grade.HOMEWORK": "Үй жұмысы",
+  "grade.TEST": "Бақылау жұмысы",
+  "grade.QUIZ": "Өзіндік жұмыс",
+  "grade.EXAM": "Емтихан",
+  "grade.HOMEWORK_pl": "Үй жұмыстары",
+  "grade.TEST_pl": "Бақылау жұмыстары",
+  "grade.QUIZ_pl": "Өзіндік жұмыстар",
+  "grade.EXAM_pl": "Емтихандар",
+  "grade.thisMonth": "Осы айда",
+  "grade.count": "{n} баға",
+  "grade.noneThisMonth": "Осы айда әзірге баға жоқ",
   "cabinet.noGrades": "Баға әлі қойылмаған",
   "cabinet.attendanceByLesson": "Сабақтар бойынша қатысу",
   "cabinet.present": "Келді",
@@ -341,6 +363,12 @@ const DAY_SHORT: Record<Locale, string[]> = {
 
 export function dayShort(locale: Locale, dayOfWeek: number): string {
   return DAY_SHORT[locale][dayOfWeek] ?? DAY_SHORT[DEFAULT_LOCALE][dayOfWeek] ?? "";
+}
+
+// Вид оценки на языке страницы; неизвестный тип — как есть.
+export function gradeTypeLabel(locale: Locale, type: string, plural = false): string {
+  const key = `grade.${type}${plural ? "_pl" : ""}`;
+  return key in DICT[locale] ? t(locale, key as MsgKey) : type;
 }
 
 export function t(locale: Locale, key: MsgKey, vars?: Record<string, string | number>): string {

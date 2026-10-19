@@ -78,6 +78,30 @@ export const GRADE_TYPE: Record<string, string> = {
   EXAM: "Экзамен",
 };
 
+// Итоги месяца по видам оценок: средний процент и число оценок.
+// Даты оценок — UTC-полночь, поэтому месяц берём по UTC. Порядок — как в GRADE_TYPE_ORDER.
+export const GRADE_TYPE_ORDER = ["HOMEWORK", "TEST", "QUIZ", "EXAM"];
+
+export function gradeMonthSummary(
+  grades: { type: string; score: number; maxScore: number; date: Date }[],
+  year: number,
+  month0: number,
+): { type: string; avg: number; count: number }[] {
+  const by = new Map<string, { sum: number; count: number }>();
+  for (const g of grades) {
+    const d = new Date(g.date);
+    if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month0 || g.maxScore <= 0) continue;
+    const a = by.get(g.type) ?? { sum: 0, count: 0 };
+    a.sum += (g.score / g.maxScore) * 100;
+    a.count += 1;
+    by.set(g.type, a);
+  }
+  const rank = (t: string) => (GRADE_TYPE_ORDER.includes(t) ? GRADE_TYPE_ORDER.indexOf(t) : 99);
+  return [...by.entries()]
+    .sort((a, b) => rank(a[0]) - rank(b[0]))
+    .map(([type, a]) => ({ type, avg: Math.round(a.sum / a.count), count: a.count }));
+}
+
 // Цвет по проценту (для оценок и посещаемости)
 // Шкала оценок: 85+ — отлично, 60–84 — нормально, ниже 60 — тревожно.
 // Раньше красным было всё ниже 70: 67/100 выглядело как провал и пугало родителей.

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { getStudentIdForUser } from "@/lib/teacher";
-import { formatDate, scoreColor, gradeChipClass, GRADE_TYPE } from "@/lib/format";
+import { formatDate, scoreColor, gradeChipClass } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { Icon } from "@/components/Icon";
 import { BarChart } from "@/components/BarChart";
@@ -11,7 +11,8 @@ import { CabinetHomework } from "./CabinetHomework";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/locale";
-import { dayShort, t } from "@/lib/i18n";
+import { dayShort, gradeTypeLabel, t } from "@/lib/i18n";
+import { GradeMonthSummary } from "@/components/GradeMonthSummary";
 import { lessonsLeftAll } from "@/lib/payroll";
 import { leftKey } from "@/lib/packages";
 import { ZachetList } from "@/components/ZachetList";
@@ -508,6 +509,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
 
       <div className="card">
         <div className="card-h"><h3>{t(locale, "cabinet.grades")}</h3></div>
+        <GradeMonthSummary studentId={studentId} tz={tz} locale={locale} />
         <div style={{ padding: "6px 0" }}>
           {student.grades.length === 0 && <div className="empty">{t(locale, "cabinet.noGrades")}</div>}
           {student.grades.map((g) => {
@@ -517,7 +519,7 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{g.topic}</div>
                   <div className="mut" style={{ fontSize: 12 }}>
-                    {[g.group?.subject?.name ?? g.group?.name, GRADE_TYPE[g.type] ?? g.type, formatDate(g.date)]
+                    {[g.group?.subject?.name ?? g.group?.name, gradeTypeLabel(locale, g.type), formatDate(g.date)]
                       .filter(Boolean)
                       .join(" · ")}
                   </div>
