@@ -63,6 +63,8 @@ export const DEFAULT_TEMPLATES = {
   grade: "{school}: у {name} новая оценка — «{topic}»: {score} из {max} ({pct}%).",
   homework: "{school}: новое домашнее задание по группе {group} — «{title}»{due}.",
   cancel: "{school}: занятие группы {group} {date} не состоится. {reason}",
+  zachet: "{school}: в группе {group} назначен зачёт — «{topic}», {date} в {time}.{note}",
+  zachetResult: "{school}: {name} — зачёт «{topic}»: {result}.",
 };
 
 export function renderTemplate(tpl: string, vars: Record<string, string | number>): string {

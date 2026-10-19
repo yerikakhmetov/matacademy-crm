@@ -39,6 +39,9 @@ export async function updateSettings(formData: FormData) {
     tplGrade: String(formData.get("tplGrade") ?? "").trim(),
     tplHomework: String(formData.get("tplHomework") ?? "").trim(),
     tplCancel: String(formData.get("tplCancel") ?? "").trim(),
+    notifyZachet: formData.get("notifyZachet") != null,
+    tplZachet: String(formData.get("tplZachet") ?? "").trim(),
+    tplZachetResult: String(formData.get("tplZachetResult") ?? "").trim(),
     notifyStudent: formData.get("notifyStudent") != null,
     lessonDurationMin: Math.min(600, Math.max(5, int(formData.get("lessonDurationMin")) || 60)),
   };

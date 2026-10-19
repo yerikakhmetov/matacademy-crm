@@ -520,9 +520,12 @@ model Settings {
   notifyGrade    Boolean @default(false) // авто-уведомление родителю о новой оценке
   notifyHomework Boolean @default(false) // авто-уведомление о новом ДЗ
   notifyCancel   Boolean @default(false) // авто-уведомление об отмене занятия
+  notifyZachet   Boolean @default(false) // авто-уведомление о назначенном зачёте и его итоге
   tplGrade       String  @default("")
   tplHomework    String  @default("")
   tplCancel      String  @default("")
+  tplZachet      String  @default("")
+  tplZachetResult String @default("")
   updatedAt  DateTime @updatedAt
 }
 

@@ -202,6 +202,19 @@ export default async function SettingsPage() {
             <span className="mut" style={{ fontSize: 11.5 }}>Плейсхолдеры: {"{school} {group} {date} {reason}"}</span>
           </div>
 
+          <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)", marginBottom: 8 }}>
+            <input type="checkbox" name="notifyZachet" defaultChecked={s.notifyZachet} />
+            Зачёт: назначен и итог «сдал / не сдал»
+          </label>
+          <div className="field" style={{ marginBottom: 8 }}>
+            <textarea name="tplZachet" rows={2} defaultValue={s.tplZachet} placeholder={DEFAULT_TEMPLATES.zachet} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+            <span className="mut" style={{ fontSize: 11.5 }}>Назначен или перенесён. Плейсхолдеры: {"{school} {group} {topic} {date} {time} {note}"}</span>
+          </div>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <textarea name="tplZachetResult" rows={2} defaultValue={s.tplZachetResult} placeholder={DEFAULT_TEMPLATES.zachetResult} style={{ resize: "vertical", fontFamily: "var(--font-manrope)" }} />
+            <span className="mut" style={{ fontSize: 11.5 }}>Итог. Плейсхолдеры: {"{school} {name} {topic} {result}"} — «сдан» или «не сдан»</span>
+          </div>
+
           <label style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 13.5, fontWeight: 600, color: "var(--ink-2)" }}>
             <input type="checkbox" name="notifyStudent" defaultChecked={s.notifyStudent} />
             Дублировать эти уведомления самому ученику
