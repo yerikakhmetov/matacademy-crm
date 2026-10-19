@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { frequentAbsentees } from "./curator-home.ts";
+import { frequentAbsentees, lowHomework } from "./curator-home.ts";
 
 const m = (studentId: string, present: boolean, excused = false) => ({ studentId, present, excused });
 
@@ -22,4 +22,18 @@ test("уважительные пропуски считаются, но про�
 test("порог настраивается, пусто — пустой список", () => {
   assert.equal(frequentAbsentees([m("a", false)], 1).length, 1);
   assert.deepEqual(frequentAbsentees([]), []);
+});
+
+test("слабые ДЗ: средний по домашним ниже порога, другие виды оценок не считаются", () => {
+  const g = (studentId: string, type: string, score: number, maxScore = 100) => ({ studentId, type, score, maxScore });
+  const r = lowHomework([
+    g("a", "HOMEWORK", 50), g("a", "HOMEWORK", 60), // 55
+    g("b", "HOMEWORK", 3, 10), // 30
+    g("c", "HOMEWORK", 90), g("c", "TEST", 10), // контрольная не тянет вниз
+    g("d", "TEST", 20), // нет ДЗ — не в списке
+  ]);
+  assert.deepEqual(r, [
+    { studentId: "b", avg: 30, count: 1 },
+    { studentId: "a", avg: 55, count: 2 },
+  ]);
 });

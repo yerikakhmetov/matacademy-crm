@@ -6,7 +6,7 @@ import { money } from "@/lib/format";
 import { getSettings } from "@/lib/settings";
 import { gatherCuratorPayroll } from "@/lib/payroll";
 import { lessonStatus, type LessonStatus } from "@/lib/teacher-today";
-import { frequentAbsentees } from "@/lib/curator-home";
+import { frequentAbsentees, lowHomework } from "@/lib/curator-home";
 import { cachedPackageAlerts, packageItemText } from "@/lib/reminders";
 import { utcToSchoolParts, zachetAgenda } from "@/lib/zachet";
 
@@ -47,7 +47,7 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
   const todayIds = todayLessons.map((l) => l.id);
 
-  const [markedRows, cancelledRows, recentMarks, payroll, zachetRows] = await Promise.all([
+  const [markedRows, cancelledRows, recentMarks, payroll, zachetRows, hwGrades] = await Promise.all([
     todayIds.length
       ? prisma.attendance.findMany({ where: { lessonId: { in: todayIds }, date: todayDate }, select: { lessonId: true }, distinct: ["lessonId"] })
       : Promise.resolve([]),
@@ -72,6 +72,15 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
         results: { select: { studentId: true, passed: true } },
       },
     }),
+    // оценки за ДЗ в его группах за текущий месяц (даты оценок — UTC-полночь)
+    prisma.grade.findMany({
+      where: {
+        type: "HOMEWORK",
+        group: { curatorId: userId },
+        date: { gte: new Date(Date.UTC(schoolNow.getUTCFullYear(), schoolNow.getUTCMonth(), 1)) },
+      },
+      select: { studentId: true, type: true, score: true, maxScore: true },
+    }),
   ]);
   const marked = new Set(markedRows.map((r) => r.lessonId));
   const cancelled = new Set(cancelledRows.map((r) => r.lessonId));
@@ -94,6 +103,8 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
   const ending = (await cachedPackageAlerts())
     .map((r) => ({ ...r, items: r.items.filter((it) => mySubjects.get(r.studentId)?.has(it.subjectId)) }))
     .filter((r) => r.items.length > 0);
+
+  const weakHw = lowHomework(hwGrades).filter((r) => studentById.has(r.studentId));
 
   const zachets = zachetAgenda(zachetRows.map((z) => ({ ...z, studentIds: z.group.students.map((x) => x.id) })));
   const zWhen = (d: Date) => {
@@ -187,6 +198,31 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
                       <div className="mut" style={{ fontSize: 12 }}>
                         {s.groupName} · пропусков: {a.missed}
                         {a.unexcused > 0 ? `, без причины: ${a.unexcused}` : ""}
+                      </div>
+                    </div>
+                    <ReminderActions phone={s.parentPhone} message={msg} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="card">
+            <div className="card-h">
+              <h3>Низкий балл за ДЗ</h3>
+              <Link className="link" href="/grades?type=HOMEWORK">Все ДЗ →</Link>
+            </div>
+            <div style={{ padding: "6px 0" }}>
+              {weakHw.length === 0 && <div className="empty">В этом месяце ни у кого средний за ДЗ не ниже 60%</div>}
+              {weakHw.map((r) => {
+                const s = studentById.get(r.studentId)!;
+                const msg = `Здравствуйте! У ${s.name} в этом месяце средний балл за домашние задания — ${r.avg}% (${r.count} оценок). Давайте вместе проследим, чтобы задания выполнялись. Если нужна помощь — напишите нам.`;
+                return (
+                  <div className="list-row attn-row" key={r.studentId}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Link href={`/students/${r.studentId}?tab=grades`} style={{ fontWeight: 600, color: "inherit" }}>{s.name}</Link>
+                      <div className="mut" style={{ fontSize: 12 }}>
+                        {s.groupName} · ДЗ в среднем <b style={{ color: "var(--bad)" }}>{r.avg}%</b> · оценок: {r.count}
                       </div>
                     </div>
                     <ReminderActions phone={s.parentPhone} message={msg} />
