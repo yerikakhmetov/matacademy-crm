@@ -8,6 +8,7 @@ import { gatherCuratorPayroll } from "@/lib/payroll";
 import { lessonStatus, type LessonStatus } from "@/lib/teacher-today";
 import { frequentAbsentees } from "@/lib/curator-home";
 import { cachedPackageAlerts, packageItemText } from "@/lib/reminders";
+import { utcToSchoolParts, zachetAgenda } from "@/lib/zachet";
 
 const STATUS_CHIP: Record<LessonStatus, { cls: string; label: string }> = {
   marked: { cls: "c-ok", label: "Отмечено" },
@@ -46,7 +47,7 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
   const todayIds = todayLessons.map((l) => l.id);
 
-  const [markedRows, cancelledRows, recentMarks, payroll] = await Promise.all([
+  const [markedRows, cancelledRows, recentMarks, payroll, zachetRows] = await Promise.all([
     todayIds.length
       ? prisma.attendance.findMany({ where: { lessonId: { in: todayIds }, date: todayDate }, select: { lessonId: true }, distinct: ["lessonId"] })
       : Promise.resolve([]),
@@ -60,6 +61,17 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
         })
       : Promise.resolve([]),
     gatherCuratorPayroll(schoolNow.getUTCFullYear(), schoolNow.getUTCMonth(), settings.curatorRate),
+    // зачёты его групп за последние 60 дней и впереди — для карточки «Зачёты»
+    prisma.zachet.findMany({
+      where: { group: { curatorId: userId }, scheduledAt: { gte: new Date(Date.now() - 60 * 86_400_000) } },
+      select: {
+        id: true,
+        topic: true,
+        scheduledAt: true,
+        group: { select: { name: true, students: { where: { status: "ACTIVE" }, select: { id: true } } } },
+        results: { select: { studentId: true, passed: true } },
+      },
+    }),
   ]);
   const marked = new Set(markedRows.map((r) => r.lessonId));
   const cancelled = new Set(cancelledRows.map((r) => r.lessonId));
@@ -82,6 +94,12 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
   const ending = (await cachedPackageAlerts())
     .map((r) => ({ ...r, items: r.items.filter((it) => mySubjects.get(r.studentId)?.has(it.subjectId)) }))
     .filter((r) => r.items.length > 0);
+
+  const zachets = zachetAgenda(zachetRows.map((z) => ({ ...z, studentIds: z.group.students.map((x) => x.id) })));
+  const zWhen = (d: Date) => {
+    const p = utcToSchoolParts(d, tz);
+    return `${p.date.slice(8, 10)}.${p.date.slice(5, 7)} · ${p.time}`;
+  };
 
   const myRow = payroll.get(userId);
   const allStudents = new Set(groups.flatMap((g) => g.students.map((s) => s.id)));
@@ -180,6 +198,36 @@ export async function CuratorDashboard({ userId, name }: { userId: string; name?
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="card">
+            <div className="card-h">
+              <h3>Зачёты</h3>
+              <Link className="link" href="/zachets">Все →</Link>
+            </div>
+            <div style={{ padding: "6px 0" }}>
+              {zachets.toMark.length === 0 && zachets.upcoming.length === 0 && (
+                <div className="empty">На неделю зачётов нет, все прошедшие отмечены</div>
+              )}
+              {zachets.toMark.map((z) => (
+                <Link href={`/zachets/${z.id}`} className="list-row" key={z.id} style={{ textDecoration: "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{z.topic}</div>
+                    <div className="mut" style={{ fontSize: 12 }}>{z.group.name} · {zWhen(z.scheduledAt)}</div>
+                  </div>
+                  <span className="chip c-warn"><span className="d" />отметить {z.summary.unmarked}</span>
+                </Link>
+              ))}
+              {zachets.upcoming.map((z) => (
+                <Link href={`/zachets/${z.id}`} className="list-row" key={z.id} style={{ textDecoration: "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600 }}>{z.topic}</div>
+                    <div className="mut" style={{ fontSize: 12 }}>{z.group.name} · {zWhen(z.scheduledAt)}</div>
+                  </div>
+                  <span className="chip c-mut"><span className="d" />впереди</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {ending.length > 0 && (
             <div className="card">
               <div className="card-h">

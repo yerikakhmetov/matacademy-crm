@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { schoolDateTimeToUtc, utcToSchoolParts, zachetStatus, zachetSummary } from "./zachet.ts";
+import { schoolDateTimeToUtc, utcToSchoolParts, zachetStatus, zachetSummary, zachetAgenda } from "./zachet.ts";
 
 test("дата и время по часам школы → момент UTC и обратно", () => {
   const at = schoolDateTimeToUtc("2026-10-20", "15:30", 5)!;
@@ -32,4 +32,28 @@ test("сводка по группе", () => {
     { studentId: "x", passed: true }, // ушёл из группы — не считается
   ]);
   assert.deepEqual(s, { passed: 1, failed: 1, unmarked: 2, total: 4 });
+});
+
+test("повестка куратора: ближайшие за неделю и прошедшие без отметок", () => {
+  const now = new Date("2026-10-19T06:00:00Z");
+  const z = (id: string, at: string, studentIds: string[], marked: string[] = []) => ({
+    id,
+    scheduledAt: new Date(at),
+    studentIds,
+    results: marked.map((studentId) => ({ studentId, passed: true })),
+  });
+  const { upcoming, toMark } = zachetAgenda(
+    [
+      z("later", "2026-10-30T10:00:00Z", ["a"]), // дальше недели — не показываем
+      z("soon2", "2026-10-22T10:00:00Z", ["a"]),
+      z("soon1", "2026-10-20T10:00:00Z", ["a"]),
+      z("done", "2026-10-15T10:00:00Z", ["a", "b"], ["a", "b"]), // всё отмечено — не показываем
+      z("half", "2026-10-16T10:00:00Z", ["a", "b"], ["a"]),
+      z("old", "2026-10-01T10:00:00Z", ["a"]),
+    ],
+    now,
+  );
+  assert.deepEqual(upcoming.map((x) => x.id), ["soon1", "soon2"]);
+  assert.deepEqual(toMark.map((x) => x.id), ["old", "half"]);
+  assert.equal(toMark[1].summary.unmarked, 1);
 });

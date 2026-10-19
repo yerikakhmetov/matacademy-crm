@@ -41,3 +41,23 @@ export function zachetSummary(studentIds: string[], results: { studentId: string
   }
   return { passed, failed, unmarked: studentIds.length - passed - failed, total: studentIds.length };
 }
+
+// Главный экран куратора: ближайшие зачёты (в пределах aheadDays) и прошедшие,
+// где остались ученики без отметки, — их нужно отметить. Прошедшие, отмеченные полностью, не показываем.
+export function zachetAgenda<Z extends { scheduledAt: Date; studentIds: string[]; results: { studentId: string; passed: boolean }[] }>(
+  zachets: Z[],
+  now: Date = new Date(),
+  aheadDays = 7,
+) {
+  const t = now.getTime();
+  const horizon = t + aheadDays * 86_400_000;
+  const upcoming = zachets
+    .filter((z) => z.scheduledAt.getTime() > t && z.scheduledAt.getTime() <= horizon)
+    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  const toMark = zachets
+    .filter((z) => z.scheduledAt.getTime() <= t)
+    .map((z) => ({ ...z, summary: zachetSummary(z.studentIds, z.results) }))
+    .filter((z) => z.summary.unmarked > 0)
+    .sort((a, b) => a.scheduledAt.getTime() - b.scheduledAt.getTime());
+  return { upcoming, toMark };
+}
