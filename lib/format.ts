@@ -123,14 +123,8 @@ export function gradeChipClass(pct: number): string {
 // Типы ставки преподавателя
 
 // Категории расходов школы
-export const EXPENSE_CATEGORY: Record<string, string> = {
-  RENT: "Аренда",
-  UTILITIES: "Коммунальные",
-  ADS: "Реклама",
-  EQUIPMENT: "Оборудование",
-  TAX: "Налоги и сборы",
-  OTHER: "Прочее",
-};
+// Категории расходов живут в lib/expenses.ts (с подсказками); здесь — для старых импортов.
+export { EXPENSE_CATEGORY } from "./expenses.ts";
 
 // Способы оплаты (используются в формах приёма оплаты и возврата)
 export const PAYMENT_METHODS = ["Kaspi", "Халық банк", "Карта", "Наличные", "Перевод"];

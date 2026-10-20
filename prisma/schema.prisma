@@ -610,13 +610,15 @@ model PaymentItem {
 // Расходы школы (аренда, коммунальные, реклама…) — чтобы «Отчёты» показывали настоящую прибыль
 model Expense {
   id        String   @id @default(cuid())
-  category  String   @default("OTHER") // RENT | UTILITIES | ADS | EQUIPMENT | TAX | OTHER
+  category  String   @default("OTHER") // ключ из lib/expenses.ts: RENT, UTILITIES, ADS, OFFICE…
   title     String
   amount    Int
   date      DateTime @default(now())
   note      String?
   createdBy String?
   createdAt DateTime @default(now())
+  recurring Boolean  @default(false) // ежемесячный (аренда, коммунальные): можно перенести в следующий месяц
+  copiedFromId String? // перенесён из этого расхода прошлого месяца — чтобы не перенести дважды
 
   @@index([date])
 }
