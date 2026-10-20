@@ -25,6 +25,8 @@ export function localDigits(raw: string): string | null {
 export function normalizePhone(raw: string | null | undefined): string {
   const src = (raw ?? "").trim();
   if (!src) return "";
+  // незаполненная маска из старой программы: «+7 (7__) ___-__-__» — номера нет
+  if (isEmptyMask(src)) return "";
   const d = localDigits(src);
   if (!d) return src.replace(/\s+/g, " ");
   return `+7 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6, 8)}-${d.slice(8, 10)}`;
@@ -39,4 +41,10 @@ export function normalizePhoneOrNull(raw: string | null | undefined): string | n
 // Уже приведён к стандарту?
 export function isNormalized(raw: string): boolean {
   return /^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/.test(raw);
+}
+
+// Маска ввода с подчёркиваниями, в которой кроме кода страны почти ничего не введено
+// («+7 (7__) ___-__-__» → цифры «77»). Частично набранный номер маской не считаем.
+export function isEmptyMask(raw: string): boolean {
+  return raw.includes("_") && phoneDigits(raw).length < 4;
 }

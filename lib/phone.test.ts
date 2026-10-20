@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isNormalized, localDigits, normalizePhone, normalizePhoneOrNull } from "./phone.ts";
+import { isEmptyMask, isNormalized, localDigits, normalizePhone, normalizePhoneOrNull } from "./phone.ts";
 
 const STD = "+7 (705) 123-45-67";
 
@@ -62,4 +62,11 @@ test("isNormalized узнаёт стандарт", () => {
   assert.ok(isNormalized(STD));
   assert.ok(!isNormalized("87051234567"));
   assert.ok(!isNormalized("+7 705 123-45-67"));
+});
+
+test("незаполненная маска — это пустой телефон, частичный номер не трогаем", () => {
+  assert.equal(normalizePhone("+7 (7__) ___-__-__"), "");
+  assert.equal(normalizePhoneOrNull("+7 (___) ___-__-__"), null);
+  assert.equal(isEmptyMask("+7 (707) 1__-__-__"), false);
+  assert.equal(normalizePhone("+7 (707) 1__-__-__"), "+7 (707) 1__-__-__");
 });
