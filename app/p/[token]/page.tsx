@@ -17,6 +17,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { getLocale } from "@/lib/locale";
 import { dayShort, gradeTypeLabel, t } from "@/lib/i18n";
 import { GradeMonthSummary } from "@/components/GradeMonthSummary";
+import { loadGroupRating } from "@/components/GroupRating";
 import { lessonsLeftBySubject } from "@/lib/payroll";
 import { BrandMark } from "@/components/BrandMark";
 import { ZachetList } from "@/components/ZachetList";
@@ -43,6 +44,16 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
   if (!student) notFound();
   const settings = await getSettings();
   const locale = await getLocale();
+  // место в каждой группе за текущий месяц (тот же рейтинг, что в кабинете ученика)
+  const placeRows = (
+    await Promise.all(
+      student.groups.map(async (g) => {
+        const { rows } = await loadGroupRating(g.id, settings.tzOffsetHours);
+        const me = rows.find((r) => r.studentId === student.id);
+        return me && rows.length > 1 ? { groupId: g.id, groupName: g.name, place: me.place, of: rows.length, points: me.points } : null;
+      }),
+    )
+  ).filter((r): r is NonNullable<typeof r> => r !== null);
 
   const groupIds = student.groups.map((g) => g.id);
 
@@ -274,6 +285,25 @@ export default async function ParentPortal({ params }: { params: Promise<{ token
                 {t(locale, "cabinet.progressNote")}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Рейтинг ребёнка в его группах: только место и очки, без чужих имён */}
+        {placeRows.length > 0 && (
+          <div className="card">
+            <div className="card-h">
+              <h3>{t(locale, "rating.parentTitle")}</h3>
+            </div>
+            <div style={{ padding: "6px 0" }}>
+              {placeRows.map((r) => (
+                <div key={r.groupId} className="list-row" style={{ alignItems: "center", gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0, fontWeight: 600 }}>{r.groupName}</div>
+                  <span style={{ fontWeight: 700 }}>{t(locale, "rating.place", { n: r.place })}</span>
+                  <span className="mut">/ {r.of} · {t(locale, "rating.points", { n: r.points })}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mut" style={{ fontSize: 12, margin: 0, padding: "0 18px 14px" }}>{t(locale, "rating.parentNote")}</p>
           </div>
         )}
 

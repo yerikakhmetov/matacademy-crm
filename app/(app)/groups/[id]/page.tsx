@@ -15,6 +15,8 @@ import type { LessonsLeft } from "@/lib/packages";
 import { getSettings } from "@/lib/settings";
 import { schoolClock } from "@/lib/school-time";
 import { cardCols } from "@/lib/card-table";
+import { loadGroupRating } from "@/components/GroupRating";
+import { RATING_POINTS } from "@/lib/rating";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +96,10 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
   const debtors = group.students.filter((s) => s.balance < 0);
   // «оплатил» — текущий месяц покрыт оплаченным счётом и нет непогашенного остатка
   // текущий месяц — по часам школы: от него считается цепочка «оплачено до»
-  const now = schoolClock((await getSettings()).tzOffsetHours);
+  const tz = (await getSettings()).tzOffsetHours;
+  const now = schoolClock(tz);
+  // рейтинг группы за месяц — тот же, что видят ученики в кабинете, но с разбивкой очков
+  const rating = await loadGroupRating(group.id, tz);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   // Счета, которые оплачивают предмет этой группы, и доля предмета в каждом.
   // У группы без предмета разбивки нет — берём счета целиком, как раньше.
@@ -284,7 +289,8 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                         </td>
                         <td className="mut">
                           {lastPay ? (
-                            <>
+                            // одним блоком: на телефоне ячейка — строка карточки, части не должны разъезжаться
+                            <span>
                               <span className="num" style={{ fontWeight: 600, color: "var(--ok)" }}>{money(lastPay.amount)}</span>
                               <span style={{ marginLeft: 6 }}>{formatDate(lastPay.date)}</span>
                               {lastPay.full !== lastPay.amount && (
@@ -292,7 +298,7 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
                                   из {money(lastPay.full)} за все предметы
                                 </div>
                               )}
-                            </>
+                            </span>
                           ) : (
                             subjectId ? "оплат по предмету не было" : "оплат не было"
                           )}
@@ -314,6 +320,55 @@ export default async function GroupDetail({ params }: { params: Promise<{ id: st
           </table>
         </div>
       </div>
+
+      {rating.rows.length > 0 && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-h">
+            <h3>Рейтинг за месяц</h3>
+            <span className="chip c-mut"><span className="d" />видят ученики группы</span>
+          </div>
+          <div className="table-wrap">
+            <table {...cardCols(["Ученик", "Очки", "Занятия", "Оценки", "ДЗ", "Зачёты"])}>
+              <thead>
+                <tr>
+                  <th>Ученик</th>
+                  <th className="right">Очки</th>
+                  <th className="right">Занятия</th>
+                  <th className="right">Оценки</th>
+                  <th className="right">ДЗ</th>
+                  <th className="right">Зачёты</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rating.rows.map((r) => {
+                  const st = rating.students.get(r.studentId);
+                  if (!st) return null;
+                  return (
+                    <tr key={r.studentId}>
+                      <td>
+                        <Link href={`/students/${r.studentId}`} className="person" style={{ color: "inherit", textDecoration: "none" }}>
+                          <span className="num" style={{ width: 22, fontWeight: 800, color: r.place <= 3 && r.points > 0 ? "var(--accent)" : "var(--ink-3)" }}>{r.place}</span>
+                          <Avatar name={st.name} photoUrl={st.photoUrl} size={28} />
+                          <span className="nm" style={{ fontSize: 13.5 }}>{st.name}</span>
+                        </Link>
+                      </td>
+                      <td className="right num" style={{ fontWeight: 700 }}>{r.points}</td>
+                      <td className="right num mut">{r.parts.attend}</td>
+                      <td className="right num mut">{r.parts.grades}</td>
+                      <td className="right num mut">{r.parts.hw}</td>
+                      <td className="right num mut">{r.parts.zachet}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mut" style={{ fontSize: 12, margin: 0, padding: "10px 18px 14px" }}>
+            Очки за текущий месяц: занятие +{RATING_POINTS.attend}, оценка +1…10 (процент ÷ 10), выполненное ДЗ +{RATING_POINTS.hw},
+            сданный зачёт +{RATING_POINTS.zachet}. Ученики видят у одногруппников только место и очки.
+          </p>
+        </div>
+      )}
     </>
   );
 }
