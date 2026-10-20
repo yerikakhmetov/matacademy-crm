@@ -355,6 +355,14 @@ export default async function StudentDetail({
                 <dd>{student.parentPhone ?? "—"}</dd>
                 <dt>Преподаватель</dt>
                 <dd>{[...new Set(student.groups.map((g) => g.teacher?.name).filter(Boolean))].join(", ") || "—"}</dd>
+                <dt>Профориентация</dt>
+                <dd>
+                  {student.careerTestUrl ? (
+                    <a href={student.careerTestUrl} target="_blank" rel="noreferrer" className="link">тест MentorHub ↗</a>
+                  ) : (
+                    <Link href="/career-test" className="mut">нет ссылки</Link>
+                  )}
+                </dd>
                 <dt>Посещаемость</dt>
                 <dd style={{ color: student.attendance == null ? "var(--ink-3)" : student.attendance >= 85 ? "var(--ok)" : "var(--warn)" }}>{student.attendance == null ? "—" : `${student.attendance}%`}</dd>
                 {showMoney && (
