@@ -16,16 +16,18 @@ import { GradeMonthSummary } from "@/components/GradeMonthSummary";
 import { lessonsLeftAll } from "@/lib/payroll";
 import { leftKey } from "@/lib/packages";
 import { ZachetList } from "@/components/ZachetList";
+import { GroupRatingList, loadGroupRating } from "@/components/GroupRating";
+import { PhotoCropper } from "@/components/PhotoCropper";
 
 export const dynamic = "force-dynamic";
 
 // Кабинет разбит на вкладки: одна длинная страница на телефоне растягивалась на 8–10 экранов.
-const TABS = ["home", "tests", "grades", "tasks", "schedule"] as const;
+const TABS = ["home", "tests", "grades", "rating", "tasks", "schedule"] as const;
 type Tab = (typeof TABS)[number];
-const TAB_ICON: Record<Tab, string> = { home: "dashboard", tests: "check", grades: "chart", tasks: "book", schedule: "schedule" };
+const TAB_ICON: Record<Tab, string> = { home: "dashboard", tests: "check", grades: "chart", rating: "trophy", tasks: "book", schedule: "schedule" };
 
-export default async function CabinetHome({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const { tab: tabParam } = await searchParams;
+export default async function CabinetHome({ searchParams }: { searchParams: Promise<{ tab?: string; g?: string }> }) {
+  const { tab: tabParam, g: groupParam } = await searchParams;
   const tab: Tab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as Tab) : "home";
   const session = await auth();
   const locale = await getLocale();
@@ -209,11 +211,20 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
         ? t(locale, "today.dueToday")
         : t(locale, "today.dueTomorrow");
 
+  // Рейтинг: на вкладке — выбранная группа, на главной — первая группа ученика (место и очки)
+  const ratingGroup =
+    tab === "rating" || tab === "home"
+      ? (student.groups.find((g) => g.id === groupParam) ?? student.groups[0] ?? null)
+      : null;
+  const rating = ratingGroup ? await loadGroupRating(ratingGroup.id, tz) : null;
+  const myRating = rating?.rows.find((r) => r.studentId === studentId);
+
   const badges: Partial<Record<Tab, number>> = { tests: openTests.length, tasks: dueSoon.length };
   const tabLabel: Record<Tab, string> = {
     home: t(locale, "tabs.home"),
     tests: t(locale, "tabs.tests"),
     grades: t(locale, "tabs.grades"),
+    rating: t(locale, "tabs.rating"),
     tasks: t(locale, "tabs.tasks"),
     schedule: t(locale, "tabs.schedule"),
   };
@@ -239,7 +250,19 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
 {tab === "home" && (
         <>
       <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
-        <Avatar name={student.name} photoUrl={student.photoUrl} size={52} radius={14} fontSize={18} />
+        <PhotoCropper
+          studentId={student.id}
+          name={student.name}
+          photoUrl={student.photoUrl}
+          labels={{
+            change: t(locale, "photo.change"),
+            hint: t(locale, "photo.hint"),
+            zoom: t(locale, "photo.zoom"),
+            save: t(locale, "photo.save"),
+            cancel: t(locale, "photo.cancel"),
+            error: t(locale, "photo.error"),
+          }}
+        />
         <div style={{ flex: 1, minWidth: 0 }}>
           <h1 style={{ fontSize: 20 }}>{greeting}, {student.name.split(" ")[0]}!</h1>
           <p className="mut" style={{ fontSize: 13, margin: "2px 0 0" }}>
@@ -259,6 +282,21 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
             {t(locale, "career.start")}
           </a>
         </div>
+      )}
+
+      {ratingGroup && myRating && rating && rating.rows.length > 1 && (
+        <Link href="/cabinet?tab=rating" className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 14, textDecoration: "none", color: "inherit" }}>
+          <span style={{ width: 40, height: 40, borderRadius: 12, background: "var(--accent-soft)", color: "var(--accent)", display: "grid", placeItems: "center", flex: "none" }}>
+            <Icon name="trophy" size={20} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="mut" style={{ fontSize: 12.5 }}>{t(locale, "rating.homeCard", { group: ratingGroup.name })}</div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>
+              {t(locale, "rating.place", { n: myRating.place })} <span className="mut" style={{ fontWeight: 500 }}>/ {rating.rows.length} · {t(locale, "rating.points", { n: myRating.points })}</span>
+            </div>
+          </div>
+          <span className="mut">→</span>
+        </Link>
       )}
 
       <div className="card" style={{ padding: 0 }}>
@@ -490,6 +528,34 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
       )}
 
         </>
+      )}
+
+{tab === "rating" && (
+        <div className="card">
+          <div className="card-h">
+            <h3>{t(locale, "rating.title")}</h3>
+            <span className="chip c-mut"><span className="d" />{t(locale, "rating.thisMonth")}</span>
+          </div>
+          {student.groups.length > 1 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 18px 12px" }}>
+              {student.groups.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/cabinet?tab=rating&g=${g.id}`}
+                  className={`chip ${g.id === ratingGroup?.id ? "c-ok" : "c-mut"}`}
+                  style={{ textDecoration: "none" }}
+                >
+                  {g.name}
+                </Link>
+              ))}
+            </div>
+          )}
+          {rating ? (
+            <GroupRatingList rows={rating.rows} students={rating.students} meId={studentId} locale={locale} />
+          ) : (
+            <div className="empty">{t(locale, "rating.noGroup")}</div>
+          )}
+        </div>
       )}
 
 {tab === "grades" && (

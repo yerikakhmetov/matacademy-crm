@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { MAX_PHOTO_BYTES, isJpeg } from "@/lib/upload-policy";
+import { getStudentIdForUser } from "@/lib/teacher";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -29,12 +30,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Это не фото" }, { status: 400 });
   }
 
-  // права: админ/менеджер, либо преподаватель для своего фото
+  // права: админ/менеджер, преподаватель — своё фото, ученик — своё фото (из кабинета)
   if (!(await canEditData(session.user.role))) {
     let ok = false;
     if (entity === "teacher" && session.user.role === "TEACHER") {
       const t = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });
       ok = t?.userId === session.user.id;
+    }
+    if (entity === "student" && session.user.role === "STUDENT") {
+      ok = (await getStudentIdForUser(session.user.id)) === id;
     }
     if (!ok) return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
   }

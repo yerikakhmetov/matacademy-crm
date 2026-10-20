@@ -109,7 +109,7 @@ async function main() {
       })
     : null;
   await prisma2.$disconnect();
-  const cabinet = ["/cabinet", "/cabinet?tab=tests", "/cabinet?tab=grades", "/cabinet?tab=tasks", "/cabinet?tab=schedule", ...(myTest ? [`/cabinet/test/${myTest.id}`] : [])];
+  const cabinet = ["/cabinet", "/cabinet?tab=tests", "/cabinet?tab=grades", "/cabinet?tab=rating", "/cabinet?tab=tasks", "/cabinet?tab=schedule", ...(myTest ? [`/cabinet/test/${myTest.id}`] : [])];
 
   let failed = 0;
   for (const role of ["admin", "manager", "teacher", "curator", "student"]) {
