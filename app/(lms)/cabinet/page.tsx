@@ -248,6 +248,19 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
         </div>
       </div>
 
+      {/* Профориентация: личная ссылка на тест MentorHub (ставит админ) */}
+      {student.careerTestUrl && (
+        <div className="card" style={{ padding: 18, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{t(locale, "career.title")}</div>
+            <div className="mut" style={{ fontSize: 13, marginTop: 2 }}>{t(locale, "career.text")}</div>
+          </div>
+          <a className="btn" href={student.careerTestUrl} target="_blank" rel="noreferrer">
+            {t(locale, "career.start")}
+          </a>
+        </div>
+      )}
+
       <div className="card" style={{ padding: 0 }}>
         <div className="card-h"><h3>{t(locale, "today.title")}</h3></div>
         <div style={{ padding: "6px 0" }}>

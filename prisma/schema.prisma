@@ -128,6 +128,7 @@ model Student {
   status         String        @default("ACTIVE") // ACTIVE | PAUSED | LEFT
   balance        Int           @default(0) // < 0 — задолженность (в тенге)
   personalDiscount Int         @default(0) // персональная скидка ученика, % (0 = нет)
+  careerTestUrl  String?       // личная ссылка на профориентационный тест (MentorHub)
   attendance     Int?          // % посещаемости; null = отметок ещё нет
   telegramChatId String? // chat id родителя в Telegram (для авто-напоминаний)
   portalToken    String? @unique // постоянный токен родительской страницы

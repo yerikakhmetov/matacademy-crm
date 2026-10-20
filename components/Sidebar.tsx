@@ -31,6 +31,7 @@ const NAV_FULL: Item[] = [
   { href: "/homework", icon: "book", label: "Домашние задания" },
   { href: "/materials", icon: "export", label: "Материалы" },
   { href: "/zachets", icon: "check", label: "Зачёты" },
+  { href: "/career-test", icon: "pin", label: "Профориентация" },
   { section: "Деньги" },
   { href: "/payments", icon: "payments", label: "Оплаты", perm: "finance" },
   { href: "/reminders", icon: "bell", label: "Напоминания", perm: "finance" },
