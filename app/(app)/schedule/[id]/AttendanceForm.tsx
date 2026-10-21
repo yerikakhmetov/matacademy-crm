@@ -183,6 +183,8 @@ export function AttendanceForm({
             <input
               name="topic"
               defaultValue={topic}
+              // без автоподстановки браузера: он предлагал значения из других полей «topic» (имена, оценки)
+              autoComplete="off"
               disabled={!editor}
               placeholder="Что проходили на занятии"
               style={{ width: "100%", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 9, padding: "9px 12px" }}
