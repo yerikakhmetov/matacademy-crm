@@ -11,6 +11,8 @@ import { DeleteGroupButton } from "./DeleteGroupButton";
 import { createGroup, updateGroup } from "@/app/actions/groups";
 import { DAYS, formatDate } from "@/lib/format";
 import { getSettings, parseList } from "@/lib/settings";
+import { schoolToday } from "@/lib/school-time";
+import { defaultScheduleFrom } from "@/lib/schedule-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,25 @@ export default async function GroupsPage() {
     prisma.teacher.findMany({ orderBy: { name: "asc" } }),
     prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
-  const rooms = parseList((await getSettings()).rooms);
+  const settings = await getSettings();
+  const rooms = parseList(settings.rooms);
+  // Группы, где уже отмечали занятия до сегодня: правка расписания у них — смена с сегодня,
+  // у остальных — исправление ошибки с начала группы (см. defaultScheduleFrom).
+  const today = schoolToday(settings.tzOffsetHours);
+  const marked = editor
+    ? new Set(
+        (
+          await prisma.lesson.findMany({
+            where: {
+              groupId: { in: groups.map((g) => g.id) },
+              OR: [{ attendance: { some: { date: { lt: today } } } }, { sessions: { some: { date: { lt: today } } } }],
+            },
+            select: { groupId: true },
+            distinct: ["groupId"],
+          })
+        ).map((l) => l.groupId)
+      )
+    : new Set<string>();
   // назначать куратора может только тот, кто редактирует данные
   const curators = editor
     ? await prisma.user.findMany({ where: { role: "CURATOR" }, orderBy: { name: "asc" }, select: { id: true, name: true } })
@@ -179,6 +199,7 @@ export default async function GroupsPage() {
                       rooms={rooms}
                       curators={curators}
                       values={{ ...g, schedule: slots.map((l) => ({ dayOfWeek: l.dayOfWeek, startTime: l.startTime, room: l.room })) }}
+                      scheduleFrom={defaultScheduleFrom(marked.has(g.id), g.startDate, today).toISOString().slice(0, 10)}
                     />
                   </ModalButton>
                   <DeleteGroupButton id={g.id} name={g.name} hasStudents={enrolled > 0} />

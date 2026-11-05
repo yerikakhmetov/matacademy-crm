@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeTime, parseSlots, planScheduleSync } from "./schedule-sync.ts";
+import { defaultScheduleFrom, normalizeTime, parseSlots, planScheduleSync, scheduleActiveFrom } from "./schedule-sync.ts";
 
 test("время приводится к HH:MM, мусор отбрасывается", () => {
   assert.equal(normalizeTime("9:5"), "09:05");
@@ -112,4 +112,25 @@ test("два занятия в один день различаются по в�
 test("пустое расписание убирает все занятия", () => {
   const plan = planScheduleSync([{ id: "a", dayOfWeek: 1, startTime: "14:30", room: "Каб. 1" }], []);
   assert.deepEqual(plan.remove, ["a"]);
+});
+
+const D = (s: string) => new Date(`${s}T00:00:00Z`);
+
+test("расписание действует с: дата не позже старта группы — с начала группы", () => {
+  // группа М-3: старт 03.11, расписание поправили 05.11 — исправление ошибки
+  assert.equal(scheduleActiveFrom(D("2026-11-03"), D("2026-11-03"), D("2026-11-05")), null);
+  assert.equal(scheduleActiveFrom(D("2026-10-01"), D("2026-11-03"), D("2026-11-05")), null);
+  // смена расписания у идущей группы — с выбранного дня, без даты — с сегодня
+  assert.equal(scheduleActiveFrom(D("2026-11-10"), D("2026-09-01"), D("2026-11-05"))?.toISOString(), D("2026-11-10").toISOString());
+  assert.equal(scheduleActiveFrom(null, D("2026-09-01"), D("2026-11-05"))?.toISOString(), D("2026-11-05").toISOString());
+  assert.equal(scheduleActiveFrom(null, null, D("2026-11-05"))?.toISOString(), D("2026-11-05").toISOString());
+});
+
+test("по умолчанию: без отметок — дата начала группы, с отметками — сегодня", () => {
+  const today = D("2026-11-05");
+  assert.equal(defaultScheduleFrom(false, D("2026-11-03"), today).toISOString(), D("2026-11-03").toISOString());
+  assert.equal(defaultScheduleFrom(true, D("2026-11-03"), today).toISOString(), today.toISOString());
+  // группа ещё не началась или дата не задана — сегодня
+  assert.equal(defaultScheduleFrom(false, D("2026-12-01"), today).toISOString(), today.toISOString());
+  assert.equal(defaultScheduleFrom(false, null, today).toISOString(), today.toISOString());
 });

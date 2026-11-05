@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { getSettings, parseList } from "@/lib/settings";
-import { parseSlots, planScheduleSync } from "@/lib/schedule-sync";
+import { parseSlots, planScheduleSync, scheduleActiveFrom } from "@/lib/schedule-sync";
 import { schoolToday } from "@/lib/school-time";
 import { assertEditor, int, str } from "./_shared";
 
@@ -44,10 +44,21 @@ function groupStartDate(formData: FormData): Date {
 // Занятия по возможности обновляем, а не пересоздаём: удаление Lesson
 // каскадом уносит посещаемость, темы уроков и отработки.
 // isNew — группа только создаётся: её слоты действуют с начала группы. При правке
-// существующей группы новые слоты действуют с сегодняшнего дня школы.
-async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null, isNew = false) {
+// новые слоты действуют с даты из поля «Расписание действует с» (по умолчанию — сегодня).
+async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null, isNew = false, from: Date | null = null) {
   if (raw === null) return; // форма без блока расписания — расписание не трогаем
   const settings = await getSettings();
+  let activeFrom: Date | null = null;
+  if (!isNew) {
+    const g = await prisma.group.findUnique({ where: { id: groupId }, select: { startDate: true } });
+    activeFrom = scheduleActiveFrom(from, g?.startDate ?? null, schoolToday(settings.tzOffsetHours));
+    // Расписание исправляют задним числом: слоты, начатые позже выбранной даты, тоже переносим
+    // на неё — иначе занятия между стартом группы и прошлой правкой так и не попадут в журнал.
+    await prisma.lesson.updateMany({
+      where: { groupId, archivedAt: null, activeFrom: activeFrom ? { gt: activeFrom } : { not: null } },
+      data: { activeFrom },
+    });
+  }
   const rooms = parseList(settings.rooms);
   const desired = parseSlots(raw, rooms[0] ?? "Каб. 1");
   const existing = await prisma.lesson.findMany({
@@ -64,7 +75,6 @@ async function syncGroupSchedule(groupId: string, raw: FormDataEntryValue | null
     });
   }
   if (plan.create.length > 0) {
-    const activeFrom = isNew ? null : schoolToday(settings.tzOffsetHours);
     await prisma.lesson.createMany({ data: plan.create.map((c) => ({ groupId, ...c, activeFrom })) });
   }
   if (plan.remove.length > 0) {
@@ -128,7 +138,8 @@ export async function updateGroup(id: string, formData: FormData) {
       startDate: groupStartDate(formData),
     },
   });
-  const plan = await syncGroupSchedule(id, formData.get("schedule"));
+  const from = str(formData.get("scheduleFrom"));
+  const plan = await syncGroupSchedule(id, formData.get("schedule"), false, from ? new Date(`${from}T00:00:00Z`) : null);
   const changed = plan ? plan.create.length + plan.update.length + plan.remove.length : 0;
   await logAudit(
     "UPDATE",

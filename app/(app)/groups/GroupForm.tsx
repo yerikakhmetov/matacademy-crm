@@ -23,12 +23,15 @@ export function GroupForm({
   curators = [],
   rooms = [],
   values,
+  scheduleFrom,
 }: {
   teachers: Teacher[];
   subjects?: Subject[];
   curators?: { id: string; name: string }[];
   rooms?: string[];
   values?: Values;
+  // только при правке: YYYY-MM-DD, с какого дня действуют изменения расписания
+  scheduleFrom?: string;
 }) {
   return (
     <>
@@ -98,6 +101,16 @@ export function GroupForm({
         </p>
       </div>
       <GroupSchedule rooms={rooms} value={values?.schedule} />
+      {scheduleFrom && (
+        <div className="field">
+          <label>Расписание действует с</label>
+          <input name="scheduleFrom" type="date" defaultValue={scheduleFrom} />
+          <p className="mut" style={{ fontSize: 12, marginTop: 4 }}>
+            С этого дня занятия по расписанию появляются в журнале и в расчёте зарплаты. Исправляете ошибку в
+            расписании — оставьте дату начала группы; меняете расписание — поставьте день, с которого оно новое.
+          </p>
+        </div>
+      )}
       <div className="field">
         <label>Цвет</label>
         <select name="color" defaultValue={values?.color ?? COLORS[0]}>

@@ -65,6 +65,22 @@ export function parseSlots(raw: unknown, fallbackRoom = "Каб. 1"): Slot[] {
 
 const same = (a: Slot, b: Slot) => a.dayOfWeek === b.dayOfWeek && a.startTime === b.startTime;
 
+// С какого дня действуют изменения расписания (поле «Расписание действует с» при правке группы).
+// Исправили ошибку в расписании — ставят дату начала группы, сменили расписание — сегодня.
+// null — «с начала группы»: дата не позже старта группы ничего не ограничивает.
+export function scheduleActiveFrom(from: Date | null, startDate: Date | null, fallback: Date): Date | null {
+  const d = from ?? fallback;
+  if (startDate && d.getTime() <= startDate.getTime()) return null;
+  return d;
+}
+
+// Что предложить в этом поле: пока занятий группы ещё не отмечали, правка — это исправление
+// ошибки (слоты действуют с начала группы); после первых отметок — смена расписания с сегодня.
+export function defaultScheduleFrom(hasMarks: boolean, startDate: Date | null, today: Date): Date {
+  if (hasMarks || !startDate) return today;
+  return startDate.getTime() < today.getTime() ? startDate : today;
+}
+
 export function planScheduleSync(existing: ExistingLesson[], desired: Slot[]): SyncPlan {
   const freeExisting = [...existing];
   const unmatched: Slot[] = [];
