@@ -51,3 +51,17 @@ test("hardestQuestions выбирает самые провальные и со�
   assert.deepEqual(hard.map((h) => h.index), [1, 2], "вопрос 1 решён всеми — в список не попал");
   assert.ok(hard[0].correctPct <= hard[1].correctPct);
 });
+
+test("вопрос с несколькими верными: засчитан точный набор, варианты считаются по отдельности", () => {
+  // верные A и C; ответы — маски: A+C (верно), A (не всё), A+B+C (лишний), без ответа
+  const [s] = questionStats([{ correct: 0, correctSet: [0, 2], optionsCount: 4 }], [
+    { answers: [0b101] },
+    { answers: [0b001] },
+    { answers: [0b111] },
+    { answers: [-1] },
+  ]);
+  assert.equal(s.correct, 1);
+  assert.equal(s.answered, 3);
+  assert.equal(s.skipped, 1);
+  assert.deepEqual(s.byOption, [3, 1, 2, 0]);
+});

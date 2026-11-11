@@ -1,7 +1,9 @@
 // Разбор результатов теста: где группа спотыкается.
 // Чистые функции без БД — их проще проверить тестами.
 
-export type StatQuestion = { correct: number; optionsCount: number };
+import { chosenIndices, isRight } from "./test-answer.ts";
+
+export type StatQuestion = { correct: number; correctSet?: number[] | null; optionsCount: number };
 export type StatAttempt = { answers: number[] };
 
 export type QuestionStat = {
@@ -23,11 +25,12 @@ export function questionStats(questions: StatQuestion[], attempts: StatAttempt[]
     let correct = 0;
     let answered = 0;
     for (const a of attempts) {
-      const choice = a.answers[i];
-      if (choice == null || choice < 0) continue;
+      const picked = chosenIndices(q, a.answers[i]);
+      if (picked.length === 0) continue;
       answered++;
-      if (choice < byOption.length) byOption[choice]++;
-      if (choice === q.correct) correct++;
+      // вопрос с несколькими верными: каждый отмеченный вариант считается отдельно
+      for (const o of picked) if (o < byOption.length) byOption[o]++;
+      if (isRight(q, a.answers[i])) correct++;
     }
     return {
       index: i,

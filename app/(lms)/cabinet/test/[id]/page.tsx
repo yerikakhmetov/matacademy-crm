@@ -10,6 +10,7 @@ import { t } from "@/lib/i18n";
 import { finishTestAttempt, startTestAttempt } from "@/app/actions/tests";
 import { Formula } from "@/components/Formula";
 import { renderQuestion } from "@/lib/math-render";
+import { chosenIndices, correctIndices, isMulti, isRight } from "@/lib/test-answer";
 import { TimedTest } from "./TimedTest";
 import { formatDate, gradeChipClass } from "@/lib/format";
 import { Icon } from "@/components/Icon";
@@ -118,18 +119,24 @@ export default async function CabinetTest({
         )}
 
         {test.questions.map((q, i) => {
-          const chosen = attempt.answers[i] ?? -1;
-          const right = chosen === q.correct;
+          const chosen = chosenIndices(q, attempt.answers[i] ?? -1);
+          const right = isRight(q, attempt.answers[i] ?? -1);
+          const rightSet = correctIndices(q);
           return (
             <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
                 <span className={`chip ${right ? "c-ok" : "c-bad"}`} style={{ flex: "none" }}><span className="d" />{right ? t(locale, "test.correct") : t(locale, "test.wrong")}</span>
-                <div style={{ fontWeight: 600 }}>{i + 1}. <Formula html={renderQuestion(q).textHtml} /></div>
+                <div style={{ fontWeight: 600 }}>
+                  {i + 1}. <Formula html={renderQuestion(q).textHtml} />
+                  {isMulti(q) && (
+                    <div className="mut" style={{ fontSize: 12, fontWeight: 400, marginTop: 2 }}>{t(locale, "test.multiPartial")}</div>
+                  )}
+                </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {q.options.map((opt, oi) => {
-                  const isCorrect = oi === q.correct;
-                  const isChosen = oi === chosen;
+                  const isCorrect = rightSet.includes(oi);
+                  const isChosen = chosen.includes(oi);
                   const bg = isCorrect ? "var(--ok-soft)" : isChosen ? "var(--bad-soft)" : "transparent";
                   const bd = isCorrect ? "var(--ok)" : isChosen ? "var(--bad)" : "var(--line-2)";
                   return (
@@ -137,7 +144,8 @@ export default async function CabinetTest({
                       <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
                       <span style={{ flex: 1 }}><Formula html={renderQuestion(q).optionsHtml[oi]} /></span>
                       {isCorrect && <Icon name="check" size={15} style={{ color: "var(--ok)" }} />}
-                      {isChosen && !isCorrect && <span className="mut" style={{ fontSize: 11.5 }}>{t(locale, "test.yourAnswer")}</span>}
+                      {/* при нескольких верных видно, какие из них ученик отметил, а какие пропустил */}
+                      {isChosen && (!isCorrect || rightSet.length > 1) && <span className="mut" style={{ fontSize: 11.5 }}>{t(locale, "test.yourAnswer")}</span>}
                     </div>
                   );
                 })}
@@ -198,7 +206,7 @@ export default async function CabinetTest({
           initialAnswers={test.questions.map((_, i) => attempt.answers[i] ?? -1)}
           questions={ordered.map(({ q, i }) => {
             const r = renderQuestion(q);
-            return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml };
+            return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml, multi: isMulti(q) };
           })}
         />
       </div>
@@ -223,7 +231,7 @@ export default async function CabinetTest({
         initialAnswers={test.questions.map((_, i) => inProgress?.answers[i] ?? -1)}
         questions={ordered.map(({ q, i }) => {
           const r = renderQuestion(q);
-          return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml };
+          return { id: q.id, index: i, textHtml: r.textHtml, optionsHtml: r.optionsHtml, multi: isMulti(q) };
         })}
       />
     </div>

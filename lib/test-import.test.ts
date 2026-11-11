@@ -29,10 +29,10 @@ test("периодическая дробь остаётся как есть", (
 
 test("таблица ответов разбирается из строк вида «1. B & 2. A»", () => {
   const key = parseAnswerKey("Жауаптары\n1. B & 2. A & 3. C\\\\\n4. D & 5. B");
-  assert.equal(key.get(1), 1);
-  assert.equal(key.get(2), 0);
-  assert.equal(key.get(3), 2);
-  assert.equal(key.get(4), 3);
+  assert.deepEqual(key.get(1), [1]);
+  assert.deepEqual(key.get(2), [0]);
+  assert.deepEqual(key.get(3), [2]);
+  assert.deepEqual(key.get(4), [3]);
   assert.equal(key.size, 5);
 });
 
@@ -287,4 +287,40 @@ test("теңсіздік белгілері оқылады және соңына
   const r = parseTestSource(src);
   assert.equal(r.questions[0].text, "5x ≥ −20");
   assert.equal(r.questions[1].text, "x − 3 ≤ 11");
+});
+
+test("несколько верных вариантов через запятую: «3. A,C,E»", () => {
+  const key = parseAnswerKey("Жауаптары\n1. B & 2. A, C & 3. E,A,C & 4. D");
+  assert.deepEqual(key.get(1), [1]);
+  assert.deepEqual(key.get(2), [0, 2], "пробел после запятой не мешает");
+  assert.deepEqual(key.get(3), [0, 2, 4], "буквы сортируются");
+  assert.deepEqual(key.get(4), [3], "следующий номер не съедается");
+});
+
+test("вопрос с несколькими верными: correct — первый, correctSet — все", () => {
+  const src = String.raw`
+\item $\text{Түбірлерін табыңыз}$
+\choices{1}{2}{3}{4}{5}{6}
+\item $1+1$
+\choices{2}{3}{4}{5}
+Жауаптары
+1. A,C,F & 2. A`;
+  const r = parseTestSource(src);
+  assert.deepEqual(r.warnings, []);
+  assert.equal(r.questions[0].correct, 0);
+  assert.deepEqual(r.questions[0].correctSet, [0, 2, 5]);
+  assert.equal(r.questions[1].correct, 0);
+  assert.deepEqual(r.questions[1].correctSet, [], "один верный — обычный вопрос");
+});
+
+test("буква ключа за пределами вариантов — предупреждение", () => {
+  const src = String.raw`
+\item $1+1$
+\choices{2}{3}{4}{5}
+Жауаптары
+1. B,F`;
+  const r = parseTestSource(src);
+  assert.equal(r.warnings.length, 1);
+  assert.equal(r.questions[0].correct, 1);
+  assert.deepEqual(r.questions[0].correctSet, []);
 });

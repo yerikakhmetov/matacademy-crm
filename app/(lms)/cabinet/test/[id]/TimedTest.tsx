@@ -6,8 +6,10 @@ import { finishTestAttempt, saveTestAnswer } from "@/app/actions/tests";
 import { Formula } from "@/components/Formula";
 import { Icon } from "@/components/Icon";
 import { t, type Locale } from "@/lib/i18n";
+import { toggleOption } from "@/lib/test-answer";
 
-export type TimedQuestion = { id: string; index: number; textHtml: string; optionsHtml: string[] };
+// multi — верных вариантов несколько: галочки, ответ хранится маской (lib/test-answer.ts)
+export type TimedQuestion = { id: string; index: number; textHtml: string; optionsHtml: string[]; multi?: boolean };
 
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
@@ -107,7 +109,8 @@ export function TimedTest({
     for (const [index, choice] of failed) send(index, choice);
   };
 
-  const answered = answers.filter((a) => a >= 0).length;
+  // пустая маска (0) у вопроса с галочками — тоже «без ответа»
+  const answered = questions.filter((q) => (q.multi ? answers[q.index] > 0 : answers[q.index] >= 0)).length;
   const urgent = left < 60_000;
 
   return (
@@ -154,10 +157,16 @@ export function TimedTest({
 
       {questions.map((q, shown) => (
         <div key={q.id} className="card" style={{ padding: 16, marginBottom: 12 }}>
-          <div style={{ fontWeight: 600, marginBottom: 10 }}>{shown + 1}. <Formula html={q.textHtml} /></div>
+          <div style={{ fontWeight: 600, marginBottom: q.multi ? 4 : 10 }}>{shown + 1}. <Formula html={q.textHtml} /></div>
+          {q.multi && (
+            <div className="mut" style={{ fontSize: 12.5, marginBottom: 10 }}>
+              {t(locale, "test.multiHint")}
+            </div>
+          )}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {q.optionsHtml.map((optHtml, oi) => {
-              const active = answers[q.index] === oi;
+              const cur = answers[q.index] ?? -1;
+              const active = q.multi ? cur > 0 && (cur & (1 << oi)) !== 0 : cur === oi;
               return (
                 <label
                   key={oi}
@@ -174,10 +183,10 @@ export function TimedTest({
                   }}
                 >
                   <input
-                    type="radio"
+                    type={q.multi ? "checkbox" : "radio"}
                     name={`q_${q.id}`}
                     checked={active}
-                    onChange={() => choose(q.index, oi)}
+                    onChange={() => choose(q.index, q.multi ? toggleOption(cur, oi) : oi)}
                   />
                   <span className="num" style={{ fontWeight: 700, width: 18 }}>{LETTERS[oi]}</span>
                   <span style={{ flex: 1 }}><Formula html={optHtml} /></span>

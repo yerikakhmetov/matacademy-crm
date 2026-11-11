@@ -5,11 +5,13 @@
 //   \item $выражение$
 //   \choices{A}{B}{C}{D}
 // и таблица ответов после слова «Жауаптары» / «Ответы»: «1. B & 2. A & …»
+// Несколько верных вариантов пишутся через запятую: «3. A,C,E».
 
 export type ParsedQuestion = {
   text: string; // читаемый текст: «3/10 + 4/10 =»
   options: string[];
-  correct: number;
+  correct: number; // первый верный вариант
+  correctSet: number[]; // все верные, если их больше одного; иначе пусто
   tex: string; // исходник формулы — из него набирается вид у ученика
   optionsTex: string[];
 };
@@ -178,15 +180,17 @@ export function latexToText(src: string, top = true): string {
 }
 
 // Таблица ответов: «1. B & 2. A & …» после слова «Жауаптары» / «Ответы» / «Answers».
-export function parseAnswerKey(src: string): Map<number, number> {
+// Значение — индексы верных вариантов по возрастанию; «3. A,C,E» → [0, 2, 4].
+export function parseAnswerKey(src: string): Map<number, number[]> {
   const m = /(Жауаптар[ыи]?|Ответы|Answers)/i.exec(src);
   const tail = m ? src.slice(m.index) : "";
-  const map = new Map<number, number>();
-  // «1. B», «1) B» и табличное «1 & A» — в LaTeX ключ часто рисуют таблицей
-  for (const hit of tail.matchAll(/(\d+)\s*[.)\u2013\u2014&-]\s*([A-HА-ГЕ])\b/gi)) {
-    const letter = hit[2].toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C").replace("Г", "D").replace("Е", "E");
-    const idx = LETTERS.indexOf(letter);
-    if (idx >= 0) map.set(Number(hit[1]), idx);
+  const map = new Map<number, number[]>();
+  const toIdx = (ch: string) =>
+    LETTERS.indexOf(ch.toUpperCase().replace("А", "A").replace("В", "B").replace("С", "C").replace("Г", "D").replace("Е", "E"));
+  // «1. B», «1) B» и табличное «1 & A» — в LaTeX ключ часто рисуют таблицей; несколько — через запятую
+  for (const hit of tail.matchAll(/(\d+)\s*[.)–—&-]\s*([A-HА-ГЕ](?:\s*[,;]\s*[A-HА-ГЕ])*)\b/gi)) {
+    const idxs = [...new Set(hit[2].split(/\s*[,;]\s*/).map(toIdx).filter((i) => i >= 0))].sort((a, b) => a - b);
+    if (idxs.length > 0) map.set(Number(hit[1]), idxs);
   }
   return map;
 }
@@ -242,16 +246,21 @@ export function parseTestSource(src: string): ParseResult {
       warnings.push(`Вопрос ${n}: пустое условие — пропущен`);
       continue;
     }
-    const correct = key.get(n);
-    if (correct === undefined) {
+    const keyIdxs = key.get(n);
+    if (keyIdxs === undefined) {
       warnings.push(`Вопрос ${n}: в таблице ответов его нет — отмечен вариант A, проверьте вручную`);
+    } else if (keyIdxs.some((i) => i >= options.length)) {
+      warnings.push(`Вопрос ${n}: в ответе буква, которой нет среди ${options.length} вариантов — проверьте`);
     }
+    const valid = (keyIdxs ?? []).filter((i) => i < options.length);
+    const correct = valid[0];
+    const correctSet = valid.length > 1 ? valid : [];
     // «=» уже мог быть в условии (уравнение, «Егер …»); дописываем только если его нет
     // Мәтіндік есеп сұраумен не нүктемен аяқталады — оған «=» қоспаймыз.
     // Теңсіздікке де «=» қосылмайды: «5 + x < 20 =» деген мағынасыз
     const shown =
       /[=?<>≤≥≠]/.test(text) || /[.:!]\s*$/.test(text) ? text : `${text} =`;
-    questions.push({ text: shown, options, correct: correct ?? 0, tex: stripDisplay(m[1]).trim(), optionsTex });
+    questions.push({ text: shown, options, correct: correct ?? 0, correctSet, tex: stripDisplay(m[1]).trim(), optionsTex });
     itemRe.lastIndex = i;
   }
 

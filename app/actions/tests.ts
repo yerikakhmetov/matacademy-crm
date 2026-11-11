@@ -11,6 +11,7 @@ import { isTestOpen } from "@/lib/tests";
 import { canEditData } from "@/lib/access";
 import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { parseTestSource } from "@/lib/test-import";
+import { convertAnswer, isMulti, scoreAnswers } from "@/lib/test-answer";
 import { assertCanManageGroup, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
 
 // ---------- Тесты ----------
@@ -48,6 +49,7 @@ export async function importTest(formData: FormData) {
           text: q.text,
           options: q.options,
           correct: q.correct,
+          correctSet: q.correctSet,
           textTex: q.tex,
           optionsTex: q.optionsTex,
         })),
@@ -97,7 +99,7 @@ export async function refreshTestQuestions(testId: string, formData: FormData) {
   const existing = await prisma.testQuestion.findMany({
     where: { testId },
     orderBy: { order: "asc" },
-    select: { id: true },
+    select: { id: true, correct: true, correctSet: true },
   });
 
   // Ответы в попытках хранятся по номеру вопроса. Если вопросов станет другое
@@ -116,14 +118,14 @@ export async function refreshTestQuestions(testId: string, formData: FormData) {
         const q = parsed.questions[i];
         await tx.testQuestion.update({
           where: { id: existing[i].id },
-          data: { order: i, text: q.text, options: q.options, correct: q.correct, textTex: q.tex, optionsTex: q.optionsTex },
+          data: { order: i, text: q.text, options: q.options, correct: q.correct, correctSet: q.correctSet, textTex: q.tex, optionsTex: q.optionsTex },
         });
       }
     } else {
       await tx.testQuestion.deleteMany({ where: { testId } });
       await tx.testQuestion.createMany({
         data: parsed.questions.map((q, i) => ({
-          testId, order: i, text: q.text, options: q.options, correct: q.correct,
+          testId, order: i, text: q.text, options: q.options, correct: q.correct, correctSet: q.correctSet,
           textTex: q.tex, optionsTex: q.optionsTex,
         })),
       });
@@ -133,8 +135,20 @@ export async function refreshTestQuestions(testId: string, formData: FormData) {
   // Верные ответы могли сдвинуться — пересчитываем уже сданные работы,
   // иначе у ученика останется балл от старой версии вопросов.
   const fresh = await prisma.testQuestion.findMany({
-    where: { testId }, orderBy: { order: "asc" }, select: { correct: true },
+    where: { testId }, orderBy: { order: "asc" }, select: { correct: true, correctSet: true },
   });
+  // Вопрос мог сменить тип (один верный ↔ несколько): ответ хранится по-разному
+  // (индекс или маска) — переводим сохранённые ответы во всех попытках, в том числе идущих.
+  if (existing.length === fresh.length) {
+    const changed = existing.some((q, i) => isMulti(q) !== isMulti(fresh[i]));
+    if (changed) {
+      const all = await prisma.testAttempt.findMany({ where: { testId }, select: { id: true, answers: true } });
+      for (const a of all) {
+        const answers = a.answers.map((c, i) => (i < existing.length ? convertAnswer(existing[i], fresh[i], c) : c));
+        await prisma.testAttempt.update({ where: { id: a.id }, data: { answers } });
+      }
+    }
+  }
   const attempts = await prisma.testAttempt.findMany({
     where: { testId, finished: true },
     select: { id: true, studentId: true, answers: true },
@@ -303,7 +317,7 @@ async function assertCanTakeTest(testId: string) {
   const test = await prisma.test.findUnique({
     where: { id: testId },
     include: {
-      questions: { orderBy: { order: "asc" }, select: { id: true, correct: true } },
+      questions: { orderBy: { order: "asc" }, select: { id: true, correct: true, correctSet: true, options: true } },
       // Тест может быть назначен нескольким группам, у каждой свой день и расписание
       groupLinks: {
         select: {
@@ -331,12 +345,7 @@ async function assertCanTakeTest(testId: string) {
   return { studentId, test, groupId: link.group.id };
 }
 
-// Подсчёт результата по сохранённым ответам.
-function scoreAnswers(questions: { correct: number }[], answers: number[], maxScore: number) {
-  const total = questions.length;
-  const correctCount = questions.reduce((a, q, i) => a + (answers[i] === q.correct ? 1 : 0), 0);
-  return { total, correctCount, score: Math.round((correctCount / total) * maxScore) };
-}
+// Подсчёт результата по сохранённым ответам — lib/test-answer.ts (там же вопросы с несколькими верными).
 
 // Начать тест с ограничением по времени: фиксируем момент старта.
 // Сервер сам следит за временем: клиентский таймер можно обойти, вызвав экшен напрямую.
@@ -393,6 +402,10 @@ export async function saveTestAnswer(testId: string, index: number, choice: numb
   if (!attempt || attempt.finished) return;
   if (index < 0 || index >= test.questions.length) return;
   if (!Number.isInteger(choice) || choice < -1) return;
+  // Обычный вопрос — индекс варианта; с несколькими верными — маска отмеченных вариантов
+  const q = test.questions[index];
+  const limit = isMulti(q) ? 1 << q.options.length : q.options.length;
+  if (choice >= limit) return;
   if (testTimeIsUp(test.timeLimitMin, attempt.startedAt)) throw new Error("Время вышло — ответ не сохранён");
 
   const answers = [...attempt.answers];

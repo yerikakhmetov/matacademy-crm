@@ -133,11 +133,12 @@ export function ImportForm({
             <div className="mut" style={{ fontSize: 12, marginBottom: 8, wordBreak: "break-all" }}>
               Ответы:{" "}
               <b className="num" style={{ color: "var(--ink)", letterSpacing: ".04em" }}>
+                {/* по пять ответов в группе; несколько верных — в скобках: (ACE) */}
                 {parsed.questions
-                  .map((q) => LETTERS[q.correct])
-                  .join("")
-                  .replace(/(.{5})/g, "$1 ")
-                  .trim()}
+                  .map((q) => (q.correctSet.length > 1 ? `(${q.correctSet.map((i) => LETTERS[i]).join("")})` : LETTERS[q.correct]))
+                  .reduce<string[][]>((g, x, i) => (i % 5 === 0 ? [...g, [x]] : (g[g.length - 1].push(x), g)), [])
+                  .map((g) => g.join(""))
+                  .join(" ")}
               </b>
             </div>
           )}
@@ -153,7 +154,7 @@ export function ImportForm({
               <div style={{ fontWeight: 600 }}>{i + 1}. {q.text}</div>
               <div className="mut">
                 {q.options.map((o, j) => (
-                  <span key={j} style={{ marginRight: 12, color: j === q.correct ? "var(--ok)" : undefined, fontWeight: j === q.correct ? 700 : 400 }}>
+                  <span key={j} style={{ marginRight: 12, color: (q.correctSet.length > 1 ? q.correctSet.includes(j) : j === q.correct) ? "var(--ok)" : undefined, fontWeight: (q.correctSet.length > 1 ? q.correctSet.includes(j) : j === q.correct) ? 700 : 400 }}>
                     {LETTERS[j]}) {o}
                   </span>
                 ))}

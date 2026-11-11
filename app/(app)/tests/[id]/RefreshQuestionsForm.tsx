@@ -75,7 +75,7 @@ export function RefreshQuestionsForm({ current, attempts }: { current: number; a
               <div style={{ fontWeight: 600 }}>{i + 1}. {q.text}</div>
               <div className="mut">
                 {q.options.map((o, j) => (
-                  <span key={j} style={{ marginRight: 12, color: j === q.correct ? "var(--ok)" : undefined, fontWeight: j === q.correct ? 700 : 400 }}>
+                  <span key={j} style={{ marginRight: 12, color: (q.correctSet.length > 1 ? q.correctSet.includes(j) : j === q.correct) ? "var(--ok)" : undefined, fontWeight: (q.correctSet.length > 1 ? q.correctSet.includes(j) : j === q.correct) ? 700 : 400 }}>
                     {LETTERS[j]}) {o}
                   </span>
                 ))}

@@ -10,6 +10,7 @@ import { ModalButton } from "@/components/ModalButton";
 import { saveTestResults, refreshTestQuestions, updateTest } from "@/app/actions/tests";
 import { TestEditForm } from "./TestEditForm";
 import { hardestQuestions, questionStats } from "@/lib/test-stats";
+import { chosenIndices, correctIndices, isMulti, isRight } from "@/lib/test-answer";
 import { isTestOpen, testAvailableAt } from "@/lib/tests";
 import { dateTimeInTz } from "@/lib/daily";
 import { TestGroupsForm } from "./TestGroupsForm";
@@ -102,7 +103,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
   const pendingCount = pendingByGroup.reduce((n, g) => n + g.students.length, 0);
   const assignedCount = pendingByGroup.reduce((n, g) => n + g.total, 0);
   const stats = questionStats(
-    test.questions.map((q) => ({ correct: q.correct, optionsCount: q.options.length })),
+    test.questions.map((q) => ({ correct: q.correct, correctSet: q.correctSet, optionsCount: q.options.length })),
     attempts.map((a) => ({ answers: a.answers }))
   );
   const hard = hardestQuestions(stats, 60);
@@ -228,7 +229,10 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             {test.questions.map((q, qi) => (
               <div key={q.id}>
                 <div style={{ fontWeight: 600, marginBottom: 8, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                  <span style={{ flex: 1, minWidth: 200 }}>{qi + 1}. {q.text}</span>
+                  <span style={{ flex: 1, minWidth: 200 }}>
+                    {qi + 1}. {q.text}
+                    {isMulti(q) && <span className="chip" style={{ marginLeft: 8, fontWeight: 500 }}>несколько верных</span>}
+                  </span>
                   {attempts.length > 0 && (
                     <span
                       className={`chip ${stats[qi].correctPct >= 80 ? "c-ok" : stats[qi].correctPct >= 60 ? "c-warn" : "c-bad"}`}
@@ -241,7 +245,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                   {q.options.map((opt, oi) => {
-                    const correct = oi === q.correct;
+                    const correct = correctIndices(q).includes(oi);
                     return (
                       <div
                         key={oi}
@@ -321,11 +325,11 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
                         </div>
                       </td>
                       {test.questions.map((q, qi) => {
-                        const choice = a.answers[qi];
-                        const ok = choice === q.correct;
-                        const skipped = choice == null || choice < 0;
+                        const picked = chosenIndices(q, a.answers[qi]);
+                        const ok = isRight(q, a.answers[qi]);
+                        const skipped = picked.length === 0;
                         return (
-                          <td key={qi} className="right" title={skipped ? "Без ответа" : `Ответ: ${LETTERS[choice] ?? choice}`}>
+                          <td key={qi} className="right" title={skipped ? "Без ответа" : `Ответ: ${picked.map((o) => LETTERS[o] ?? o).join(", ")}`}>
                             <span style={{ color: skipped ? "var(--ink-3)" : ok ? "var(--ok)" : "var(--bad)", fontWeight: 700 }}>
                               {skipped ? "·" : ok ? "✓" : "✕"}
                             </span>
