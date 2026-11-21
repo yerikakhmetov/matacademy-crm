@@ -105,6 +105,9 @@ export default async function StudentsPage({
           )}
         </form>
         <div className="spacer" />
+        {session?.user?.role === "ADMIN" && (
+          <Link className="btn ghost" href="/offline-test">Офлайн тестке кіру</Link>
+        )}
         {showMoney && (
           <a className="btn ghost" href="/api/export/students">
             <Icon name="export" size={15} />

@@ -147,6 +147,9 @@ model Student {
   testAttempts      TestAttempt[]
   makeups           Makeup[]
   zachetResults     ZachetResult[]
+  offlineTestTitle   String?
+  offlineTestUrl     String?
+  offlineTestSecret  String? // AES-GCM шифрланған ағымдағы офлайн тест құпия сөзі
   createdAt         DateTime       @default(now())
 }
 
