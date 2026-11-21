@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { decryptOfflinePassword, encryptOfflinePassword, localExamUrl, parseOfflineCredentials } from "./offline-exam";
+import { decryptOfflinePassword, encryptOfflinePassword, localExamUrl, parseOfflineCredentials } from "./offline-exam.ts";
 
 test("credential CSV keeps each student's password with the correct phone", () => {
   const rows = parseOfflineCredentials('Топ,Аты-жөні,Телефон,Құпия сөз\nM-1,"Әли, Нұр",+7 701 123 45 67,ABC123\nM-2,Айша,87021234567,DEF456\n');

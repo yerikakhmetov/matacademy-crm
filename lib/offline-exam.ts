@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
-import { localDigits } from "./phone";
+import { localDigits } from "./phone.ts";
 
 export type OfflineCredential = { phoneDigits: string; password: string; name: string; group: string };
 
