@@ -18,6 +18,7 @@ import { leftKey } from "@/lib/packages";
 import { ZachetList } from "@/components/ZachetList";
 import { GroupRatingList, loadGroupRating } from "@/components/GroupRating";
 import { PhotoCropper } from "@/components/PhotoCropper";
+import { decryptOfflinePassword } from "@/lib/offline-exam";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,10 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
     },
   });
   if (!student) redirect("/login");
+
+  const offlineTest = (tab === "home" || tab === "tests") && student.offlineTestUrl && student.offlineTestSecret
+    ? { title: student.offlineTestTitle ?? "Офлайн тест", url: student.offlineTestUrl, password: decryptOfflinePassword(student.offlineTestSecret, process.env.AUTH_SECRET ?? "") }
+    : null;
 
   const groupIds = student.groups.map((g) => g.id);
 
@@ -247,6 +252,22 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </nav>
+      {offlineTest && (
+        <div className="card" style={{ padding: 18, display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div className="mut" style={{ fontSize: 12, fontWeight: 700 }}>{t(locale, "offlineTest.label")}</div>
+              <div style={{ fontSize: 17, fontWeight: 700 }}>{offlineTest.title}</div>
+            </div>
+            <a className="btn" href={offlineTest.url} target="_blank" rel="noopener noreferrer">{t(locale, "offlineTest.open")}</a>
+          </div>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 14 }}>
+            <div><span className="mut">{t(locale, "offlineTest.phone")}: </span><strong>{student.phone}</strong></div>
+            <div><span className="mut">{t(locale, "offlineTest.password")}: </span><strong className="num" style={{ letterSpacing: ".08em" }}>{offlineTest.password}</strong></div>
+          </div>
+          <p className="mut" style={{ fontSize: 12, margin: 0 }}>{t(locale, "offlineTest.wifiHint")}</p>
+        </div>
+      )}
 {tab === "home" && (
         <>
       <div className="card" style={{ padding: 20, display: "flex", alignItems: "center", gap: 14 }}>
