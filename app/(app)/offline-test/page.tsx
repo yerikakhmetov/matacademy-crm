@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { OfflineExamImportForm } from "./OfflineExamImportForm";
+import { OfflineResultImportForm } from "./OfflineResultImportForm";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,8 @@ export default async function OfflineTestAccessPage() {
         <Link className="btn ghost" href="/students">Оқушыларға қайту</Link>
       </div>
       <OfflineExamImportForm />
+      <div style={{ height: 24 }} />
+      <OfflineResultImportForm />
     </>
   );
 }
