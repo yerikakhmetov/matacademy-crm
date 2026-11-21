@@ -10,10 +10,14 @@ const LETTERS = "ABCDEFGH";
 export function ImportForm({
   groups,
   subjects,
+  teacher = false,
 }: {
-  groups: { id: string; name: string }[];
+  groups: { id: string; name: string; subjectId?: string | null }[];
   subjects: { id: string; name: string }[];
+  teacher?: boolean;
 }) {
+  const [subjectId, setSubjectId] = useState(subjects.length === 1 ? subjects[0].id : "");
+  const availableGroups = teacher ? groups.filter((g) => g.subjectId === subjectId) : groups;
   const [src, setSrc] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -79,21 +83,32 @@ export function ImportForm({
       <div className="grid2">
         <div className="field">
           <label>Группа</label>
-          <select name="groupId" defaultValue="">
+          <select key={subjectId} name="groupId" defaultValue="">
             <option value="">Без группы</option>
-            {groups.map((g) => (
+            {availableGroups.map((g) => (
               <option key={g.id} value={g.id}>{g.name}</option>
             ))}
           </select>
         </div>
         <div className="field">
           <label>Предмет</label>
-          <select name="subjectId" defaultValue="">
-            <option value="">Не указан</option>
+          <select name="subjectId" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} required={teacher}>
+            <option value="">{teacher ? "Выберите предмет" : "Не указан"}</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Кому доступен тест</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {availableGroups.map((g) => (
+            <label key={g.id} className="chip c-mut" style={{ cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px" }}>
+              <input type="checkbox" name="groupIds" value={g.id} />{g.name}
+            </label>
+          ))}
         </div>
       </div>
 

@@ -13,6 +13,8 @@ import { notifyParents, notifyStudentsDirect } from "@/lib/notify";
 import { parseTestSource } from "@/lib/test-import";
 import { convertAnswer, isMulti, scoreAnswers } from "@/lib/test-answer";
 import { assertCanManageGroup, assertEditor, int, parseDate, str, dateOrToday } from "./_shared";
+import { assertTestGroupsForSubject, assertTestManager, teacherTestScope } from "@/lib/test-permissions";
+import { canTeacherManageTest } from "@/lib/test-policy";
 
 // ---------- Тесты ----------
 // Импорт теста из LaTeX-исходника: разбираем тем же модулем, что и предпросмотр в форме,
@@ -20,8 +22,10 @@ import { assertCanManageGroup, assertEditor, int, parseDate, str, dateOrToday } 
 export async function importTest(formData: FormData) {
   const groupId = str(formData.get("groupId")) || null;
   const subjectId = str(formData.get("subjectId")) || null;
-  if (groupId) await assertCanManageGroup(groupId);
-  else await assertEditor();
+  const picked = formData.getAll("groupIds").map((v) => str(v)).filter(Boolean);
+  const groupIds = [...new Set([...(groupId ? [groupId] : []), ...picked])];
+  const access = await assertTestManager({ groupId: null, subjectId });
+  if (!access.editor) await assertTestGroupsForSubject(groupIds, subjectId!);
 
   const parsed = parseTestSource(String(formData.get("source") ?? ""));
   if (parsed.questions.length === 0) {
@@ -42,7 +46,7 @@ export async function importTest(formData: FormData) {
       timeLimitMin: limit > 0 ? limit : null,
       // Ученики видят тест через привязку группы (TestGroup), а не через groupId.
       // Без неё импортированный тест не появлялся в кабинете группы.
-      groupLinks: groupId ? { create: [{ groupId }] } : undefined,
+      groupLinks: { create: groupIds.map((groupId) => ({ groupId })) },
       questions: {
         create: parsed.questions.map((q, i) => ({
           order: i,
@@ -68,10 +72,9 @@ export async function importTest(formData: FormData) {
 // Тест часто заводят уже после урока — тогда правило «после урока в день теста»
 // держит его закрытым, и открыть иначе было нельзя.
 export async function setTestAccess(testId: string, open: boolean) {
-  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, subjectId: true, title: true } });
   if (!test) throw new Error("Тест не найден");
-  if (test.groupId) await assertCanManageGroup(test.groupId);
-  else await assertEditor();
+  await assertTestManager(test);
 
   await prisma.test.update({
     where: { id: testId },
@@ -85,11 +88,10 @@ export async function setTestAccess(testId: string, open: boolean) {
 export async function refreshTestQuestions(testId: string, formData: FormData) {
   const test = await prisma.test.findUnique({
     where: { id: testId },
-    select: { id: true, groupId: true, maxScore: true, title: true, _count: { select: { attempts: true } } },
+    select: { id: true, groupId: true, subjectId: true, maxScore: true, title: true, _count: { select: { attempts: true } } },
   });
   if (!test) throw new Error("Тест не найден");
-  if (test.groupId) await assertCanManageGroup(test.groupId);
-  else await assertEditor();
+  await assertTestManager(test);
 
   const parsed = parseTestSource(String(formData.get("source") ?? ""));
   if (parsed.questions.length === 0) {
@@ -178,10 +180,8 @@ export async function createTest(formData: FormData) {
   // Тест можно дать нескольким группам; основная группа входит в список всегда
   const picked = formData.getAll("groupIds").map((v) => str(v)).filter(Boolean);
   const groupIds = [...new Set([...(groupId ? [groupId] : []), ...picked])];
-  if (groupId) await assertCanManageGroup(groupId);
-  else if (groupIds.length > 0) await assertCanManageGroup(groupIds[0]);
-  else await assertEditor();
-  for (const gid of groupIds) await assertCanManageGroup(gid);
+  const access = await assertTestManager({ groupId: null, subjectId });
+  if (!access.editor) await assertTestGroupsForSubject(groupIds, subjectId!);
   const test = await prisma.test.create({
     data: {
       title: str(formData.get("title")) || "Тест",
@@ -205,17 +205,22 @@ export async function createTest(formData: FormData) {
 // Правка теста: дату, название и настройки нужно уметь менять и после
 // создания — тест нередко заводят «на вчера» или переносят на другой день.
 export async function updateTest(testId: string, formData: FormData) {
-  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, subjectId: true, title: true } });
   if (!test) throw new Error("Тест не найден");
-  if (test.groupId) await assertCanManageGroup(test.groupId);
-  else await assertEditor();
+  const access = await assertTestManager(test);
+  const subjectId = str(formData.get("subjectId")) || null;
+  if (!access.editor) {
+    if (!subjectId || !access.scope!.subjectIds.includes(subjectId)) throw new Error("Недостаточно прав для этого предмета");
+    const linked = await prisma.testGroup.findMany({ where: { testId }, select: { groupId: true } });
+    await assertTestGroupsForSubject([...new Set([...(test.groupId ? [test.groupId] : []), ...linked.map((link) => link.groupId)])], subjectId);
+  }
 
   const date = parseDate(formData.get("date"));
   await prisma.test.update({
     where: { id: testId },
     data: {
       title: str(formData.get("title")) || test.title,
-      subjectId: str(formData.get("subjectId")) || null,
+      subjectId,
       maxScore: Math.max(1, int(formData.get("maxScore")) || 100),
       ...(date ? { date } : {}),
       shuffle: formData.get("shuffle") != null,
@@ -230,28 +235,20 @@ export async function updateTest(testId: string, formData: FormData) {
 }
 
 export async function setTestGroups(testId: string, formData: FormData) {
-  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, title: true } });
+  const test = await prisma.test.findUnique({ where: { id: testId }, select: { groupId: true, subjectId: true, title: true } });
   if (!test) throw new Error("Тест не найден");
-  if (test.groupId) await assertCanManageGroup(test.groupId);
-  else await assertEditor();
+  const access = await assertTestManager(test);
 
   const picked = formData.getAll("groupIds").map((v) => str(v)).filter(Boolean);
   const groupIds = [...new Set([...(test.groupId ? [test.groupId] : []), ...picked])];
-  for (const gid of groupIds) await assertCanManageGroup(gid);
-
-  // Убираем только те группы, которыми пользователь может управлять: преподаватель, сохраняя
-  // свои группы, не должен отвязывать от теста группы коллег (их нет в его списке).
-  const attached = await prisma.testGroup.findMany({ where: { testId, groupId: { notIn: groupIds } }, select: { groupId: true } });
-  const removable: string[] = [];
-  for (const a of attached) {
-    try {
-      await assertCanManageGroup(a.groupId);
-      removable.push(a.groupId);
-    } catch {
-      // чужая группа — остаётся привязанной
-    }
+  if (!access.editor) {
+    if (!test.subjectId) throw new Error("Сначала укажите предмет теста");
+    await assertTestGroupsForSubject(groupIds, test.subjectId);
   }
-  if (removable.length > 0) await prisma.testGroup.deleteMany({ where: { testId, groupId: { in: removable } } });
+
+  const attached = await prisma.testGroup.findMany({ where: { testId, groupId: { notIn: groupIds } }, select: { groupId: true } });
+  if (!access.editor && attached.length > 0) await assertTestGroupsForSubject(attached.map((a) => a.groupId), test.subjectId!);
+  if (attached.length > 0) await prisma.testGroup.deleteMany({ where: { testId, groupId: { in: attached.map((a) => a.groupId) } } });
   // У каждой группы свой день теста: поле date_<groupId>; пусто — общая дата
   for (const groupId of groupIds) {
     const date = parseDate(formData.get(`date_${groupId}`));
@@ -273,6 +270,7 @@ export async function saveTestResults(testId: string, formData: FormData) {
   });
   if (!test) throw new Error("Тест не найден");
   if (!test.groupId || !test.group) throw new Error("У теста нет группы для ввода оценок");
+  await assertTestManager(test);
   const session = await assertCanManageGroup(test.groupId);
 
   let saved = 0;
@@ -446,8 +444,9 @@ export async function finishTestAttempt(testId: string) {
 }
 
 export async function deleteTest(id: string) {
-  const test = await prisma.test.findUnique({ where: { id }, select: { groupId: true, title: true } });
+  const test = await prisma.test.findUnique({ where: { id }, select: { groupId: true, subjectId: true, title: true } });
   if (!test) return;
+  await assertTestManager(test);
   if (test.groupId) await assertCanManageGroup(test.groupId);
   else await assertEditor();
   await prisma.test.delete({ where: { id } }); // каскадом удаляются связанные оценки
@@ -466,6 +465,8 @@ export async function remindTestPending(testId: string): Promise<{ error?: strin
     where: { id: testId },
     select: {
       title: true,
+      groupId: true,
+      subjectId: true,
       date: true,
       availableFrom: true,
       group: {
@@ -476,7 +477,6 @@ export async function remindTestPending(testId: string): Promise<{ error?: strin
           students: { where: { status: "ACTIVE" }, select: { id: true, name: true } },
         },
       },
-      subject: { select: { teachers: { select: { userId: true } } } },
       groupLinks: {
         select: {
           date: true,
@@ -493,11 +493,9 @@ export async function remindTestPending(testId: string): Promise<{ error?: strin
     },
   });
   if (!test) return { error: "Тест не найден" };
-  const uid = session.user.id;
-  const allowed =
-    (await canEditData(session.user.role)) ||
-    test.group?.teacher?.userId === uid ||
-    !!test.subject?.teachers.some((t) => t.userId === uid);
+  const allowed = (await canEditData(session.user.role)) ||
+    (session.user.role === "TEACHER" && !!session.user.id &&
+      canTeacherManageTest(test, await teacherTestScope(session.user.id)));
   if (!allowed) return { error: "Недостаточно прав" };
 
   const settings = await getSettings();

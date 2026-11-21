@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { canEditData } from "@/lib/access";
 import { isTeacher } from "@/lib/teacher";
+import { teacherTestScope } from "@/lib/test-permissions";
+import { canTeacherManageTest, hasTestOpened } from "@/lib/test-policy";
 import { formatDate, scoreColor } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { ModalButton } from "@/components/ModalButton";
@@ -55,7 +57,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           },
         },
       },
-      subject: { select: { name: true, color: true, teachers: { select: { userId: true } } } },
+      subject: { select: { name: true, color: true } },
       grades: { select: { studentId: true, score: true } },
       questions: { orderBy: { order: "asc" } },
       attempts: {
@@ -67,12 +69,13 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
   });
   if (!test) notFound();
 
-  // Права: админ/менеджер — всегда; преподаватель — своя группа или свой предмет
+  // Мұғалім өз пәнінің тесттерін және пәні көрсетілмеген ескі тесттерді өз тобы үшін басқарады.
+  const scope = teacher && uid ? await teacherTestScope(uid) : null;
   const ownsGroup = !!test.group?.teacher?.userId && test.group.teacher.userId === uid;
-  const teachesSubject = !!test.subject?.teachers.some((t) => t.userId === uid);
-  if (teacher && !ownsGroup && !teachesSubject) redirect("/tests");
+  const teachesSubject = !!scope && canTeacherManageTest(test, scope);
+  if (teacher && !teachesSubject) redirect("/tests");
   const canEditResults = editor || ownsGroup;
-  const canManage = editor || ownsGroup || teachesSubject;
+  const canManage = editor || teachesSubject;
 
   const scoreByStudent = new Map(test.grades.map((g) => [g.studentId, g.score]));
 
@@ -122,10 +125,10 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
     opensAt: testAvailableAt(l.date ?? test.date, l.group.lessons, tz, test.availableFrom),
   }));
   const subjectOptions = canManage
-    ? await prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } })
+    ? await prisma.subject.findMany({ where: { active: true, ...(teacher ? { id: { in: scope!.subjectIds } } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } })
     : [];
   const allGroups = canManage
-    ? await prisma.group.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
+    ? await prisma.group.findMany({ where: teacher ? { OR: [{ subjectId: test.subjectId ?? "__none__" }, { id: { in: assigned.map((a) => a.id) } }] } : {}, orderBy: { name: "asc" }, select: { id: true, name: true } })
     : [];
   const groupOptions = allGroups.map((g) => {
     const a = assigned.find((x) => x.id === g.id);
@@ -138,7 +141,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
     };
   });
   // «Открыт» — если открыт хотя бы для одной группы
-  const testOpen = assigned.some((a) => a.opensAt.getTime() <= Date.now()) ||
+  const testOpen = assigned.some((a) => hasTestOpened(a.opensAt)) ||
     (assigned.length === 0 && isTestOpen(test.date, [], new Date(), tz, test.availableFrom));
 
   return (
@@ -164,7 +167,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
-        {(editor || ownsGroup || teachesSubject) && (
+        {canManage && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <ModalButton
               label="Изменить"
@@ -197,12 +200,12 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
             >
               <RefreshQuestionsForm current={test.questions.length} attempts={test.attempts.length} />
             </ModalButton>
-            <DeleteTestButton id={test.id} title={test.title} />
+            {(editor || ownsGroup) && <DeleteTestButton id={test.id} title={test.title} />}
           </div>
         )}
       </div>
 
-      {(editor || ownsGroup || teachesSubject) && test.groupId && (
+      {canManage && test.groupId && (
         <div className="card" style={{ padding: 18, marginBottom: 16 }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".06em", color: "var(--ink-3)", fontWeight: 700, marginBottom: 10 }}>
             Доступ ученикам
@@ -403,7 +406,7 @@ export default async function TestDetail({ params }: { params: Promise<{ id: str
           all={groupOptions}
           selected={assigned.map((a) => a.id)}
           primaryId={test.groupId}
-          canEdit={canManage}
+          canEdit={canManage && (editor || !!test.subjectId)}
         />
         <p className="mut" style={{ fontSize: 12, marginTop: 10 }}>
           У каждой группы свой день теста — она открывает его в этот день после своего урока.

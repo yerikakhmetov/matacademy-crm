@@ -1,16 +1,24 @@
-type Group = { id: string; name: string };
+"use client";
+
+import { useState } from "react";
+
+type Group = { id: string; name: string; subjectId?: string | null };
 type Subject = { id: string; name: string };
 
 export function TestForm({
   groups,
   subjects = [],
   selected,
+  teacher = false,
 }: {
   groups: Group[];
   subjects?: Subject[];
   /** уже отмеченные группы (при редактировании) */
   selected?: string[];
+  teacher?: boolean;
 }) {
+  const [subjectId, setSubjectId] = useState(subjects.length === 1 ? subjects[0].id : "");
+  const availableGroups = teacher ? groups.filter((g) => g.subjectId === subjectId) : groups;
   const today = new Date().toISOString().slice(0, 10);
   return (
     <>
@@ -21,8 +29,8 @@ export function TestForm({
       <div className="grid2">
         <div className="field">
           <label>Предмет</label>
-          <select name="subjectId" defaultValue="">
-            <option value="">Не указан</option>
+          <select name="subjectId" value={subjectId} onChange={(e) => setSubjectId(e.target.value)} required={teacher}>
+            <option value="">{teacher ? "Выберите предмет" : "Не указан"}</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -32,9 +40,9 @@ export function TestForm({
         </div>
         <div className="field">
           <label>Основная группа (для ввода баллов)</label>
-          <select name="groupId" defaultValue="">
+          <select key={subjectId} name="groupId" defaultValue="">
             <option value="">Без группы</option>
-            {groups.map((g) => (
+            {availableGroups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>
@@ -47,7 +55,7 @@ export function TestForm({
       <div className="field">
         <label>Кому доступен тест</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {groups.map((g) => (
+          {availableGroups.map((g) => (
             <label
               key={g.id}
               className="chip c-mut"
@@ -57,7 +65,7 @@ export function TestForm({
               {g.name}
             </label>
           ))}
-          {groups.length === 0 && <span className="mut" style={{ fontSize: 12.5 }}>Групп пока нет</span>}
+          {availableGroups.length === 0 && <span className="mut" style={{ fontSize: 12.5 }}>Групп пока нет</span>}
         </div>
         <p className="mut" style={{ fontSize: 12, marginTop: 6 }}>
           Отметьте все группы, которые проходят этот тест. Каждая группа получит его после своего урока

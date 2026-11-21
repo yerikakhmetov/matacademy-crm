@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { isCurator } from "@/lib/curator";
 import { canEditData } from "@/lib/access";
-import { isTeacher, getTeacherIdForUser } from "@/lib/teacher";
+import { isTeacher } from "@/lib/teacher";
+import { teacherTestScope } from "@/lib/test-permissions";
 import { formatDate, scoreColor } from "@/lib/format";
 import { ModalButton } from "@/components/ModalButton";
 import { TestForm } from "./TestForm";
@@ -20,12 +21,12 @@ export default async function TestsPage() {
   const teacher = isTeacher(session?.user?.role);
   const editor = await canEditData(session?.user?.role);
   const uid = session?.user?.id ?? "__none__";
-  const myTeacherId = teacher ? await getTeacherIdForUser(session?.user?.id) : null;
+  const scope = teacher ? await teacherTestScope(uid) : null;
 
   const [tests, groups, subjects] = await Promise.all([
     prisma.test.findMany({
       where: teacher
-        ? { OR: [{ group: { teacherId: myTeacherId ?? "__none__" } }, { subject: { teachers: { some: { userId: uid } } } }] }
+        ? { OR: [{ subjectId: { in: scope!.subjectIds } }, { subjectId: null, groupId: { in: scope!.ownGroupIds } }] }
         : {},
       include: {
         group: { select: { name: true, _count: { select: { students: true } } } },
@@ -37,14 +38,14 @@ export default async function TestsPage() {
       orderBy: { date: "desc" },
     }),
     prisma.group.findMany({
-      where: teacher ? { teacher: { userId: uid } } : {},
+      where: teacher ? { subjectId: { in: scope!.subjectIds } } : {},
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, subjectId: true },
     }),
-    prisma.subject.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.subject.findMany({ where: { active: true, ...(teacher ? { id: { in: scope!.subjectIds } } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
-  const canCreate = editor || teacher;
+  const canCreate = editor || (teacher && subjects.length > 0);
 
   return (
     <>
@@ -63,10 +64,10 @@ export default async function TestsPage() {
               action={importTest}
               submitLabel="Создать тест"
             >
-              <ImportForm groups={groups} subjects={subjects} />
+              <ImportForm groups={groups} subjects={subjects} teacher={teacher} />
             </ModalButton>
             <ModalButton label="Новый тест" title="Новый тест" action={createTest} submitLabel="Создать">
-              <TestForm groups={groups} subjects={subjects} />
+              <TestForm groups={groups} subjects={subjects} teacher={teacher} />
             </ModalButton>
           </div>
         )}
