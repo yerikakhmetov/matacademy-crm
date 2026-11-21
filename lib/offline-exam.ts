@@ -69,7 +69,7 @@ export function parseOfflineResults(source: string): OfflineResult[] {
   const results: OfflineResult[] = [];
   for (const [rowIndex, row] of body.entries()) {
     if (row.length !== header.length) throw new Error(`${rowIndex + 2}-жолда баған саны қате`);
-    if (!row[index("joined_at")]) continue;
+    if (!row[index("joined_at")] || !row[index("score")]) continue;
     const phoneDigits = localDigits(row[index("phone")].replace(/^'/, ""));
     const name = row[index("name")];
     const variant = row[index("variant")];
