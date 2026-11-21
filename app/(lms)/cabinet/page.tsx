@@ -53,6 +53,11 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
   const offlineTest = (tab === "home" || tab === "tests") && student.offlineTestUrl && student.offlineTestSecret
     ? { title: student.offlineTestTitle ?? "Офлайн тест", url: student.offlineTestUrl, password: decryptOfflinePassword(student.offlineTestSecret, process.env.AUTH_SECRET ?? "") }
     : null;
+  const offlineResults = tab === "tests" ? await prisma.grade.findMany({
+    where: { studentId, test: { createdBy: "offline-exam" } },
+    orderBy: { date: "desc" },
+    select: { id: true, topic: true, score: true, maxScore: true, date: true },
+  }) : [];
 
   const groupIds = student.groups.map((g) => g.id);
 
@@ -467,9 +472,18 @@ export default async function CabinetHome({ searchParams }: { searchParams: Prom
 
       {tab === "tests" && (
         <div className="card">
-          <div className="card-h"><h3>{t(locale, "cabinet.tests")}</h3><span className="chip c-mut"><span className="d" />{tests.length}</span></div>
+          <div className="card-h"><h3>{t(locale, "cabinet.tests")}</h3><span className="chip c-mut"><span className="d" />{tests.length + offlineResults.length}</span></div>
           <div style={{ padding: "6px 0" }}>
-            {tests.length === 0 && <div className="empty">{t(locale, "cabinet.noTests")}</div>}
+            {tests.length === 0 && offlineResults.length === 0 && <div className="empty">{t(locale, "cabinet.noTests")}</div>}
+            {offlineResults.map((result) => (
+              <div className="list-row" key={result.id}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{result.topic}</div>
+                  <div className="mut" style={{ fontSize: 12 }}>{formatDate(result.date)}</div>
+                </div>
+                <span className={`chip ${gradeChipClass(Math.round(result.score / result.maxScore * 100))}`}><span className="d" />{result.score}/{result.maxScore}</span>
+              </div>
+            ))}
             {tests.map((tst) => {
               const pct = tst.attempt ? Math.round((tst.attempt.score / tst.maxScore) * 100) : null;
               const inner = (

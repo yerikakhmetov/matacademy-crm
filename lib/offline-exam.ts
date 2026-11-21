@@ -2,6 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { localDigits } from "./phone.ts";
 
 export type OfflineCredential = { phoneDigits: string; password: string; name: string; group: string };
+export type OfflineResult = { phoneDigits: string; name: string; variant: string; score: number; maxScore: number };
 
 function csvRows(source: string): string[][] {
   const text = source.replace(/^\uFEFF/, "");
@@ -54,6 +55,38 @@ export function parseOfflineCredentials(source: string): OfflineCredential[] {
     if (!row[nameIndex]) throw new Error(`${index + 2}-жолда аты-жөні бос`);
     return { phoneDigits, password, name: row[nameIndex], group: groupIndex >= 0 ? row[groupIndex] : "" };
   });
+}
+
+export function parseOfflineResults(source: string): OfflineResult[] {
+  const [header, ...body] = csvRows(source);
+  if (!header) throw new Error("CSV файлы бос");
+  const keys = header.map((value) => value.toLocaleLowerCase("kk-KZ").trim());
+  const index = (key: string) => keys.indexOf(key);
+  const required = ["variant", "phone", "name", "joined_at", "score", "max_score"];
+  if (required.some((key) => index(key) < 0)) throw new Error("Мұғалім панелінен жүктелген нәтижелер CSV файлын таңдаңыз");
+  if (body.length === 0 || body.length > 5000) throw new Error("CSV ішінде 1–5000 оқушы болуы керек");
+  const seen = new Set<string>();
+  const results: OfflineResult[] = [];
+  for (const [rowIndex, row] of body.entries()) {
+    if (row.length !== header.length) throw new Error(`${rowIndex + 2}-жолда баған саны қате`);
+    if (!row[index("joined_at")]) continue;
+    const phoneDigits = localDigits(row[index("phone")].replace(/^'/, ""));
+    const name = row[index("name")];
+    const variant = row[index("variant")];
+    const scoreText = row[index("score")];
+    const maxText = row[index("max_score")];
+    const score = Number(scoreText);
+    const maxScore = Number(maxText);
+    if (!phoneDigits || !name || !/^\d{1,3}Б$/.test(variant) || !/^\d+$/.test(scoreText) || !/^\d+$/.test(maxText) ||
+      !Number.isSafeInteger(score) || !Number.isSafeInteger(maxScore) || maxScore < 1 || score > maxScore) {
+      throw new Error(`${rowIndex + 2}-жолдағы нәтиже қате`);
+    }
+    if (seen.has(phoneDigits)) throw new Error(`${rowIndex + 2}-жолда телефон қайталанды`);
+    seen.add(phoneDigits);
+    results.push({ phoneDigits, name, variant, score, maxScore });
+  }
+  if (!results.length) throw new Error("CSV ішінде тестке қатысқан оқушы жоқ");
+  return results;
 }
 
 export function localExamUrl(raw: string): string {
